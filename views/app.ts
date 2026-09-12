@@ -1,3 +1,4 @@
+import type { PlayController } from "../audio/play-controller.ts";
 import type { Route, RouterController, RouterMsg } from "../router.ts";
 import { Binder, noop, ref, sanitize, show, type View } from "../vamp.ts";
 import {
@@ -43,6 +44,7 @@ export type Msg =
   | { type: "SONGS_MSG"; msg: SongsMsg };
 
 export type AppCtx = {
+  play: PlayController;
   router: RouterController;
   dismissStack: DismissStack;
   trial: TrialCtx;

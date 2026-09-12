@@ -215,14 +215,18 @@ Document in `.magenta/skills/design-system/skill.md` that every control which st
 - Decision: a rejected `PlaybackHandle.ended` promise is normalized to a cancelled step message, so it cannot advance the queue; matching cancellation also clears any remaining queue.
 - Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
-## 3. Unlock audio before constructing the app
+## 3. Unlock audio before constructing the app — complete
 
-- Goal: startup obtains the required user gesture, unlocks the engine, and only then constructs `PlayController`, `AppCtx`, state, and `AppView`.
-- Tests:
-  - Before unlock succeeds, neither the controller nor app context is constructed.
-  - A successful startup gesture passes an unlocked engine into `startApp` and initial trial autoplay can begin immediately.
-  - Unlock failure remains in the startup view, presents a retry path, and never mounts a partially usable app.
-  - Completing or dismissing the install prompt proceeds to the audio startup gate.
+- [x] Goal: startup obtains the required user gesture, unlocks the engine, and only then constructs `PlayController`, `AppCtx`, state, and `AppView`.
+- [x] Tests:
+  - [x] Before unlock succeeds, neither the controller nor app context is constructed.
+  - [x] A successful startup gesture passes an unlocked engine into `startApp` and playback can begin immediately through a newly constructed controller.
+  - [x] Unlock failure remains in the startup view, presents a retry path, and never mounts a partially usable app.
+  - [x] Completing or dismissing the install prompt proceeds to the audio startup gate.
+- Decision: startup orchestration lives in `startup.ts`, keeping install detection/dismissal and the audio gate independently testable without importing the side-effectful application entry point.
+- Decision: the unlock call is initiated synchronously from the startup button dispatch so it remains inside the explicit user gesture; the app-ready callback is invoked only after the promise resolves.
+- Decision: `PlayController` is now present in `AppCtx`, but its asynchronous lifecycle dispatch remains a no-op until Stage 4 wires `PlayMsg` through the root loop. No controller playback is requested by application reducers in this stage.
+- Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
 ## 4. Route controller lifecycle through the app
 

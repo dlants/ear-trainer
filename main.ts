@@ -1,13 +1,16 @@
 import { registerSW } from "virtual:pwa-register";
 import "./theme.ts";
-import { soundfontEngine } from "./audio/engine.ts";
+import { type AudioEngine, soundfontEngine } from "./audio/engine.ts";
+import { PlayController } from "./audio/play-controller.ts";
+
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
 import { DeckStore } from "./deck/store.ts";
 import { INVENTORY } from "./inventory/patterns.ts";
 import { SONGS } from "./inventory/songs.ts";
 import type { Midi } from "./music/pitch.ts";
-import { DISMISS_KEY, installEnv, shouldShowInstall } from "./pwa/install.ts";
 import { currentRoute, RouterController, RouterView } from "./router.ts";
+import { startStartup } from "./startup.ts";
+import { noop } from "./vamp.ts";
 import type { AddPatternsCtx } from "./views/add-patterns.ts";
 import {
   type AppCtx,
@@ -17,7 +20,6 @@ import {
   update as appUpdate,
 } from "./views/app.ts";
 import { DismissStack } from "./views/dropdown.ts";
-import { InstallView } from "./views/install.ts";
 import type { SongsCtx } from "./views/songs.ts";
 import type { TrialCtx } from "./views/trial.ts";
 
@@ -39,41 +41,40 @@ const DEFAULT_PROFILE: Profile = {
 
 const TONIC_RANGE: [Midi, Midi] = [55, 67];
 
-const profiles = new ProfileStore(localStorage);
-let profile = profiles.active();
-if (!profile) {
-  profile = profiles.list()[0] ?? DEFAULT_PROFILE;
-  profiles.save(profile);
-  profiles.setActive(profile.id);
-}
+function startApp(audio: AudioEngine): void {
+  const profiles = new ProfileStore(localStorage);
+  let profile = profiles.active();
+  if (!profile) {
+    profile = profiles.list()[0] ?? DEFAULT_PROFILE;
+    profiles.save(profile);
+    profiles.setActive(profile.id);
+  }
 
-const trialCtx: TrialCtx = {
-  audio: soundfontEngine("acoustic_grand_piano"),
-  deck: new DeckStore(profile.id, localStorage),
-  profile,
-  now: () => new Date(),
-  randomTonic: () => {
-    const [low, high] = TONIC_RANGE;
-    return low + Math.floor(Math.random() * (high - low + 1));
-  },
-};
-
-const cardsCtx: AddPatternsCtx = {
-  deck: trialCtx.deck,
-  now: trialCtx.now,
-  inventory: INVENTORY,
-};
-
-const songsCtx: SongsCtx = {
-  deck: trialCtx.deck,
-  now: trialCtx.now,
-  songs: SONGS,
-};
-
-function startApp(): void {
+  const trialCtx: TrialCtx = {
+    audio,
+    deck: new DeckStore(profile.id, localStorage),
+    profile,
+    now: () => new Date(),
+    randomTonic: () => {
+      const [low, high] = TONIC_RANGE;
+      return low + Math.floor(Math.random() * (high - low + 1));
+    },
+  };
+  const songsCtx: SongsCtx = {
+    deck: trialCtx.deck,
+    now: trialCtx.now,
+    songs: SONGS,
+  };
+  const cardsCtx: AddPatternsCtx = {
+    deck: trialCtx.deck,
+    now: trialCtx.now,
+    inventory: INVENTORY,
+  };
   const initialRoute = currentRoute();
+  const play = new PlayController(audio, noop);
   const router = new RouterController(initialRoute);
   const ctx: AppCtx = {
+    play,
     router,
     dismissStack: new DismissStack(),
     trial: trialCtx,
@@ -105,19 +106,13 @@ function startApp(): void {
   routerView.mount();
 }
 
-const installState = { env: installEnv(window, localStorage) };
-if (shouldShowInstall(installState.env)) {
-  const installView = new InstallView(
-    app,
-    () => {
-      localStorage.setItem(DISMISS_KEY, "1");
-      installView.destroy();
-      startApp();
-    },
-    installState,
-  );
-} else {
-  startApp();
-}
+const audio = soundfontEngine("acoustic_grand_piano");
+startStartup({
+  container: app,
+  audio,
+  window,
+  storage: localStorage,
+  ready: startApp,
+});
 
 registerSW({ immediate: true });
