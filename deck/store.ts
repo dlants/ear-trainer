@@ -10,6 +10,7 @@ import {
   ratingFor,
   type TrialLogEntry,
 } from "./card.ts";
+import { cardsKey, logKey } from "./profiles.ts";
 
 export type DeckState = {
   cards: Record<CardId, DeckCard>;
@@ -45,8 +46,8 @@ export class DeckStore {
     profileId: string,
     private readonly storage: KeyValueStore,
   ) {
-    this.cardsKey = `profile:${profileId}:cards`;
-    this.logKey = `profile:${profileId}:log`;
+    this.cardsKey = cardsKey(profileId);
+    this.logKey = logKey(profileId);
     this.cards = this.readCards();
     this.log = this.readLog();
   }

@@ -226,7 +226,15 @@ Status: complete. Notes/deviations:
   - A graded deck survives a serialize/deserialize round-trip with `Date` fields intact — the classic localStorage bug.
   - `nextDue` returns nothing when all cards are in the future.
 
-## Profiles
+## Profiles — DONE
+
+Status: complete. Notes/deviations:
+
+- `deck/profiles.ts` owns the storage-key helpers (`cardsKey`, `logKey`) and `DeckStore` now imports them, so key scoping has exactly one definition.
+- `ProfileStore(storage)` takes the same `KeyValueStore` slice as `DeckStore`. Surface: `list`, `get`, `active`, `setActive`, `save` (create-or-replace by id), `exportJson`, `importJson`. The active profile id is persisted under `profile:active`.
+- Export is whole-device: `{ profiles: [{ profile, cards, log }] }`, carrying each profile's deck blobs verbatim so import is a true backup restore. Import merges by id and never touches profiles absent from the payload.
+- No profile-picker view yet — the app shell is still the stage-1 hello view, so the switching UI lands with the trial-flow stage, built against this store.
+- Tests live in `deck/profiles.test.ts`.
 
 - Goal: multiple learners on one device, with switching from the home screen.
 - Tests:
