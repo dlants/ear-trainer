@@ -2,6 +2,7 @@ import { soundfontEngine } from "./audio/engine.ts";
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
 import { DeckStore } from "./deck/store.ts";
 import { INVENTORY } from "./inventory/patterns.ts";
+import { SONGS } from "./inventory/songs.ts";
 import type { Midi } from "./music/pitch.ts";
 import {
   type Msg as AddMsg,
@@ -12,6 +13,15 @@ import {
   update as addUpdate,
   rows,
 } from "./views/add-patterns.ts";
+import {
+  type SongsCtx,
+  type Msg as SongsMsg,
+  type State as SongsState,
+  SongsView,
+  rows as songRows,
+  initialState as songsInitialState,
+  update as songsUpdate,
+} from "./views/songs.ts";
 import {
   initialState,
   type Msg,
@@ -68,12 +78,16 @@ const addCtx: AddPatternsCtx = {
  * A real router lands with the app shell; for now the two screens are swapped
  * by remounting, each with its own dispatch loop.
  */
-type Page = "trial" | "add";
+type Page = "trial" | "add" | "songs";
 
 const trialState: State = initialState(ctx);
+const songsCtx: SongsCtx = { deck: ctx.deck, now: ctx.now, songs: SONGS };
+
 const addState: AddState = addInitialState(addCtx);
 let trialView: TrialView | undefined;
 let addView: AddPatternsView | undefined;
+const songsState: SongsState = songsInitialState(songsCtx);
+let songsView: SongsView | undefined;
 let dispatching = false;
 
 function guard<M>(run: (msg: M) => void): (msg: M) => void {
@@ -95,15 +109,24 @@ const addDispatch = guard<AddMsg>((msg) => {
   addView?.sync(addState);
 });
 
+const songsDispatch = guard<SongsMsg>((msg) => {
+  songsUpdate(songsState, msg, songsCtx);
+  songsView?.sync(songsState);
+});
+
 function show(page: Page): void {
   trialView?.destroy();
   addView?.destroy();
+  songsView?.destroy();
   trialView = undefined;
   addView = undefined;
+  songsView = undefined;
   if (page === "trial") {
     trialView = new TrialView(app, dispatch, trialState);
-  } else {
+  } else if (page === "add") {
     addView = new AddPatternsView(app, addDispatch, addState);
+  } else {
+    songsView = new SongsView(app, songsDispatch, songsState);
   }
 }
 
@@ -113,6 +136,11 @@ document
 document.getElementById("nav-add")?.addEventListener("click", () => {
   addState.rows = rows(addCtx);
   show("add");
+});
+
+document.getElementById("nav-songs")?.addEventListener("click", () => {
+  songsState.songs = songRows(songsCtx);
+  show("songs");
 });
 
 show("trial");

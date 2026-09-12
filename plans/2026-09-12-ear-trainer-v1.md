@@ -283,7 +283,18 @@ Status: complete. Notes/deviations:
   - Every `PatternId` in the generated inventory round-trips through the parser, catching a generator that emits something the app can't read.
   - Adding from the list marks the pattern known everywhere it appears.
 
-## Songs
+## Songs — DONE
+
+Status: complete. Notes/deviations:
+
+- `Song = { id, title, context, patternIds }` lives in `inventory/entry.ts` next to `InventoryEntry`; `inventory/songs.ts` is generated alongside `inventory/patterns.ts` by `npm run derive-inventory`.
+- `patternIds` is the *ordered tiling* of the melody, duplicates included, so it doubles as the decomposition to display. The view derives the distinct set from it, so there is one field, not two.
+- `decompose` is a greedy longest-match tiling against the generated inventory (3-grams before 2-grams); a note that no inventory pattern covers is skipped. Decomposition is therefore lossy by construction, which is why the melody is not reconstructible from `patternIds`.
+- `views/songs.ts` mirrors `views/add-patterns.ts`: songs are a `bindList` of row views, each with a nested `bindList` of its pattern rows rendered only while selected. One song is open at a time; tapping the open one closes it. Known-ness is re-read from the deck on every rebuild, and "add the rest" adds every distinct pattern of the song.
+- The full decomposition line is shown only once every pattern is known.
+- `biome.json` now excludes the two generated inventory files: they were already failing `biome check` at HEAD, and formatting them would mean the generator and the formatter fight on every regeneration.
+- `main.ts`/`index.html` gained a third nav button, still the placeholder remount-per-screen nav rather than a router.
+- Song-level tests live in `views/songs.test.ts`; the generated-data invariants were appended to `inventory/inventory.test.ts`.
 
 - Goal: the "by song" tab — pick a melody, see its patterns with known ones marked, add the rest; full decomposition shown once all are known.
 - Tests:

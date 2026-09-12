@@ -1,4 +1,4 @@
-import type { PatternId } from "../music/note.ts";
+import type { Context, PatternId } from "../music/note.ts";
 
 /**
  * Theory-derived tiers. Ordering is by tier first, corpus frequency second, so
@@ -12,6 +12,18 @@ export type InventoryEntry = {
   /** How many times the pattern occurs across the corpus. */
   count: number;
   gloss: string;
+};
+
+/**
+ * A song is a reference into the inventory, never an owner of patterns.
+ * `patternIds` is the ordered tiling of the melody, duplicates included, so it
+ * doubles as the decomposition to display.
+ */
+export type Song = {
+  id: string;
+  title: string;
+  context: Context;
+  patternIds: PatternId[];
 };
 
 export const TIER_GLOSS: Record<Tier, string> = {

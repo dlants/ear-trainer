@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { patternFromId } from "../music/format.ts";
 import { deriveInventory } from "../scripts/derive-inventory.ts";
-import type { CorpusMelody } from "./corpus.ts";
+import { CORPUS, type CorpusMelody } from "./corpus.ts";
 import { INVENTORY } from "./patterns.ts";
+import { SONGS } from "./songs.ts";
 
 const FIXTURE: CorpusMelody[] = [
   {
@@ -48,5 +49,20 @@ describe("the generated inventory", () => {
   it("is ordered by tier", () => {
     const tiers = INVENTORY.map((e) => e.tier);
     expect([...tiers].sort((a, b) => a - b)).toEqual(tiers);
+  });
+});
+
+describe("the generated songs", () => {
+  const ids = new Set(INVENTORY.map((e) => e.id));
+
+  it("reference only inventory patterns", () => {
+    for (const song of SONGS)
+      for (const id of song.patternIds) expect(ids.has(id), id).toBe(true);
+  });
+
+  it("decompose every corpus melody into at least one pattern", () => {
+    expect(SONGS).toHaveLength(CORPUS.length);
+    for (const song of SONGS)
+      expect(song.patternIds.length, song.id).toBeGreaterThan(0);
   });
 });

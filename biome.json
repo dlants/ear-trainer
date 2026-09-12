@@ -16,7 +16,9 @@
       "!**/dist",
       "!**/*.d.ts",
       "!vamp.ts",
-      "!vamp.test.ts"
+      "!vamp.test.ts",
+      "!inventory/patterns.ts",
+      "!inventory/songs.ts"
     ]
   }
 }
