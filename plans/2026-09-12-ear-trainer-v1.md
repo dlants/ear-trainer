@@ -207,7 +207,16 @@ Status: complete. Notes/deviations:
   - Given a pattern and a tempo, the computed `(note, time, duration)` list has the expected onsets, including simultaneous notes sharing an onset.
   - `playPattern` while a context is sounding calls `stop` on the previous handle before starting — assert against a fake instrument, because "two things sounding at once" is the bug users will actually hit.
 
-## Deck and scheduling
+## Deck and scheduling — DONE
+
+Status: complete. Notes/deviations:
+
+- `ts-fsrs@5.4.2` installed. `deck/card.ts` holds ids, types and `ratingFor`; `deck/store.ts` holds `DeckStore`.
+- `DeckStore` takes `(profileId, storage)` where `storage` is a two-method `KeyValueStore` slice of `Storage`, so tests use a plain in-memory object and profile scoping is structural rather than global.
+- `addPattern(patternId, now?)` takes an optional clock so tests are deterministic.
+- Dates are revived on load by walking `due` / `last_review` on the persisted FSRS card; nothing else in the card is a `Date`.
+- "The other three pairs do not advance the due date" is asserted as *schedules strictly sooner than Good* — on a new card `Again` still schedules a learning step a minute out, so an absolute "no advance" assertion would be wrong.
+- Tests live in a single `deck/deck.test.ts`.
 
 - Goal: cards can be added, scheduled, graded, persisted, and reloaded.
 - Work: `ts-fsrs` wiring (`createEmptyCard`, `fsrs().next(card, now, rating)`), `DeckStore`, localStorage persistence, JSON export.
