@@ -46,6 +46,16 @@ Practice states use distinct semantic families rather than a generic warning pal
 
 Do not introduce yellow or amber for uncertainty. Color must reinforce the text label, never replace it. Preserve readable foreground/background contrast and a visible `:focus-visible` state when adding new variants.
 
+### Audible playback controls
+
+Every control that starts audible playback must use `PlayButtonView` from `views/play-button.ts`. Give each operation a stable `PlayButtonId`, send the playback intent to the shared `PlayController`, and derive the button's `playing` and `durationMs` state from `PlayController.getState()` inside the parent's live binding callback.
+
+- Page views and reducers must not call `AudioEngine` directly. `PlayController` is the sole application-level playback owner.
+- Manual controls use `PlayController.toggle(...)`, so pressing the active button stops it and pressing a different button replaces all active and queued playback.
+- Multi-step playback uses `PlayController.autoplay(...)`; page views must not implement their own queues or playback timers.
+- `PlayButtonView` owns the audible control's button markup, trusted icon, accessibility state, and playback sweep. Do not add one-off sound buttons or page-local playback animations.
+- Use `--color-playback-sweep` for the timed sweep and `--color-playback-active` for the static reduced-motion treatment. Their lifetime must come from the controller-provided playback duration, not duplicated CSS or view timers.
+
 ## Icons
 
 `icons.ts` exports hand-authored static SVG functions returning `RawHtml`. Insert them only inside a `sanitize` template. Current icons are:

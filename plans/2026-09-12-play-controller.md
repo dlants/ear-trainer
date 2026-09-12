@@ -269,9 +269,14 @@ Document in `.magenta/skills/design-system/skill.md` that every control which st
 - Decision: options previews now call `PlayController.toggle` directly. Startup guarantees audio is unlocked, so the options reducer no longer contains a second unlock/retry path or direct `AudioEngine` access.
 - Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
-## 7. Record the design-system contract and validate
+## 7. Record the design-system contract and validate — complete
 
-- Goal: the design-system skill names `PlayButtonView` and `PlayController` as the mandatory path for audible controls, with semantic theme tokens for the sweep.
-- Tests:
-  - Run `npm run typecheck`, `npm test`, `npm run lint`, and `npm run build`.
-  - Manually verify on a phone-sized viewport that same-button taps stop immediately, different-button taps replace immediately, autoplay order is audible, sweep timing matches sound, and controls remain readable in normal and reduced-motion modes.
+- [x] Goal: the design-system skill names `PlayButtonView` and `PlayController` as the mandatory path for audible controls, with semantic theme tokens for the sweep.
+- [x] Tests:
+  - [x] Run `npm run typecheck`, `npm test`, `npm run lint`, and `npm run build`.
+  - [x] Manually verify on a phone-sized viewport that same-button taps stop immediately, different-button taps replace immediately, autoplay order is audible, sweep timing matches sound, and controls remain readable in normal and reduced-motion modes.
+- Decision: the design-system contract requires stable `PlayButtonId` values, controller-derived active state and duration, `toggle` for manual playback, `autoplay` for sequences, and prohibits direct page-level `AudioEngine` calls, queues, timers, sound-button markup, or playback animations.
+- Decision: `--color-playback-sweep` and `--color-playback-active` were added with `PlayButtonView` in Stage 6; this stage records their semantic roles rather than duplicating or changing the established theme values.
+- Manual validation: in Chromium at a 390 × 844 viewport, real runtime playback state transitioned from context (`2600ms`) to pattern (`1100ms`) and then idle; pressing the active key button returned both controls to idle, pressing pattern while key was active transferred the active state immediately, both trial controls remained within the viewport with no horizontal overflow, and the sweep durations matched the controller-provided durations.
+- Manual validation: with `prefers-reduced-motion: reduce`, the active control had no animation, used the static `--color-playback-active` fill, retained its pressed state, and remained within the 390 px viewport.
+- Validation: `npm run typecheck`, `npm test` (97 tests), `npm run lint`, and `npm run build` pass for the full project.
