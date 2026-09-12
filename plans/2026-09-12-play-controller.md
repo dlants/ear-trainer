@@ -202,15 +202,18 @@ Document in `.magenta/skills/design-system/skill.md` that every control which st
 - Decision: expose durations as integer milliseconds by rounding the scheduling lead plus scheduled stream duration; this matches browser timer precision and avoids floating-point artifacts in controller/UI state.
 - Decision: natural completion does not call `Instrument.stop()` because scheduled notes release themselves; cancelling before completion stops the instrument exactly once, while cancelling an already completed handle is inert.
 
-## 2. Add the exclusive play controller and replacement queue
+## 2. Add the exclusive play controller and replacement queue — complete
 
-- Goal: one controller owns sequencing, toggle-to-stop behavior, replacement, and observable playback state, assuming startup supplied an unlocked engine.
-- Tests:
-  - A two-step autoplay request starts context and starts pattern only after context completes.
-  - Clicking the currently active button cancels the handle, empties the queued prompt, and leaves the controller idle.
-  - Clicking a different button cancels the active handle, discards the old queue, and immediately starts only the clicked step.
-  - A cancelled or superseded handle's late completion cannot start stale queued audio.
-  - Repeated stop/cancel operations are idempotent.
+- [x] Goal: one controller owns sequencing, toggle-to-stop behavior, replacement, and observable playback state, assuming startup supplied an unlocked engine.
+- [x] Tests:
+  - [x] A two-step autoplay request starts context and starts pattern only after context completes.
+  - [x] Clicking the currently active button cancels the handle, empties the queued prompt, and leaves the controller idle.
+  - [x] Clicking a different button cancels the active handle, discards the old queue, and immediately starts only the clicked step.
+  - [x] A cancelled or superseded handle's late completion cannot start stale queued audio.
+  - [x] Repeated stop/cancel operations are idempotent.
+- Decision: `PlayMsg` includes a monotonically increasing `playbackId` in addition to the replacement generation. The generation rejects completions from replaced queues, while the handle identity rejects duplicate or stale completion messages from an earlier step within the same autoplay generation.
+- Decision: a rejected `PlaybackHandle.ended` promise is normalized to a cancelled step message, so it cannot advance the queue; matching cancellation also clears any remaining queue.
+- Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
 ## 3. Unlock audio before constructing the app
 
