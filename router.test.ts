@@ -18,6 +18,7 @@ describe("router", () => {
       { page: "practice" },
       { page: "cards" },
       { page: "songs" },
+      { page: "options" },
     ] as const;
     for (const route of routes)
       expect(parseRoute(routeToPath(route))).toEqual(route);

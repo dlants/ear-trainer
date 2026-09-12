@@ -1,7 +1,8 @@
 export type Route =
   | { page: "practice" }
   | { page: "cards" }
-  | { page: "songs" };
+  | { page: "songs" }
+  | { page: "options" };
 
 export type UrlWriteKind = "push" | "replace";
 
@@ -17,6 +18,8 @@ export function parseRoute(pathname: string): Route {
       return { page: "cards" };
     case "/songs":
       return { page: "songs" };
+    case "/options":
+      return { page: "options" };
     default:
       return { page: "practice" };
   }
@@ -30,6 +33,8 @@ export function routeToPath(route: Route): string {
       return "/cards";
     case "songs":
       return "/songs";
+    case "options":
+      return "/options";
   }
 }
 

@@ -10,7 +10,6 @@ import { SONGS } from "./inventory/songs.ts";
 import type { Midi } from "./music/pitch.ts";
 import { currentRoute, RouterController, RouterView } from "./router.ts";
 import { startStartup } from "./startup.ts";
-import { noop } from "./vamp.ts";
 import type { AddPatternsCtx } from "./views/add-patterns.ts";
 import {
   type AppCtx,
@@ -70,8 +69,11 @@ function startApp(audio: AudioEngine): void {
     now: trialCtx.now,
     inventory: INVENTORY,
   };
+  let dispatch: (msg: AppMsg) => void;
+  const play = new PlayController(audio, (msg) =>
+    dispatch({ type: "PLAY_MSG", msg }),
+  );
   const initialRoute = currentRoute();
-  const play = new PlayController(audio, noop);
   const router = new RouterController(initialRoute);
   const ctx: AppCtx = {
     play,
@@ -86,7 +88,7 @@ function startApp(audio: AudioEngine): void {
   let view: AppView;
   let routerView: RouterView;
 
-  const dispatch = (msg: AppMsg): void => {
+  dispatch = (msg: AppMsg): void => {
     if (dispatching) throw new Error("dispatch-in-dispatch");
     dispatching = true;
     appUpdate(state, msg, ctx, dispatch);

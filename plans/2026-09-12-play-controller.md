@@ -228,13 +228,17 @@ Document in `.magenta/skills/design-system/skill.md` that every control which st
 - Decision: `PlayController` is now present in `AppCtx`, but its asynchronous lifecycle dispatch remains a no-op until Stage 4 wires `PlayMsg` through the root loop. No controller playback is requested by application reducers in this stage.
 - Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
-## 4. Route controller lifecycle through the app
+## 4. Route controller lifecycle through the app — complete
 
-- Goal: `main.ts` constructs one controller, `AppCtx` exposes it, asynchronous controller messages re-enter the root dispatch loop, and route changes stop obsolete playback.
-- Tests:
-  - A controller completion message causes the app/view sync path to run without dispatch re-entrancy.
-  - Leaving practice or options cancels active playback and clears queued work.
-  - Entering practice requests exactly one autoplay sequence for the selected trial.
+- [x] Goal: `main.ts` constructs one controller, `AppCtx` exposes it, asynchronous controller messages re-enter the root dispatch loop, and route changes stop obsolete playback.
+- [x] Tests:
+  - [x] A controller completion message causes the app/view sync path to run without dispatch re-entrancy.
+  - [x] Leaving practice or options cancels active playback and clears queued work.
+  - [x] Entering practice requests exactly one autoplay sequence for the selected trial.
+- Decision: controller completion dispatch is closed over the root `dispatch` function and wrapped as `PLAY_MSG`; the reducer delegates that message to `PlayController.update`, after which the existing root loop syncs the app and router views.
+- Decision: navigation stops playback when leaving practice or options. Entering practice then replaces playback with the selected trial's presentation sequence; selecting and autoplaying happen in the same reducer pass, so only one sequence is requested and no nested dispatch is needed.
+- Decision: same-page navigation does not select or autoplay another trial. The route must actually transition into practice, which keeps unrelated root syncs and redundant navigation from restarting audio.
+- Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
 ## 5. Integrate automatic trial playback
 
