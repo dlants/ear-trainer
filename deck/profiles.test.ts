@@ -15,7 +15,15 @@ function memoryStorage(): KeyValueStore {
 }
 
 function profile(id: string): Profile {
-  return { id, name: id, color: "#123456", tonicMode: "fixed", tonic: 60 };
+  return {
+    id,
+    name: id,
+    color: "#123456",
+    tonicMode: "fixed",
+    tonic: 60,
+    tonicLow: 55,
+    tonicHigh: 67,
+  };
 }
 
 const pattern = makePattern("major-cadence", [
@@ -44,6 +52,21 @@ describe("profile scoping", () => {
 });
 
 describe("ProfileStore", () => {
+  it("fills the movable range when loading an older profile", () => {
+    const storage = memoryStorage();
+    storage.setItem(
+      "profiles",
+      JSON.stringify([
+        { id: "a", name: "a", color: "#123456", tonicMode: "fixed", tonic: 60 },
+      ]),
+    );
+
+    const loaded = new ProfileStore(storage).get("a");
+
+    expect(loaded?.tonicLow).toBe(55);
+    expect(loaded?.tonicHigh).toBe(67);
+  });
+
   it("persists profiles and the active selection", () => {
     const storage = memoryStorage();
     const store = new ProfileStore(storage);

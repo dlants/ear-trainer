@@ -72,6 +72,13 @@ function emptyState(page: State["route"]["page"]): State {
     trial: { trial: undefined, error: undefined },
     cards: { rows: [], hideAdded: false },
     songs: { songs: [] },
+    options: {
+      tonicMode: "fixed",
+      tonic: 60,
+      tonicLow: 55,
+      tonicHigh: 67,
+      error: undefined,
+    },
   };
 }
 
@@ -82,6 +89,8 @@ function trialContext(play: PlayController): AppCtx["trial"] {
     color: "#000000",
     tonicMode: "fixed",
     tonic: 60,
+    tonicLow: 55,
+    tonicHigh: 67,
   };
   const deck = new DeckStore(profile.id, memoryStorage());
   const parsed = parsePattern("1-3-5", "major-cadence");
@@ -117,7 +126,7 @@ describe("app playback lifecycle", () => {
     const ctx = appContext(play, state.route);
     const sync = vi.fn();
     dispatch = (msg) => {
-      update(state, msg, ctx);
+      update(state, msg, ctx, dispatch);
       sync(state);
     };
 
@@ -140,7 +149,12 @@ describe("app playback lifecycle", () => {
       const state = emptyState(page);
       const ctx = appContext(play, state.route);
 
-      update(state, { type: "NAVIGATE", route: { page: "cards" } }, ctx);
+      update(
+        state,
+        { type: "NAVIGATE", route: { page: "cards" } },
+        ctx,
+        () => {},
+      );
 
       expect(play.stop).toHaveBeenCalledOnce();
     },
@@ -155,7 +169,12 @@ describe("app playback lifecycle", () => {
     const state = emptyState("cards");
     const ctx = appContext(play, state.route);
 
-    update(state, { type: "NAVIGATE", route: { page: "practice" } }, ctx);
+    update(
+      state,
+      { type: "NAVIGATE", route: { page: "practice" } },
+      ctx,
+      () => {},
+    );
 
     expect(play.autoplay).toHaveBeenCalledOnce();
     expect(play.autoplay).toHaveBeenCalledWith([

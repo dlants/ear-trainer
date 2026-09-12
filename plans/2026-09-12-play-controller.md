@@ -255,15 +255,19 @@ Document in `.magenta/skills/design-system/skill.md` that every control which st
 - Decision: audiation reveal calls `autoplay` with only the pattern step, so it atomically replaces any still-playing context. Transcription reveal leaves the existing controller work untouched because its presentation already queued the pattern.
 - Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
-## 6. Add PlayButtonView and migrate sound controls
+## 6. Add PlayButtonView and migrate sound controls — complete
 
-- Goal: trial context/pattern and options tonic/low/high controls all use one view and accurately display controller playback.
-- Tests:
-  - The component emits `PRESS` with its stable id.
-  - Active state applies the playing class, duration style, and accessible pressed/busy state; inactive state removes them.
-  - Reduced-motion styling retains a visible active treatment without a moving sweep.
-  - During autoplay, the context button is active for the context step and the pattern button becomes active only when its step starts.
-  - Options controls preserve their note labels, aria labels, slider-release preview behavior, and compact layout.
+- [x] Goal: trial context/pattern and options tonic/low/high controls all use one view and accurately display controller playback.
+- [x] Tests:
+  - [x] The component emits `PRESS` with its stable id.
+  - [x] Active state applies the playing class, duration style, and accessible pressed/busy state; inactive state removes them.
+  - [x] Reduced-motion styling retains a visible active treatment without a moving sweep.
+  - [x] During autoplay, the context button is active for the context step and the pattern button becomes active only when its step starts.
+  - [x] Options controls preserve their note labels, aria labels, slider-release preview behavior, and compact layout.
+- Decision: `PlayButtonView` owns the actual button, trusted icon, active accessibility attributes, and the controller-duration CSS variable; page views own only slot sizing and map stable child ids back to their existing playback intents.
+- Decision: the sweep uses a transform animation over `--play-duration`; reduced-motion replaces it with a static semantic active fill, and toggling the playing class is the only mechanism that starts or clears either treatment.
+- Decision: options previews now call `PlayController.toggle` directly. Startup guarantees audio is unlocked, so the options reducer no longer contains a second unlock/retry path or direct `AudioEngine` access.
+- Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
 ## 7. Record the design-system contract and validate
 

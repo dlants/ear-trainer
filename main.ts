@@ -7,7 +7,6 @@ import { type Profile, ProfileStore } from "./deck/profiles.ts";
 import { DeckStore } from "./deck/store.ts";
 import { INVENTORY } from "./inventory/patterns.ts";
 import { SONGS } from "./inventory/songs.ts";
-import type { Midi } from "./music/pitch.ts";
 import { currentRoute, RouterController, RouterView } from "./router.ts";
 import { startStartup } from "./startup.ts";
 import type { AddPatternsCtx } from "./views/add-patterns.ts";
@@ -36,9 +35,9 @@ const DEFAULT_PROFILE: Profile = {
   color: "#4478ff",
   tonicMode: "fixed",
   tonic: 60,
+  tonicLow: 55,
+  tonicHigh: 67,
 };
-
-const TONIC_RANGE: [Midi, Midi] = [55, 67];
 
 function startApp(audio: AudioEngine): void {
   const profiles = new ProfileStore(localStorage);
@@ -48,30 +47,30 @@ function startApp(audio: AudioEngine): void {
     profiles.save(profile);
     profiles.setActive(profile.id);
   }
-
+  const activeProfile = profile;
   let dispatch: (msg: AppMsg) => void;
   const play = new PlayController(audio, (msg) =>
     dispatch({ type: "PLAY_MSG", msg }),
   );
   const trialCtx: TrialCtx = {
     play,
-    deck: new DeckStore(profile.id, localStorage),
-    profile,
+    deck: new DeckStore(activeProfile.id, localStorage),
+    profile: activeProfile,
     now: () => new Date(),
     randomTonic: () => {
-      const [low, high] = TONIC_RANGE;
-      return low + Math.floor(Math.random() * (high - low + 1));
+      const { tonicLow, tonicHigh } = activeProfile;
+      return tonicLow + Math.floor(Math.random() * (tonicHigh - tonicLow + 1));
     },
-  };
-  const songsCtx: SongsCtx = {
-    deck: trialCtx.deck,
-    now: trialCtx.now,
-    songs: SONGS,
   };
   const cardsCtx: AddPatternsCtx = {
     deck: trialCtx.deck,
     now: trialCtx.now,
     inventory: INVENTORY,
+  };
+  const songsCtx: SongsCtx = {
+    deck: trialCtx.deck,
+    now: trialCtx.now,
+    songs: SONGS,
   };
   const initialRoute = currentRoute();
   const router = new RouterController(initialRoute);
@@ -82,6 +81,7 @@ function startApp(audio: AudioEngine): void {
     trial: trialCtx,
     cards: cardsCtx,
     songs: songsCtx,
+    options: { play, profile: activeProfile, profiles },
   };
   const state = appInitialState(initialRoute, ctx);
   let dispatching = false;
@@ -91,7 +91,7 @@ function startApp(audio: AudioEngine): void {
   dispatch = (msg: AppMsg): void => {
     if (dispatching) throw new Error("dispatch-in-dispatch");
     dispatching = true;
-    appUpdate(state, msg, ctx);
+    appUpdate(state, msg, ctx, dispatch);
     view.sync(state);
     routerView.sync();
     dispatching = false;

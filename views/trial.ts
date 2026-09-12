@@ -2,11 +2,20 @@ import type { PlayController, PlayStep } from "../audio/play-controller.ts";
 import type { Confidence, DeckCard, Outcome } from "../deck/card.ts";
 import type { Profile } from "../deck/profiles.ts";
 import type { DeckStore } from "../deck/store.ts";
-import { checkIcon, keyIcon, playIcon, questionIcon } from "../icons.ts";
+import { checkIcon, questionIcon } from "../icons.ts";
 import { formatPattern, patternFromId } from "../music/format.ts";
 import type { Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
-import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
+import {
+  Binder,
+  cls,
+  mountStyle,
+  ref,
+  sanitize,
+  show,
+  type View,
+} from "../vamp.ts";
+import { PlayButtonView } from "./play-button.ts";
 
 export type TrialPhase = "presenting" | "revealing";
 
@@ -157,6 +166,7 @@ export function update(state: State, msg: Msg, ctx: TrialCtx): void {
 
 const trialClass = cls("trial");
 const rowClass = cls("row");
+const playSlotClass = cls("play-slot");
 const bigClass = cls("big");
 const unsureClass = cls("unsure");
 const knownClass = cls("known");
@@ -186,7 +196,11 @@ mountStyle(`
   display: flex;
   gap: 12px;
 }
-.${trialClass} button {
+.${trialClass} .${playSlotClass} {
+  flex: 1;
+  display: flex;
+}
+.${trialClass} .${rowClass} > button {
   flex: 1;
   display: flex;
   align-items: center;
@@ -197,7 +211,7 @@ mountStyle(`
   border-radius: var(--radius-control);
   touch-action: manipulation;
 }
-.${trialClass} button svg {
+.${trialClass} .${rowClass} > button svg {
   flex: 0 0 auto;
   font-size: 1.15em;
 }
@@ -223,7 +237,7 @@ mountStyle(`
 }
 `);
 
-export class TrialView implements View<State, Msg> {
+export class TrialView implements View<State, Msg, Pick<TrialCtx, "play">> {
   container: HTMLElement;
   private b: Binder<State>;
 
@@ -231,6 +245,7 @@ export class TrialView implements View<State, Msg> {
     container: HTMLElement,
     dispatch: (msg: Msg) => void,
     initial: State,
+    ctx: Pick<TrialCtx, "play">,
   ) {
     const notationRef = ref("notation");
     const emptyRef = ref("empty");
@@ -251,8 +266,8 @@ export class TrialView implements View<State, Msg> {
         <div data-ref="${emptyRef}">nothing due — come back later</div>
         <div class="${bigClass}" data-ref="${notationRef}"></div>
         <div class="${rowClass}">
-          <button type="button" data-ref="${contextRef}">key ${keyIcon()}</button>
-          <button type="button" data-ref="${patternRef}">play ${playIcon()}</button>
+          <div class="${playSlotClass}" data-ref="${contextRef}"></div>
+          <div class="${playSlotClass}" data-ref="${patternRef}"></div>
         </div>
         <div class="${rowClass}" data-ref="${commitRowRef}">
           <button type="button" class="${unsureClass}" data-ref="${unsureRef}">unsure ${questionIcon()}</button>
@@ -269,8 +284,46 @@ export class TrialView implements View<State, Msg> {
     const on = (r: ReturnType<typeof ref>, msg: Msg) =>
       this.b.ref(r).addEventListener("click", () => dispatch(msg));
 
-    on(contextRef, { type: "PLAY_CONTEXT" });
-    on(patternRef, { type: "PLAY_PATTERN" });
+    this.b.bindSlot(contextRef, (state) => {
+      const playback = ctx.play.getState();
+      const playing =
+        playback.status === "playing" && playback.buttonId === "trial:context";
+      return show(
+        PlayButtonView,
+        {
+          id: "trial:context",
+          label: "key",
+          ariaLabel: "play key",
+          icon: "key",
+          variant: "trial",
+          visible: state.trial !== undefined,
+          playing,
+          durationMs: playing ? playback.durationMs : undefined,
+        },
+        {},
+        () => dispatch({ type: "PLAY_CONTEXT" }),
+      );
+    });
+    this.b.bindSlot(patternRef, (state) => {
+      const playback = ctx.play.getState();
+      const playing =
+        playback.status === "playing" && playback.buttonId === "trial:pattern";
+      return show(
+        PlayButtonView,
+        {
+          id: "trial:pattern",
+          label: "play",
+          ariaLabel: "play pattern",
+          icon: "play",
+          variant: "trial",
+          visible: state.trial !== undefined && canPlayPattern(state.trial),
+          playing,
+          durationMs: playing ? playback.durationMs : undefined,
+        },
+        {},
+        () => dispatch({ type: "PLAY_PATTERN" }),
+      );
+    });
     on(knownRef, { type: "COMMIT", confidence: "known" });
     on(unsureRef, { type: "COMMIT", confidence: "unsure" });
     on(gotItRef, { type: "GRADE", outcome: "got-it" });
@@ -283,11 +336,6 @@ export class TrialView implements View<State, Msg> {
       s.trial && showsNotation(s.trial)
         ? formatPattern(s.trial.pattern, "numeric")
         : "?",
-    );
-    this.b.bindVisible(contextRef, (s) => s.trial !== undefined);
-    this.b.bindVisible(
-      patternRef,
-      (s) => s.trial !== undefined && canPlayPattern(s.trial),
     );
     this.b.bindVisible(commitRowRef, (s) => s.trial?.phase === "presenting");
     this.b.bindVisible(outcomeRowRef, (s) => s.trial?.phase === "revealing");

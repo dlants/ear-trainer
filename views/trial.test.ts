@@ -14,6 +14,7 @@ import {
   type Msg,
   type State,
   type TrialCtx,
+  TrialView,
   update,
 } from "./trial.ts";
 
@@ -24,6 +25,11 @@ type PlayCall =
 
 class FakePlay {
   calls: PlayCall[] = [];
+  state: ReturnType<PlayController["getState"]> = { status: "idle" };
+
+  getState(): ReturnType<PlayController["getState"]> {
+    return this.state;
+  }
 
   autoplay(steps: PlayStep[]): void {
     this.calls.push({ type: "autoplay", steps });
@@ -61,6 +67,8 @@ function setup(overrides: Partial<Profile> = {}) {
     color: "#000",
     tonicMode: "fixed",
     tonic: 60,
+    tonicLow: 55,
+    tonicHigh: 67,
     ...overrides,
   };
   const deck = new DeckStore(profile.id, memoryStorage());
@@ -276,5 +284,40 @@ describe("trial flow", () => {
     const { state } = start(empty.ctx);
     expect(state.trial).toBeUndefined();
     expect(empty.play.calls).toEqual([{ type: "stop" }]);
+  });
+
+  it("moves the active treatment from context to pattern during autoplay", () => {
+    const { state, dispatch } = start(env.ctx);
+    const container = document.createElement("div");
+    const view = new TrialView(container, dispatch, state, env.ctx);
+    const contextButton = container.querySelector<HTMLButtonElement>(
+      '[aria-label="play key"]',
+    );
+    const patternButton = container.querySelector<HTMLButtonElement>(
+      '[aria-label="play pattern"]',
+    );
+
+    env.play.state = {
+      status: "playing",
+      buttonId: "trial:context",
+      durationMs: 900,
+      queueLength: 1,
+    };
+    view.sync(state);
+    expect(contextButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(patternButton?.getAttribute("aria-pressed")).toBe("false");
+
+    env.play.state = {
+      status: "playing",
+      buttonId: "trial:pattern",
+      durationMs: 700,
+      queueLength: 0,
+    };
+    view.sync(state);
+    expect(contextButton?.getAttribute("aria-pressed")).toBe("false");
+    expect(patternButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(patternButton?.style.getPropertyValue("--play-duration")).toBe(
+      "700ms",
+    );
   });
 });

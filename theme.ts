@@ -10,6 +10,9 @@ mountStyle(`
   --color-text-muted: #657168;
   --color-border: #d7ded8;
 
+  --color-playback-sweep: #dcecdf;
+  --color-playback-active: #c9e1ce;
+
   --color-brand: #285c3a;
   --color-brand-strong: #1f4930;
   --color-brand-active: #3c704e;

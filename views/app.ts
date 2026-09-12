@@ -13,6 +13,14 @@ import {
 import type { DismissStack } from "./dropdown.ts";
 import { NavView } from "./nav.ts";
 import {
+  type OptionsCtx,
+  type Msg as OptionsMsg,
+  type State as OptionsState,
+  OptionsView,
+  initialState as optionsInitialState,
+  update as optionsUpdate,
+} from "./options.ts";
+import {
   type SongsCtx,
   type Msg as SongsMsg,
   type State as SongsState,
@@ -35,6 +43,7 @@ export type State = {
   trial: TrialState;
   cards: AddState;
   songs: SongsState;
+  options: OptionsState;
 };
 
 export type Msg =
@@ -42,7 +51,8 @@ export type Msg =
   | { type: "PLAY_MSG"; msg: PlayMsg }
   | { type: "TRIAL_MSG"; msg: TrialMsg }
   | { type: "CARDS_MSG"; msg: AddMsg }
-  | { type: "SONGS_MSG"; msg: SongsMsg };
+  | { type: "SONGS_MSG"; msg: SongsMsg }
+  | { type: "OPTIONS_MSG"; msg: OptionsMsg };
 
 export type AppCtx = {
   play: PlayController;
@@ -51,6 +61,7 @@ export type AppCtx = {
   trial: TrialCtx;
   cards: AddPatternsCtx;
   songs: SongsCtx;
+  options: OptionsCtx;
 };
 
 export function initialState(route: Route, ctx: AppCtx): State {
@@ -59,10 +70,16 @@ export function initialState(route: Route, ctx: AppCtx): State {
     trial: trialInitialState(ctx.trial),
     cards: addInitialState(ctx.cards),
     songs: songsInitialState(ctx.songs),
+    options: optionsInitialState(ctx.options),
   };
 }
 
-export function update(state: State, msg: Msg, ctx: AppCtx): void {
+export function update(
+  state: State,
+  msg: Msg,
+  ctx: AppCtx,
+  _dispatch: (msg: Msg) => void,
+): void {
   switch (msg.type) {
     case "NAVIGATE": {
       const previousRoute = state.route;
@@ -82,6 +99,8 @@ export function update(state: State, msg: Msg, ctx: AppCtx): void {
       } else if (route.page === "songs") {
         const selected = state.songs.songs.find((song) => song.selected)?.id;
         state.songs.songs = songRows(ctx.songs, selected);
+      } else if (route.page === "options") {
+        state.options = optionsInitialState(ctx.options);
       }
       break;
     }
@@ -96,6 +115,9 @@ export function update(state: State, msg: Msg, ctx: AppCtx): void {
       break;
     case "SONGS_MSG":
       songsUpdate(state.songs, msg.msg, ctx.songs);
+      break;
+    case "OPTIONS_MSG":
+      optionsUpdate(state.options, msg.msg, ctx.options);
       break;
   }
 }
@@ -131,7 +153,7 @@ export class AppView implements View<State, Msg, AppCtx> {
     this.b.bindSlot(pageRef, (state) => {
       switch (state.route.page) {
         case "practice":
-          return show(TrialView, state.trial, {}, (msg) =>
+          return show(TrialView, state.trial, ctx.trial, (msg) =>
             dispatch({ type: "TRIAL_MSG", msg }),
           );
         case "cards":
@@ -141,6 +163,10 @@ export class AppView implements View<State, Msg, AppCtx> {
         case "songs":
           return show(SongsView, state.songs, {}, (msg) =>
             dispatch({ type: "SONGS_MSG", msg }),
+          );
+        case "options":
+          return show(OptionsView, state.options, ctx.options, (msg) =>
+            dispatch({ type: "OPTIONS_MSG", msg }),
           );
       }
     });

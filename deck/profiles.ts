@@ -9,6 +9,8 @@ export type Profile = {
   color: string;
   tonicMode: TonicMode;
   tonic: Midi;
+  tonicLow: Midi;
+  tonicHigh: Midi;
 };
 
 /** A profile plus the raw deck blobs belonging to it, for export/import. */
@@ -22,6 +24,16 @@ export type ExportPayload = { profiles: ProfileExport[] };
 
 const PROFILES_KEY = "profiles";
 const ACTIVE_KEY = "profile:active";
+export const DEFAULT_TONIC_LOW: Midi = 55;
+export const DEFAULT_TONIC_HIGH: Midi = 67;
+
+function normalizeProfile(profile: Profile): Profile {
+  return {
+    ...profile,
+    tonicLow: profile.tonicLow ?? DEFAULT_TONIC_LOW,
+    tonicHigh: profile.tonicHigh ?? DEFAULT_TONIC_HIGH,
+  };
+}
 
 export function cardsKey(profileId: string): string {
   return `profile:${profileId}:cards`;
@@ -37,7 +49,9 @@ export class ProfileStore {
 
   constructor(private readonly storage: KeyValueStore) {
     const raw = this.storage.getItem(PROFILES_KEY);
-    this.profiles = raw ? (JSON.parse(raw) as Profile[]) : [];
+    this.profiles = raw
+      ? (JSON.parse(raw) as Profile[]).map(normalizeProfile)
+      : [];
     this.activeId = this.storage.getItem(ACTIVE_KEY) ?? undefined;
   }
 
@@ -62,9 +76,10 @@ export class ProfileStore {
 
   /** Creates or replaces the profile with this id. Deck data is untouched. */
   save(profile: Profile): void {
+    const normalized = normalizeProfile(profile);
     const index = this.profiles.findIndex((p) => p.id === profile.id);
-    if (index === -1) this.profiles.push(profile);
-    else this.profiles[index] = profile;
+    if (index === -1) this.profiles.push(normalized);
+    else this.profiles[index] = normalized;
     this.persist();
   }
 

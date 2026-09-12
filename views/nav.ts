@@ -72,6 +72,7 @@ export class NavView implements View<State, never, NavCtx> {
     const practiceRef = ref("practice");
     const cardsRef = ref("cards");
     const songsRef = ref("songs");
+    const optionsRef = ref("options");
 
     this.container = container;
     container.innerHTML = sanitize`
@@ -81,6 +82,7 @@ export class NavView implements View<State, never, NavCtx> {
           <a href="${routeToPath({ page: "practice" })}" data-ref="${practiceRef}">practice</a>
           <a href="${routeToPath({ page: "cards" })}" data-ref="${cardsRef}">cards</a>
           <a href="${routeToPath({ page: "songs" })}" data-ref="${songsRef}">songs</a>
+          <a href="${routeToPath({ page: "options" })}" data-ref="${optionsRef}">options</a>
         </nav>
       </details>
     `;
@@ -93,6 +95,9 @@ export class NavView implements View<State, never, NavCtx> {
     );
     this.b.bindAttr(songsRef, "aria-current", (s) =>
       s.route.page === "songs" ? "page" : undefined,
+    );
+    this.b.bindAttr(optionsRef, "aria-current", (s) =>
+      s.route.page === "options" ? "page" : undefined,
     );
 
     const details = this.b.ref<HTMLDetailsElement>(detailsRef);
