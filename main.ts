@@ -6,33 +6,19 @@ import { INVENTORY } from "./inventory/patterns.ts";
 import { SONGS } from "./inventory/songs.ts";
 import type { Midi } from "./music/pitch.ts";
 import { DISMISS_KEY, installEnv, shouldShowInstall } from "./pwa/install.ts";
+import { currentRoute, RouterController, RouterView } from "./router.ts";
+import type { AddPatternsCtx } from "./views/add-patterns.ts";
 import {
-  type Msg as AddMsg,
-  type AddPatternsCtx,
-  AddPatternsView,
-  type State as AddState,
-  initialState as addInitialState,
-  update as addUpdate,
-  rows,
-} from "./views/add-patterns.ts";
+  type AppCtx,
+  type Msg as AppMsg,
+  AppView,
+  initialState as appInitialState,
+  update as appUpdate,
+} from "./views/app.ts";
+import { DismissStack } from "./views/dropdown.ts";
 import { InstallView } from "./views/install.ts";
-import {
-  type SongsCtx,
-  type Msg as SongsMsg,
-  type State as SongsState,
-  SongsView,
-  rows as songRows,
-  initialState as songsInitialState,
-  update as songsUpdate,
-} from "./views/songs.ts";
-import {
-  initialState,
-  type Msg,
-  type State,
-  type TrialCtx,
-  TrialView,
-  update,
-} from "./views/trial.ts";
+import type { SongsCtx } from "./views/songs.ts";
+import type { TrialCtx } from "./views/trial.ts";
 
 function requireElement(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -60,7 +46,7 @@ if (!profile) {
   profiles.setActive(profile.id);
 }
 
-const ctx: TrialCtx = {
+const trialCtx: TrialCtx = {
   audio: soundfontEngine("acoustic_grand_piano"),
   deck: new DeckStore(profile.id, localStorage),
   profile,
@@ -71,91 +57,55 @@ const ctx: TrialCtx = {
   },
 };
 
-const addCtx: AddPatternsCtx = {
-  deck: ctx.deck,
-  now: ctx.now,
+const patternsCtx: AddPatternsCtx = {
+  deck: trialCtx.deck,
+  now: trialCtx.now,
   inventory: INVENTORY,
 };
 
-/**
- * A real router lands with the app shell; for now the two screens are swapped
- * by remounting, each with its own dispatch loop.
- */
-type Page = "trial" | "add" | "songs";
-
-const trialState: State = initialState(ctx);
-const songsCtx: SongsCtx = { deck: ctx.deck, now: ctx.now, songs: SONGS };
-
-const addState: AddState = addInitialState(addCtx);
-let trialView: TrialView | undefined;
-let addView: AddPatternsView | undefined;
-const songsState: SongsState = songsInitialState(songsCtx);
-let songsView: SongsView | undefined;
-let dispatching = false;
-
-function guard<M>(run: (msg: M) => void): (msg: M) => void {
-  return (msg) => {
-    if (dispatching) throw new Error("dispatch-in-dispatch");
-    dispatching = true;
-    run(msg);
-    dispatching = false;
-  };
-}
-
-const dispatch = guard<Msg>((msg) => {
-  update(trialState, msg, ctx, dispatch);
-  trialView?.sync(trialState);
-});
-
-const addDispatch = guard<AddMsg>((msg) => {
-  addUpdate(addState, msg, addCtx);
-  addView?.sync(addState);
-});
-
-const songsDispatch = guard<SongsMsg>((msg) => {
-  songsUpdate(songsState, msg, songsCtx);
-  songsView?.sync(songsState);
-});
-
-function show(page: Page): void {
-  trialView?.destroy();
-  addView?.destroy();
-  songsView?.destroy();
-  trialView = undefined;
-  addView = undefined;
-  songsView = undefined;
-  if (page === "trial") {
-    trialView = new TrialView(app, dispatch, trialState);
-  } else if (page === "add") {
-    addView = new AddPatternsView(app, addDispatch, addState);
-  } else {
-    songsView = new SongsView(app, songsDispatch, songsState);
-  }
-}
-
-document
-  .getElementById("nav-practice")
-  ?.addEventListener("click", () => show("trial"));
-document.getElementById("nav-add")?.addEventListener("click", () => {
-  addState.rows = rows(addCtx);
-  show("add");
-});
-
-document.getElementById("nav-songs")?.addEventListener("click", () => {
-  songsState.songs = songRows(songsCtx);
-  show("songs");
-});
-
-const nav = requireElement("nav");
+const songsCtx: SongsCtx = {
+  deck: trialCtx.deck,
+  now: trialCtx.now,
+  songs: SONGS,
+};
 
 function startApp(): void {
-  nav.style.display = "";
-  show("trial");
+  const initialRoute = currentRoute();
+  const router = new RouterController(initialRoute);
+  const ctx: AppCtx = {
+    router,
+    dismissStack: new DismissStack(),
+    trial: trialCtx,
+    patterns: patternsCtx,
+    songs: songsCtx,
+  };
+  const state = appInitialState(initialRoute, ctx);
+  let dispatching = false;
+  let view: AppView;
+  let routerView: RouterView;
+
+  const dispatch = (msg: AppMsg): void => {
+    if (dispatching) throw new Error("dispatch-in-dispatch");
+    dispatching = true;
+    appUpdate(state, msg, ctx, dispatch);
+    view.sync(state);
+    routerView.sync();
+    dispatching = false;
+  };
+
+  state.route = router.update({
+    type: "NAVIGATE",
+    route: initialRoute,
+    kind: "replace",
+  });
+  view = new AppView(app, dispatch, state, ctx);
+  routerView = new RouterView(router, dispatch);
+  routerView.sync();
+  routerView.mount();
 }
 
 const installState = { env: installEnv(window, localStorage) };
 if (shouldShowInstall(installState.env)) {
-  nav.style.display = "none";
   const installView = new InstallView(
     app,
     () => {
