@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
+    "make-icons": "node --experimental-strip-types scripts/make-icons.ts",
     "derive-inventory": "node --experimental-strip-types scripts/derive-inventory.ts"
   },
   "devDependencies": {
@@ -18,6 +19,7 @@
     "jsdom": "^30.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^5.0.0"
   },
   "dependencies": {

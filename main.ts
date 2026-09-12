@@ -1,9 +1,11 @@
+import { registerSW } from "virtual:pwa-register";
 import { soundfontEngine } from "./audio/engine.ts";
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
 import { DeckStore } from "./deck/store.ts";
 import { INVENTORY } from "./inventory/patterns.ts";
 import { SONGS } from "./inventory/songs.ts";
 import type { Midi } from "./music/pitch.ts";
+import { DISMISS_KEY, installEnv, shouldShowInstall } from "./pwa/install.ts";
 import {
   type Msg as AddMsg,
   type AddPatternsCtx,
@@ -13,6 +15,7 @@ import {
   update as addUpdate,
   rows,
 } from "./views/add-patterns.ts";
+import { InstallView } from "./views/install.ts";
 import {
   type SongsCtx,
   type Msg as SongsMsg,
@@ -143,4 +146,27 @@ document.getElementById("nav-songs")?.addEventListener("click", () => {
   show("songs");
 });
 
-show("trial");
+const nav = requireElement("nav");
+
+function startApp(): void {
+  nav.style.display = "";
+  show("trial");
+}
+
+const installState = { env: installEnv(window, localStorage) };
+if (shouldShowInstall(installState.env)) {
+  nav.style.display = "none";
+  const installView = new InstallView(
+    app,
+    () => {
+      localStorage.setItem(DISMISS_KEY, "1");
+      installView.destroy();
+      startApp();
+    },
+    installState,
+  );
+} else {
+  startApp();
+}
+
+registerSW({ immediate: true });
