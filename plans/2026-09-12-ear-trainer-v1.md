@@ -189,7 +189,17 @@ Status: complete. Notes/deviations:
   - `+` binds tighter than `-`: `1+3-5` parses as two events, not three, and `5+1` and `1+5` yield the same id.
   - `noteToMidi` against a hand-written table for a couple of tonics, including negative octaves.
 
-## Audio
+## Audio — DONE
+
+Status: complete. Notes/deviations:
+
+- `smplr@1.0.0` installed. `audio/engine.ts` holds the scheduling arithmetic (`scheduleGroups`, `scheduleDuration`, `patternMidi`) plus `SamplerAudioEngine`.
+- `SamplerAudioEngine` takes an injected `loadInstrument()` returning `{ instrument, currentTime }`, so tests use a fake instrument and the real `AudioContext` is only created inside `unlock()` (the gesture path). `soundfontEngine(instrumentName)` is the production factory.
+- `Instrument` is a two-method structural slice of smplr (`start({note,time,duration})`, `stop()`), which is all the engine needs and all the fake has to implement.
+- Playback before `unlock()` is a silent no-op returning an inert handle.
+- Timing is fixed constants (`CADENCE_TIMING`, `PATTERN_TIMING`) with a 50ms lead-in off `AudioContext.currentTime`. Randomized instrument/rhythm and `tonicMode` wiring are deferred to the trial-flow stage, where the per-trial state that would drive them actually exists.
+- On-device verification (iOS autoplay/unlock, sample loading) still pending — there is no trial UI to exercise it from yet.
+
 
 - Goal: tapping a button plays a cadence, then a pattern, on a real device, and a second tap cuts the first off.
 - Work: `AudioEngine` over smplr `Soundfont`; gesture-gated unlock; scheduling via absolute `AudioContext` times; per-trial randomized instrument and rhythm; tonic per the profile's `tonicMode`.
