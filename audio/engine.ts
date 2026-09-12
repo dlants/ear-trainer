@@ -9,6 +9,7 @@ export type Timing = { spacing: number; duration: number };
 
 export const CADENCE_TIMING: Timing = { spacing: 0.6, duration: 0.75 };
 export const PATTERN_TIMING: Timing = { spacing: 0.5, duration: 0.55 };
+export const NOTE_TIMING: Timing = { spacing: 0, duration: 0.75 };
 
 /**
  * Groups are simultaneity groups in time order: every note in a group shares an
@@ -37,7 +38,13 @@ export function patternMidi(pattern: Pattern, tonic: Midi): Midi[][] {
   return pattern.events.map((e) => e.notes.map((n) => noteToMidi(n, tonic)));
 }
 
-export type PlaybackHandle = { cancel(): void };
+export type PlaybackEnd = "completed" | "cancelled";
+
+export type PlaybackHandle = {
+  readonly durationMs: number;
+  readonly ended: Promise<PlaybackEnd>;
+  cancel(): void;
+};
 
 /** The slice of an smplr instrument this engine depends on. */
 export interface Instrument {
@@ -51,9 +58,14 @@ export interface AudioEngine {
   unlock(): Promise<void>;
   playContext(context: Context, tonic: Midi): PlaybackHandle;
   playPattern(pattern: Pattern, tonic: Midi): PlaybackHandle;
+  playNote(note: Midi): PlaybackHandle;
 }
 
-const NOOP_HANDLE: PlaybackHandle = { cancel() {} };
+const NOOP_HANDLE: PlaybackHandle = {
+  durationMs: 0,
+  ended: Promise.resolve("completed"),
+  cancel() {},
+};
 
 /**
  * `loadInstrument` is injected so tests can supply a fake and so the real
@@ -91,19 +103,49 @@ export class SamplerAudioEngine implements AudioEngine {
     return this.play(patternMidi(pattern, tonic), PATTERN_TIMING);
   }
 
+  playNote(note: Midi): PlaybackHandle {
+    return this.play([[note]], NOTE_TIMING);
+  }
+
   /** Exactly one stream sounds at a time: starting anything cancels the rest. */
   private play(groups: Midi[][], timing: Timing): PlaybackHandle {
     const instrument = this.instrument;
     const clock = this.clock;
     if (!instrument || !clock) return NOOP_HANDLE;
+
     this.current?.cancel();
-    for (const n of scheduleGroups(groups, clock() + 0.05, timing)) {
-      instrument.start(n);
+    const schedulingLead = 0.05;
+    for (const note of scheduleGroups(
+      groups,
+      clock() + schedulingLead,
+      timing,
+    )) {
+      instrument.start(note);
     }
+
+    const durationMs = Math.round(
+      (schedulingLead + scheduleDuration(groups, timing)) * 1000,
+    );
+    let resolveEnded: (end: PlaybackEnd) => void;
+    const ended = new Promise<PlaybackEnd>((resolve) => {
+      resolveEnded = resolve;
+    });
+    let settled = false;
+    const completionTimer = setTimeout(() => {
+      settled = true;
+      if (this.current === handle) this.current = undefined;
+      resolveEnded("completed");
+    }, durationMs);
     const handle: PlaybackHandle = {
+      durationMs,
+      ended,
       cancel: () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(completionTimer);
         instrument.stop();
         if (this.current === handle) this.current = undefined;
+        resolveEnded("cancelled");
       },
     };
     this.current = handle;

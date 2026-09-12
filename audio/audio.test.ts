@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makePattern } from "../music/note.ts";
 import {
   type Instrument,
@@ -51,35 +51,56 @@ describe("scheduleGroups", () => {
 });
 
 describe("playback", () => {
-  it("does nothing before unlock", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("returns an inert, already-completed handle before unlock", async () => {
     const inst = new FakeInstrument();
     const engine = engineWith(inst);
+
+    const handle = engine.playContext("major-cadence", 60);
+
     expect(engine.unlocked).toBe(false);
-    engine.playContext("major-cadence", 60);
+    expect(handle.durationMs).toBe(0);
+    await expect(handle.ended).resolves.toBe("completed");
+    handle.cancel();
     expect(inst.calls).toEqual([]);
   });
 
-  it("stops the previous stream before starting the next", async () => {
+  it("reports the scheduling lead plus note duration and completes on time", async () => {
     const inst = new FakeInstrument();
-    const engine = engineWith(inst);
+    const engine = engineWith(inst, () => 20);
     await engine.unlock();
-    engine.playContext("major-cadence", 60);
-    inst.calls.length = 0;
-    engine.playPattern(makePattern("major-cadence", [{ notes: [n(5)] }]), 60);
-    expect(inst.calls[0]).toBe("stop");
+
+    const handle = engine.playNote(62);
+    let end: string | undefined;
+    void handle.ended.then((result) => {
+      end = result;
+    });
+
+    expect(handle.durationMs).toBe(800);
+    expect(inst.started).toEqual([{ note: 62, time: 20.05, duration: 0.75 }]);
+    await vi.advanceTimersByTimeAsync(799);
+    expect(end).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(end).toBe("completed");
+    expect(inst.calls).not.toContain("stop");
   });
 
-  it("schedules a pattern at absolute times from the audio clock", async () => {
+  it("reports a pattern duration through the final scheduled release", async () => {
     const inst = new FakeInstrument();
     const engine = engineWith(inst, () => 100);
     await engine.unlock();
-    engine.playPattern(
+
+    const handle = engine.playPattern(
       makePattern("major-cadence", [
         { notes: [n(1)] },
         { notes: [n(3), n(5)] },
       ]),
       60,
     );
+
+    expect(handle.durationMs).toBe(1100);
     expect(inst.started).toEqual([
       { note: 60, time: 100.05, duration: PATTERN_TIMING.duration },
       {
@@ -93,5 +114,40 @@ describe("playback", () => {
         duration: PATTERN_TIMING.duration,
       },
     ]);
+    await vi.advanceTimersByTimeAsync(handle.durationMs);
+    await expect(handle.ended).resolves.toBe("completed");
+  });
+
+  it("cancels explicitly once and stops the instrument", async () => {
+    const inst = new FakeInstrument();
+    const engine = engineWith(inst);
+    await engine.unlock();
+    const handle = engine.playNote(60);
+
+    handle.cancel();
+    handle.cancel();
+
+    await expect(handle.ended).resolves.toBe("cancelled");
+    expect(inst.calls.filter((call) => call === "stop")).toHaveLength(1);
+    await vi.runAllTimersAsync();
+    await expect(handle.ended).resolves.toBe("cancelled");
+  });
+
+  it("cancels the previous stream before starting the next", async () => {
+    const inst = new FakeInstrument();
+    const engine = engineWith(inst);
+    await engine.unlock();
+    const first = engine.playContext("major-cadence", 60);
+    inst.calls.length = 0;
+
+    const second = engine.playPattern(
+      makePattern("major-cadence", [{ notes: [n(5)] }]),
+      60,
+    );
+
+    await expect(first.ended).resolves.toBe("cancelled");
+    expect(inst.calls[0]).toBe("stop");
+    expect(inst.calls[1]).toBe("start:67");
+    second.cancel();
   });
 });

@@ -14,7 +14,11 @@ import {
   update,
 } from "./trial.ts";
 
-const HANDLE: PlaybackHandle = { cancel() {} };
+const HANDLE: PlaybackHandle = {
+  durationMs: 0,
+  ended: Promise.resolve("completed"),
+  cancel() {},
+};
 
 class FakeAudio implements AudioEngine {
   unlocked = true;
@@ -28,6 +32,10 @@ class FakeAudio implements AudioEngine {
   }
   playPattern(pattern: Pattern, tonic: Midi): PlaybackHandle {
     this.calls.push(`pattern:${pattern.id}:${tonic}`);
+    return HANDLE;
+  }
+  playNote(note: Midi): PlaybackHandle {
+    this.calls.push(`note:${note}`);
     return HANDLE;
   }
 }
