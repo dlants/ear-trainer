@@ -167,7 +167,17 @@ Status: complete. Notes/deviations:
   - The vendored `vamp.test.ts` passes as-is — confirms the toolchain runs the code the framework expects.
   - A trivial view mounts into a container, syncs on a state change, and destroys cleanly. This is the integration check that matters: it proves the Binder/ref/sync wiring works under this vite+vitest config, not just that TypeScript compiled.
 
-## Music model
+## Music model — DONE
+
+Status: complete. Notes/deviations:
+
+- `cadenceChords(context)` takes no tonic; `cadenceMidi(context, tonic)` in `music/pitch.ts` does the transposition. Keeping the voicing in model space means the same transposition invariant covers cadence and pattern.
+- Voicings are root position: major `I(1,3,5) IV(4↓,6↓,1) V(5↓,7↓,2) I`; minor is the same with `♭3`/`♭6` and a major V.
+- `Result<T>` is defined in `music/format.ts` (`{ ok: true; value } | { ok: false; error }`); nothing else in the repo needed it yet.
+- Octave marks stack (`1^^` = octave 2) and mixed marks cancel; canonical form always re-emits them in the normalized repeated form.
+- Ties in the within-event pitch sort (e.g. `♯4` vs `♭5`) break by degree, so the ordering is total and stable.
+- The solfège formatter is implemented (chromatic syllables, falling back to glyph+natural for `♯3`/`♯7`/`♭1`/`♭4`); the parser is numeric-only.
+- Tests live in a single `music/music.test.ts` rather than one file per module.
 
 - Goal: patterns can be constructed, normalized, identified, formatted, parsed, and converted to MIDI.
 - Tests:
