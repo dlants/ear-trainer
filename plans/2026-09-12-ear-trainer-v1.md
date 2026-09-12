@@ -241,7 +241,19 @@ Status: complete. Notes/deviations:
   - Grading under profile A leaves profile B's deck untouched, asserted through the store's public surface rather than by inspecting keys.
   - Export contains all profiles; import merges by id without clobbering unrelated profiles.
 
-## Trial flow
+## Trial flow — DONE
+
+Status: complete. Notes/deviations:
+
+- `views/trial.ts` holds the state machine (`State`, `Msg`, `update`, `nextTrial`, `canPlayPattern`, `showsNotation`) and `TrialView`. Tests in `views/trial.test.ts` run the reducer against a fake `AudioEngine` and an in-memory-backed `DeckStore`.
+- The trial is reconstructed from the card: `patternFromId` (new, in `music/format.ts`) parses a `PatternId` back into a `Pattern`, since the id *is* the canonical form. No pattern inventory is needed yet.
+- Phases are `presenting | revealing`; grading immediately advances to the next due card, so "graded" is not a resting state.
+- Context and pattern playback are separate buttons rather than an automatic cadence-then-pattern sequence: the engine plays exactly one stream at a time, so chaining would need cross-stream scheduling that isn't worth it for v1. The trial does not auto-play on entry — the first tap is also the iOS unlock gesture.
+- Unlock is handled in the reducer: a `PLAY_*` on a locked engine calls `unlock()` and re-dispatches itself, so the AudioContext is only ever created inside a gesture. Failures land in `state.error`.
+- Audiation gating is symmetric: audiation shows notation and withholds pattern audio until reveal; transcription plays audio and withholds notation.
+- `TrialCtx` injects `now()` and `randomTonic()` so tonic selection and scheduling are deterministic in tests. `main.ts` now mounts `TrialView` (auto-creating a default profile) and the stage-1 `views/hello.ts` was removed.
+- On-device verification still pending, together with the audio stage's.
+
 
 - Goal: a full practice session runs end to end on a phone — context plays, prompt is presented, commit, reveal, grade, next.
 - Work: `views/trial.ts` as a two-phase view, replay controls, chunky two-button layouts, safe-area and `dvh` handling.

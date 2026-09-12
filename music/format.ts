@@ -7,6 +7,7 @@ import {
   makePattern,
   type Note,
   type Pattern,
+  type PatternId,
   sortEventNotes,
 } from "./note.ts";
 
@@ -119,6 +120,16 @@ export function parsePattern(input: string, context: Context): Result<Pattern> {
     events.push({ notes });
   }
   return { ok: true, value: makePattern(context, events) };
+}
+
+/** A `PatternId` is its own canonical form, so it parses straight back. */
+export function patternFromId(id: PatternId): Result<Pattern> {
+  const separator = id.indexOf("|");
+  if (separator === -1) return { ok: false, error: `bad pattern id: ${id}` };
+  return parsePattern(
+    id.slice(separator + 1),
+    id.slice(0, separator) as Context,
+  );
 }
 
 export { canonicalForm } from "./note.ts";
