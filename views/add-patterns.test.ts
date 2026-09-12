@@ -54,6 +54,30 @@ describe("the add screen", () => {
     expect(state.rows.map((r) => r.added)).toEqual([true, true]);
   });
 
+  it("can hide patterns that are already in the card stack", () => {
+    const ctx = makeCtx();
+    ctx.deck.addPattern(INVENTORY[0].id, ctx.now());
+    const state = initialState(ctx);
+
+    update(state, { type: "SET_HIDE_ADDED", value: true }, ctx);
+
+    expect(state.hideAdded).toBe(true);
+    expect(state.rows.filter((row) => !state.hideAdded || !row.added)).toEqual([
+      expect.objectContaining({ id: INVENTORY[1].id }),
+    ]);
+  });
+
+  it("removes a pattern from the card stack", () => {
+    const ctx = makeCtx();
+    ctx.deck.addPattern(INVENTORY[0].id, ctx.now());
+    const state = initialState(ctx);
+
+    update(state, { type: "REMOVE", id: INVENTORY[0].id }, ctx);
+
+    expect(state.rows[0]?.added).toBe(false);
+    expect(Object.keys(ctx.deck.getState().cards)).toHaveLength(0);
+  });
+
   it("adding twice does not duplicate cards", () => {
     const ctx = makeCtx();
     const state = initialState(ctx);

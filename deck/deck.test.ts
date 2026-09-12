@@ -56,6 +56,19 @@ describe("DeckStore", () => {
     expect(store.getState().cards[transcription]?.fsrs.due).toEqual(due);
   });
 
+  it("removePattern removes both modes and persists the change", () => {
+    const storage = memoryStorage();
+    const store = new DeckStore("a", storage);
+    store.addPattern(pattern.id, now);
+
+    store.removePattern(pattern.id);
+
+    expect(Object.keys(store.getState().cards)).toHaveLength(0);
+    expect(
+      Object.keys(new DeckStore("a", storage).getState().cards),
+    ).toHaveLength(0);
+  });
+
   it("only known+got-it schedules further out", () => {
     const dueAfter = (confidence: Confidence, outcome: Outcome): number => {
       const store = new DeckStore("a", memoryStorage());

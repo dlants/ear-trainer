@@ -19,9 +19,12 @@ export type Row = {
   added: boolean;
 };
 
-export type State = { rows: Row[] };
+export type State = { rows: Row[]; hideAdded: boolean };
 
-export type Msg = { type: "ADD"; id: PatternId };
+export type Msg =
+  | { type: "ADD"; id: PatternId }
+  | { type: "REMOVE"; id: PatternId }
+  | { type: "SET_HIDE_ADDED"; value: boolean };
 
 export type AddPatternsCtx = {
   deck: DeckStore;
@@ -50,7 +53,7 @@ export function rows(ctx: AddPatternsCtx): Row[] {
 }
 
 export function initialState(ctx: AddPatternsCtx): State {
-  return { rows: rows(ctx) };
+  return { rows: rows(ctx), hideAdded: false };
 }
 
 export function update(state: State, msg: Msg, ctx: AddPatternsCtx): void {
@@ -59,26 +62,51 @@ export function update(state: State, msg: Msg, ctx: AddPatternsCtx): void {
       ctx.deck.addPattern(msg.id, ctx.now());
       state.rows = rows(ctx);
       break;
+    case "REMOVE":
+      ctx.deck.removePattern(msg.id);
+      state.rows = rows(ctx);
+      break;
+    case "SET_HIDE_ADDED":
+      state.hideAdded = msg.value;
+      break;
   }
 }
 
+const pageClass = cls("add-page");
+const filterClass = cls("add-filter");
 const listClass = cls("add-list");
 const rowClass = cls("add-row");
+const addedRowClass = cls("add-row-in-stack");
 
 mountStyle(`
+.${pageClass} {
+  font-family: system-ui, sans-serif;
+}
+.${filterClass} {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: max(16px, env(safe-area-inset-top)) 16px 4px;
+  font-size: 15px;
+}
+.${filterClass} input {
+  width: 20px;
+  height: 20px;
+}
 .${listClass} {
   list-style: none;
   margin: 0;
-  padding: max(16px, env(safe-area-inset-top)) 16px
-    max(16px, env(safe-area-inset-bottom));
-  font-family: system-ui, sans-serif;
+  padding: 4px 16px max(16px, env(safe-area-inset-bottom));
 }
 .${listClass} .${rowClass} {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
+  padding: 12px 10px;
   border-bottom: 1px solid #ddd;
+}
+.${listClass} .${rowClass}.${addedRowClass} {
+  background: #edf5ee;
 }
 .${listClass} .${rowClass} .label {
   font-size: 24px;
@@ -109,27 +137,34 @@ class RowView implements View<Row, Msg> {
     const labelRef = ref("label");
     const glossRef = ref("gloss");
     const addRef = ref("add");
-    const addedRef = ref("added");
+    const removeRef = ref("remove");
 
     this.container = container;
-    container.className = rowClass;
     container.innerHTML = sanitize`
       <span class="label" data-ref="${labelRef}"></span>
       <span class="gloss" data-ref="${glossRef}"></span>
-      <span data-ref="${addedRef}">added</span>
+      <button type="button" data-ref="${removeRef}">remove</button>
       <button type="button" data-ref="${addRef}">add</button>
     `;
     this.b = new Binder(container, initial);
 
+    this.b.bindClass(container, (s) =>
+      s.added ? `${rowClass} ${addedRowClass}` : rowClass,
+    );
     this.b
       .ref(addRef)
       .addEventListener("click", () =>
         dispatch({ type: "ADD", id: initial.id }),
       );
+    this.b
+      .ref(removeRef)
+      .addEventListener("click", () =>
+        dispatch({ type: "REMOVE", id: initial.id }),
+      );
 
     this.b.bindText(labelRef, (s) => s.label);
     this.b.bindText(glossRef, (s) => s.gloss);
-    this.b.bindVisible(addedRef, (s) => s.added);
+    this.b.bindVisible(removeRef, (s) => s.added);
     this.b.bindVisible(addRef, (s) => !s.added);
   }
 
@@ -152,14 +187,34 @@ export class AddPatternsView implements View<State, Msg> {
     dispatch: (msg: Msg) => void,
     initial: State,
   ) {
+    const hideAddedRef = ref("hide-added");
     const listRef = ref("list");
 
     this.container = container;
-    container.innerHTML = sanitize`<ul class="${listClass}" data-ref="${listRef}"></ul>`;
+    container.innerHTML = sanitize`
+      <section class="${pageClass}">
+        <label class="${filterClass}">
+          <input type="checkbox" data-ref="${hideAddedRef}" />
+          hide patterns already in the card stack
+        </label>
+        <ul class="${listClass}" data-ref="${listRef}"></ul>
+      </section>
+    `;
     this.b = new Binder(container, initial);
 
+    this.b
+      .ref<HTMLInputElement>(hideAddedRef)
+      .addEventListener("change", (event) =>
+        dispatch({
+          type: "SET_HIDE_ADDED",
+          value: (event.currentTarget as HTMLInputElement).checked,
+        }),
+      );
+    this.b.bindChecked(hideAddedRef, (s) => s.hideAdded);
     this.b.bindList(listRef, "li", (s) =>
-      s.rows.map((row) => showKeyed(row.id, RowView, row, {}, dispatch)),
+      s.rows
+        .filter((row) => !s.hideAdded || !row.added)
+        .map((row) => showKeyed(row.id, RowView, row, {}, dispatch)),
     );
   }
 

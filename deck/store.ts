@@ -100,6 +100,17 @@ export class DeckStore {
     if (added) this.persist();
   }
 
+  removePattern(patternId: PatternId): void {
+    let removed = false;
+    for (const mode of MODES) {
+      const id = makeCardId(patternId, mode);
+      if (!this.cards[id]) continue;
+      delete this.cards[id];
+      removed = true;
+    }
+    if (removed) this.persist();
+  }
+
   nextDue(now: Date): DeckCard | undefined {
     let best: DeckCard | undefined;
     for (const card of Object.values(this.cards)) {
