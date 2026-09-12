@@ -75,7 +75,7 @@ function emptyState(page: State["route"]["page"]): State {
   };
 }
 
-function trialContext(): AppCtx["trial"] {
+function trialContext(play: PlayController): AppCtx["trial"] {
   const profile: Profile = {
     id: "p1",
     name: "me",
@@ -88,7 +88,7 @@ function trialContext(): AppCtx["trial"] {
   if (!parsed.ok) throw new Error(parsed.error);
   deck.addPattern(parsed.value.id, new Date("2026-09-11T00:00:00Z"));
   return {
-    audio: new FakeAudio(),
+    play,
     deck,
     profile,
     now: () => new Date("2026-09-12T00:00:00Z"),
@@ -97,7 +97,7 @@ function trialContext(): AppCtx["trial"] {
 }
 
 function appContext(play: PlayController, route: State["route"]): AppCtx {
-  const trial = trialContext();
+  const trial = trialContext(play);
   return {
     play,
     router: new RouterController(route),
@@ -117,7 +117,7 @@ describe("app playback lifecycle", () => {
     const ctx = appContext(play, state.route);
     const sync = vi.fn();
     dispatch = (msg) => {
-      update(state, msg, ctx, dispatch);
+      update(state, msg, ctx);
       sync(state);
     };
 
@@ -140,12 +140,7 @@ describe("app playback lifecycle", () => {
       const state = emptyState(page);
       const ctx = appContext(play, state.route);
 
-      update(
-        state,
-        { type: "NAVIGATE", route: { page: "cards" } },
-        ctx,
-        () => {},
-      );
+      update(state, { type: "NAVIGATE", route: { page: "cards" } }, ctx);
 
       expect(play.stop).toHaveBeenCalledOnce();
     },
@@ -160,12 +155,7 @@ describe("app playback lifecycle", () => {
     const state = emptyState("cards");
     const ctx = appContext(play, state.route);
 
-    update(
-      state,
-      { type: "NAVIGATE", route: { page: "practice" } },
-      ctx,
-      () => {},
-    );
+    update(state, { type: "NAVIGATE", route: { page: "practice" } }, ctx);
 
     expect(play.autoplay).toHaveBeenCalledOnce();
     expect(play.autoplay).toHaveBeenCalledWith([

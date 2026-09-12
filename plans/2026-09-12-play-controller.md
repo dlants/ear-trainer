@@ -240,16 +240,20 @@ Document in `.magenta/skills/design-system/skill.md` that every control which st
 - Decision: same-page navigation does not select or autoplay another trial. The route must actually transition into practice, which keeps unrelated root syncs and redundant navigation from restarting audio.
 - Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
-## 5. Integrate automatic trial playback
+## 5. Integrate automatic trial playback — complete
 
-- Goal: each new transcription trial plays context then prompt; each new audiation presentation plays context only; revealing an audiation trial automatically plays its pattern without replaying context.
-- Tests:
-  - Initial, post-grade, and re-entered transcription trials request context then pattern in order.
-  - Audiation presentation requests context only, while manual pattern playback remains blocked until reveal.
-  - Committing an audiation trial requests only its pattern, without context, and replaces any presentation playback still active or queued.
-  - Committing a transcription trial does not enqueue redundant reveal playback.
-  - Grading while audio is active cancels the old trial before the next trial's sequence starts.
-  - No-due state has no active or queued playback.
+- [x] Goal: each new transcription trial plays context then prompt; each new audiation presentation plays context only; revealing an audiation trial automatically plays its pattern without replaying context.
+- [x] Tests:
+  - [x] Initial, post-grade, and re-entered transcription trials request context then pattern in order.
+  - [x] Audiation presentation requests context only, while manual pattern playback remains blocked until reveal.
+  - [x] Committing an audiation trial requests only its pattern, without context, and replaces any presentation playback still active or queued.
+  - [x] Committing a transcription trial does not enqueue redundant reveal playback.
+  - [x] Grading while audio is active cancels the old trial before the next trial's sequence starts.
+  - [x] No-due state has no active or queued playback.
+- Decision: trial selection and all trial playback requests now live in the trial reducer. `NEXT_TRIAL` and successful grading use one replacement helper, while manual controls call `PlayController.toggle` with stable trial button ids.
+- Decision: trial state starts empty and initial practice startup dispatches `NEXT_TRIAL` immediately after the root and router views mount. This keeps initialization effect-free and avoids selecting a moving tonic twice; entering practice later uses the same reducer path.
+- Decision: audiation reveal calls `autoplay` with only the pattern step, so it atomically replaces any still-playing context. Transcription reveal leaves the existing controller work untouched because its presentation already queued the pattern.
+- Validation: `npm test`, `npm run typecheck`, and `npm run lint` pass for the full project.
 
 ## 6. Add PlayButtonView and migrate sound controls
 

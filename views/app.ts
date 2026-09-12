@@ -1,8 +1,4 @@
-import type {
-  PlayController,
-  PlayMsg,
-  PlayStep,
-} from "../audio/play-controller.ts";
+import type { PlayController, PlayMsg } from "../audio/play-controller.ts";
 import type { Route, RouterController, RouterMsg } from "../router.ts";
 import { Binder, noop, ref, sanitize, show, type View } from "../vamp.ts";
 import {
@@ -66,38 +62,7 @@ export function initialState(route: Route, ctx: AppCtx): State {
   };
 }
 
-function autoplaySelectedTrial(state: TrialState, play: PlayController): void {
-  const trial = state.trial;
-  if (!trial) {
-    play.stop();
-    return;
-  }
-
-  const steps: PlayStep[] = [
-    {
-      buttonId: "trial:context",
-      type: "context",
-      context: trial.pattern.context,
-      tonic: trial.tonic,
-    },
-  ];
-  if (trial.card.mode === "transcription") {
-    steps.push({
-      buttonId: "trial:pattern",
-      type: "pattern",
-      pattern: trial.pattern,
-      tonic: trial.tonic,
-    });
-  }
-  play.autoplay(steps);
-}
-
-export function update(
-  state: State,
-  msg: Msg,
-  ctx: AppCtx,
-  dispatch: (msg: Msg) => void,
-): void {
+export function update(state: State, msg: Msg, ctx: AppCtx): void {
   switch (msg.type) {
     case "NAVIGATE": {
       const previousRoute = state.route;
@@ -111,10 +76,7 @@ export function update(
       }
       state.route = route;
       if (route.page === "practice" && routeChanged) {
-        trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial, (child) =>
-          dispatch({ type: "TRIAL_MSG", msg: child }),
-        );
-        autoplaySelectedTrial(state.trial, ctx.play);
+        trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial);
       } else if (route.page === "cards") {
         state.cards.rows = addRows(ctx.cards);
       } else if (route.page === "songs") {
@@ -127,9 +89,7 @@ export function update(
       ctx.play.update(msg.msg);
       break;
     case "TRIAL_MSG":
-      trialUpdate(state.trial, msg.msg, ctx.trial, (child) =>
-        dispatch({ type: "TRIAL_MSG", msg: child }),
-      );
+      trialUpdate(state.trial, msg.msg, ctx.trial);
       break;
     case "CARDS_MSG":
       addUpdate(state.cards, msg.msg, ctx.cards);

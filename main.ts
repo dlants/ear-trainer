@@ -49,8 +49,12 @@ function startApp(audio: AudioEngine): void {
     profiles.setActive(profile.id);
   }
 
+  let dispatch: (msg: AppMsg) => void;
+  const play = new PlayController(audio, (msg) =>
+    dispatch({ type: "PLAY_MSG", msg }),
+  );
   const trialCtx: TrialCtx = {
-    audio,
+    play,
     deck: new DeckStore(profile.id, localStorage),
     profile,
     now: () => new Date(),
@@ -69,10 +73,6 @@ function startApp(audio: AudioEngine): void {
     now: trialCtx.now,
     inventory: INVENTORY,
   };
-  let dispatch: (msg: AppMsg) => void;
-  const play = new PlayController(audio, (msg) =>
-    dispatch({ type: "PLAY_MSG", msg }),
-  );
   const initialRoute = currentRoute();
   const router = new RouterController(initialRoute);
   const ctx: AppCtx = {
@@ -91,7 +91,7 @@ function startApp(audio: AudioEngine): void {
   dispatch = (msg: AppMsg): void => {
     if (dispatching) throw new Error("dispatch-in-dispatch");
     dispatching = true;
-    appUpdate(state, msg, ctx, dispatch);
+    appUpdate(state, msg, ctx);
     view.sync(state);
     routerView.sync();
     dispatching = false;
@@ -106,6 +106,9 @@ function startApp(audio: AudioEngine): void {
   routerView = new RouterView(router, dispatch);
   routerView.sync();
   routerView.mount();
+  if (initialRoute.page === "practice") {
+    dispatch({ type: "TRIAL_MSG", msg: { type: "NEXT_TRIAL" } });
+  }
 }
 
 const audio = soundfontEngine("acoustic_grand_piano");

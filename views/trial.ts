@@ -1,4 +1,4 @@
-import type { AudioEngine } from "../audio/engine.ts";
+import type { PlayController, PlayStep } from "../audio/play-controller.ts";
 import type { Confidence, DeckCard, Outcome } from "../deck/card.ts";
 import type { Profile } from "../deck/profiles.ts";
 import type { DeckStore } from "../deck/store.ts";
@@ -33,7 +33,7 @@ export type Msg =
   | { type: "ERROR"; message: string };
 
 export type TrialCtx = {
-  audio: AudioEngine;
+  play: PlayController;
   deck: DeckStore;
   profile: Profile;
   now(): Date;
@@ -74,39 +74,70 @@ export function showsNotation(trial: Trial): boolean {
   return trial.card.mode === "audiation" || trial.phase === "revealing";
 }
 
-export function initialState(ctx: TrialCtx): State {
-  return { trial: nextTrial(ctx), error: undefined };
+export function initialState(_ctx: TrialCtx): State {
+  return { trial: undefined, error: undefined };
 }
 
-export function update(
-  state: State,
-  msg: Msg,
-  ctx: TrialCtx,
-  dispatch: (msg: Msg) => void,
-): void {
+function contextStep(trial: Trial): PlayStep {
+  return {
+    buttonId: "trial:context",
+    type: "context",
+    context: trial.pattern.context,
+    tonic: trial.tonic,
+  };
+}
+
+function patternStep(trial: Trial): PlayStep {
+  return {
+    buttonId: "trial:pattern",
+    type: "pattern",
+    pattern: trial.pattern,
+    tonic: trial.tonic,
+  };
+}
+
+function selectNextTrial(state: State, ctx: TrialCtx): void {
+  state.trial = nextTrial(ctx);
+  const trial = state.trial;
+  if (!trial) {
+    ctx.play.stop();
+    return;
+  }
+  ctx.play.autoplay(
+    trial.card.mode === "transcription"
+      ? [contextStep(trial), patternStep(trial)]
+      : [contextStep(trial)],
+  );
+}
+
+export function update(state: State, msg: Msg, ctx: TrialCtx): void {
   switch (msg.type) {
     case "NEXT_TRIAL":
-      state.trial = nextTrial(ctx);
+      selectNextTrial(state, ctx);
       break;
 
-    case "PLAY_CONTEXT":
-      withAudio(state, ctx, dispatch, msg, (trial) => {
-        ctx.audio.playContext(trial.pattern.context, trial.tonic);
-      });
+    case "PLAY_CONTEXT": {
+      const trial = state.trial;
+      if (trial) ctx.play.toggle("trial:context", contextStep(trial));
       break;
+    }
 
-    case "PLAY_PATTERN":
-      withAudio(state, ctx, dispatch, msg, (trial) => {
-        if (!canPlayPattern(trial)) return;
-        ctx.audio.playPattern(trial.pattern, trial.tonic);
-      });
+    case "PLAY_PATTERN": {
+      const trial = state.trial;
+      if (trial && canPlayPattern(trial)) {
+        ctx.play.toggle("trial:pattern", patternStep(trial));
+      }
       break;
+    }
 
     case "COMMIT": {
       const trial = state.trial;
       if (trial?.phase !== "presenting") break;
       trial.confidence = msg.confidence;
       trial.phase = "revealing";
+      if (trial.card.mode === "audiation") {
+        ctx.play.autoplay([patternStep(trial)]);
+      }
       break;
     }
 
@@ -114,7 +145,7 @@ export function update(
       const trial = state.trial;
       if (trial?.phase !== "revealing" || !trial.confidence) break;
       ctx.deck.grade(trial.card.id, trial.confidence, msg.outcome, ctx.now());
-      state.trial = nextTrial(ctx);
+      selectNextTrial(state, ctx);
       break;
     }
 
@@ -122,29 +153,6 @@ export function update(
       state.error = msg.message;
       break;
   }
-}
-
-/**
- * Audio is gesture-gated: the first tap unlocks and re-dispatches itself, so
- * the AudioContext is only ever created from inside a user gesture.
- */
-function withAudio(
-  state: State,
-  ctx: TrialCtx,
-  dispatch: (msg: Msg) => void,
-  msg: Msg,
-  play: (trial: Trial) => void,
-): void {
-  const trial = state.trial;
-  if (!trial) return;
-  if (!ctx.audio.unlocked) {
-    ctx.audio.unlock().then(
-      () => dispatch(msg),
-      (e) => dispatch({ type: "ERROR", message: String(e) }),
-    );
-    return;
-  }
-  play(trial);
 }
 
 const trialClass = cls("trial");
