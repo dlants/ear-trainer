@@ -32,21 +32,21 @@ import {
 export type State = {
   route: Route;
   trial: TrialState;
-  patterns: AddState;
+  cards: AddState;
   songs: SongsState;
 };
 
 export type Msg =
   | RouterMsg
   | { type: "TRIAL_MSG"; msg: TrialMsg }
-  | { type: "PATTERNS_MSG"; msg: AddMsg }
+  | { type: "CARDS_MSG"; msg: AddMsg }
   | { type: "SONGS_MSG"; msg: SongsMsg };
 
 export type AppCtx = {
   router: RouterController;
   dismissStack: DismissStack;
   trial: TrialCtx;
-  patterns: AddPatternsCtx;
+  cards: AddPatternsCtx;
   songs: SongsCtx;
 };
 
@@ -54,7 +54,7 @@ export function initialState(route: Route, ctx: AppCtx): State {
   return {
     route,
     trial: trialInitialState(ctx.trial),
-    patterns: addInitialState(ctx.patterns),
+    cards: addInitialState(ctx.cards),
     songs: songsInitialState(ctx.songs),
   };
 }
@@ -73,8 +73,8 @@ export function update(
         trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial, (child) =>
           dispatch({ type: "TRIAL_MSG", msg: child }),
         );
-      } else if (route.page === "patterns") {
-        state.patterns.rows = addRows(ctx.patterns);
+      } else if (route.page === "cards") {
+        state.cards.rows = addRows(ctx.cards);
       } else {
         const selected = state.songs.songs.find((song) => song.selected)?.id;
         state.songs.songs = songRows(ctx.songs, selected);
@@ -86,8 +86,8 @@ export function update(
         dispatch({ type: "TRIAL_MSG", msg: child }),
       );
       break;
-    case "PATTERNS_MSG":
-      addUpdate(state.patterns, msg.msg, ctx.patterns);
+    case "CARDS_MSG":
+      addUpdate(state.cards, msg.msg, ctx.cards);
       break;
     case "SONGS_MSG":
       songsUpdate(state.songs, msg.msg, ctx.songs);
@@ -129,9 +129,9 @@ export class AppView implements View<State, Msg, AppCtx> {
           return show(TrialView, state.trial, {}, (msg) =>
             dispatch({ type: "TRIAL_MSG", msg }),
           );
-        case "patterns":
-          return show(AddPatternsView, state.patterns, {}, (msg) =>
-            dispatch({ type: "PATTERNS_MSG", msg }),
+        case "cards":
+          return show(AddPatternsView, state.cards, {}, (msg) =>
+            dispatch({ type: "CARDS_MSG", msg }),
           );
         case "songs":
           return show(SongsView, state.songs, {}, (msg) =>

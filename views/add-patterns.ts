@@ -103,10 +103,10 @@ mountStyle(`
   align-items: center;
   gap: 12px;
   padding: 12px 10px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--color-border);
 }
 .${listClass} .${rowClass}.${addedRowClass} {
-  background: #edf5ee;
+  background: var(--color-brand-surface);
 }
 .${listClass} .${rowClass} .label {
   font-size: 24px;
@@ -115,12 +115,12 @@ mountStyle(`
 .${listClass} .${rowClass} .gloss {
   flex: 1;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-muted);
 }
 .${listClass} .${rowClass} button {
   font-size: 16px;
   padding: 12px 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   touch-action: manipulation;
 }
 `);

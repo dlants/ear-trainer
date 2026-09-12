@@ -25,7 +25,7 @@ mountStyle(`
 .${screenClass} button {
   font-size: 18px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   touch-action: manipulation;
 }
 `);

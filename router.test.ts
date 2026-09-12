@@ -16,7 +16,7 @@ describe("router", () => {
   it("round-trips every route", () => {
     const routes = [
       { page: "practice" },
-      { page: "patterns" },
+      { page: "cards" },
       { page: "songs" },
     ] as const;
     for (const route of routes)
@@ -27,10 +27,10 @@ describe("router", () => {
     const controller = new RouterController({ page: "practice" });
     const view = new RouterView(controller, () => {});
 
-    controller.update({ type: "NAVIGATE", route: { page: "patterns" } });
+    controller.update({ type: "NAVIGATE", route: { page: "cards" } });
     view.sync();
 
-    expect(window.location.pathname).toBe("/patterns");
+    expect(window.location.pathname).toBe("/cards");
   });
 
   it("turns local link clicks into navigation messages", () => {

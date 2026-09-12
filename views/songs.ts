@@ -114,7 +114,7 @@ mountStyle(`
   font-family: system-ui, sans-serif;
 }
 .${listClass} .${songClass} {
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--color-border);
   padding: 12px 0;
 }
 .${listClass} .${songClass} .head {
@@ -132,7 +132,7 @@ mountStyle(`
 .${listClass} .${songClass} .head .progress {
   margin-left: auto;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-muted);
 }
 .${listClass} .${songClass} .decomposition {
   font-size: 18px;
@@ -158,7 +158,7 @@ mountStyle(`
   margin-left: auto;
   font-size: 16px;
   padding: 10px 18px;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   touch-action: manipulation;
 }
 `);

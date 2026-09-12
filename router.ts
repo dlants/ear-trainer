@@ -1,6 +1,6 @@
 export type Route =
   | { page: "practice" }
-  | { page: "patterns" }
+  | { page: "cards" }
   | { page: "songs" };
 
 export type UrlWriteKind = "push" | "replace";
@@ -13,8 +13,8 @@ export type RouterMsg = {
 
 export function parseRoute(pathname: string): Route {
   switch (pathname.replace(/\/+$/, "") || "/") {
-    case "/patterns":
-      return { page: "patterns" };
+    case "/cards":
+      return { page: "cards" };
     case "/songs":
       return { page: "songs" };
     default:
@@ -26,8 +26,8 @@ export function routeToPath(route: Route): string {
   switch (route.page) {
     case "practice":
       return "/";
-    case "patterns":
-      return "/patterns";
+    case "cards":
+      return "/cards";
     case "songs":
       return "/songs";
   }

@@ -1,0 +1,63 @@
+import { mountStyle } from "./vamp.ts";
+
+mountStyle(`
+:root {
+  color-scheme: light;
+
+  --color-canvas: #f7f8f5;
+  --color-surface: #ffffff;
+  --color-text: #1c2820;
+  --color-text-muted: #657168;
+  --color-border: #d7ded8;
+
+  --color-brand: #285c3a;
+  --color-brand-strong: #1f4930;
+  --color-brand-active: #3c704e;
+  --color-brand-surface: #edf5ee;
+  --color-brand-border: #79a984;
+
+  --color-unsure: #355f7a;
+  --color-unsure-surface: #eaf2f7;
+  --color-unsure-border: #8aabba;
+
+  --color-incorrect: #843b38;
+  --color-incorrect-surface: #f8e9e7;
+  --color-incorrect-border: #c98b85;
+
+  --color-correct: #215c36;
+  --color-correct-surface: #e2f1e6;
+  --color-correct-border: #69a47a;
+
+  --radius-control: 12px;
+  --focus-ring: 0 0 0 3px rgb(53 95 122 / 28%);
+}
+
+html {
+  background: var(--color-canvas);
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: system-ui, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+`);

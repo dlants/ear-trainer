@@ -1,4 +1,5 @@
 import { registerSW } from "virtual:pwa-register";
+import "./theme.ts";
 import { soundfontEngine } from "./audio/engine.ts";
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
 import { DeckStore } from "./deck/store.ts";
@@ -57,7 +58,7 @@ const trialCtx: TrialCtx = {
   },
 };
 
-const patternsCtx: AddPatternsCtx = {
+const cardsCtx: AddPatternsCtx = {
   deck: trialCtx.deck,
   now: trialCtx.now,
   inventory: INVENTORY,
@@ -76,7 +77,7 @@ function startApp(): void {
     router,
     dismissStack: new DismissStack(),
     trial: trialCtx,
-    patterns: patternsCtx,
+    cards: cardsCtx,
     songs: songsCtx,
   };
   const state = appInitialState(initialRoute, ctx);

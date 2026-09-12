@@ -24,8 +24,8 @@ mountStyle(`
   box-sizing: border-box;
   list-style: none;
   border: 0;
-  border-radius: 12px;
-  background: #1a2238;
+  border-radius: var(--radius-control);
+  background: var(--color-brand-strong);
   color: white;
   cursor: pointer;
   font-size: 27px;
@@ -41,8 +41,8 @@ mountStyle(`
   flex-direction: column;
   min-width: 190px;
   padding: 6px;
-  border-radius: 12px;
-  background: #1a2238;
+  border-radius: var(--radius-control);
+  background: var(--color-brand-strong);
   box-shadow: 0 4px 18px rgb(0 0 0 / 25%);
 }
 .${navClass} .menu-items a {
@@ -53,7 +53,7 @@ mountStyle(`
   font-size: 17px;
 }
 .${navClass} .menu-items a[aria-current="page"] {
-  background: #365078;
+  background: var(--color-brand-active);
 }
 `);
 
@@ -70,7 +70,7 @@ export class NavView implements View<State, never, NavCtx> {
   ) {
     const detailsRef = ref("menu");
     const practiceRef = ref("practice");
-    const patternsRef = ref("patterns");
+    const cardsRef = ref("cards");
     const songsRef = ref("songs");
 
     this.container = container;
@@ -79,7 +79,7 @@ export class NavView implements View<State, never, NavCtx> {
         <summary aria-label="open navigation menu">☰</summary>
         <nav class="menu-items" aria-label="main navigation">
           <a href="${routeToPath({ page: "practice" })}" data-ref="${practiceRef}">practice</a>
-          <a href="${routeToPath({ page: "patterns" })}" data-ref="${patternsRef}">add patterns</a>
+          <a href="${routeToPath({ page: "cards" })}" data-ref="${cardsRef}">cards</a>
           <a href="${routeToPath({ page: "songs" })}" data-ref="${songsRef}">songs</a>
         </nav>
       </details>
@@ -88,8 +88,8 @@ export class NavView implements View<State, never, NavCtx> {
     this.b.bindAttr(practiceRef, "aria-current", (s) =>
       s.route.page === "practice" ? "page" : undefined,
     );
-    this.b.bindAttr(patternsRef, "aria-current", (s) =>
-      s.route.page === "patterns" ? "page" : undefined,
+    this.b.bindAttr(cardsRef, "aria-current", (s) =>
+      s.route.page === "cards" ? "page" : undefined,
     );
     this.b.bindAttr(songsRef, "aria-current", (s) =>
       s.route.page === "songs" ? "page" : undefined,
