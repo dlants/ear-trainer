@@ -1,7 +1,17 @@
 import { soundfontEngine } from "./audio/engine.ts";
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
 import { DeckStore } from "./deck/store.ts";
+import { INVENTORY } from "./inventory/patterns.ts";
 import type { Midi } from "./music/pitch.ts";
+import {
+  type Msg as AddMsg,
+  type AddPatternsCtx,
+  AddPatternsView,
+  type State as AddState,
+  initialState as addInitialState,
+  update as addUpdate,
+  rows,
+} from "./views/add-patterns.ts";
 import {
   initialState,
   type Msg,
@@ -11,8 +21,13 @@ import {
   update,
 } from "./views/trial.ts";
 
-const container = document.getElementById("app");
-if (!container) throw new Error("missing #app");
+function requireElement(id: string): HTMLElement {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`missing #${id}`);
+  return el;
+}
+
+const app = requireElement("app");
 
 const DEFAULT_PROFILE: Profile = {
   id: "default",
@@ -43,15 +58,61 @@ const ctx: TrialCtx = {
   },
 };
 
-const state: State = initialState(ctx);
+const addCtx: AddPatternsCtx = {
+  deck: ctx.deck,
+  now: ctx.now,
+  inventory: INVENTORY,
+};
+
+/**
+ * A real router lands with the app shell; for now the two screens are swapped
+ * by remounting, each with its own dispatch loop.
+ */
+type Page = "trial" | "add";
+
+const trialState: State = initialState(ctx);
+const addState: AddState = addInitialState(addCtx);
+let trialView: TrialView | undefined;
+let addView: AddPatternsView | undefined;
 let dispatching = false;
 
-function dispatch(msg: Msg): void {
-  if (dispatching) throw new Error("dispatch-in-dispatch");
-  dispatching = true;
-  update(state, msg, ctx, dispatch);
-  view.sync(state);
-  dispatching = false;
+function guard<M>(run: (msg: M) => void): (msg: M) => void {
+  return (msg) => {
+    if (dispatching) throw new Error("dispatch-in-dispatch");
+    dispatching = true;
+    run(msg);
+    dispatching = false;
+  };
 }
 
-const view = new TrialView(container, dispatch, state);
+const dispatch = guard<Msg>((msg) => {
+  update(trialState, msg, ctx, dispatch);
+  trialView?.sync(trialState);
+});
+
+const addDispatch = guard<AddMsg>((msg) => {
+  addUpdate(addState, msg, addCtx);
+  addView?.sync(addState);
+});
+
+function show(page: Page): void {
+  trialView?.destroy();
+  addView?.destroy();
+  trialView = undefined;
+  addView = undefined;
+  if (page === "trial") {
+    trialView = new TrialView(app, dispatch, trialState);
+  } else {
+    addView = new AddPatternsView(app, addDispatch, addState);
+  }
+}
+
+document
+  .getElementById("nav-practice")
+  ?.addEventListener("click", () => show("trial"));
+document.getElementById("nav-add")?.addEventListener("click", () => {
+  addState.rows = rows(addCtx);
+  show("add");
+});
+
+show("trial");

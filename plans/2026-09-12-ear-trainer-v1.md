@@ -264,7 +264,17 @@ Status: complete. Notes/deviations:
   - Under `tonicMode: "moving"`, grading advances to a new trial with a freshly randomized tonic; under `"fixed"`, the tonic is the configured one on every trial.
   - Switching `tonicMode` leaves every card's FSRS state untouched.
 
-## Inventory and the add screen
+## Inventory and the add screen — DONE
+
+Status: complete. Notes/deviations:
+
+- The corpus lives in `inventory/corpus.ts` as twelve nursery/folk melodies in degree notation (`CorpusMelody = { id, title, context, melody }`), parsed with the existing `parsePattern`. The songs stage reuses it directly.
+- `scripts/derive-inventory.ts` exports `deriveInventory(corpus, options)` (pure, tested on a fixture) and writes `inventory/patterns.ts` when run as `npm run derive-inventory` (`node --experimental-strip-types`). No new dependency was needed.
+- Candidates come from corpus n-grams rather than from an enumerated theory skeleton: theory supplies the *tiers*, frequency ranks within them. v1 keeps `lengths: [2, 3]` and `minCount: 2`; longer patterns are deferred rather than emitted with counts of one.
+- `Tier` (0-5) and `InventoryEntry` live in `inventory/entry.ts` so the generated file only contains data. Tier = length rank (2 vs 3 notes) × degree rank (triad tones / stepwise fill / tendency tones or accidentals).
+- Repeated-note n-grams (`1-1`) are dropped: they are not intervals and teach nothing.
+- `views/add-patterns.ts` is a `bindList` of row child views; `rows(ctx)` re-reads "added" from the deck every rebuild, so known-ness has exactly one source. The inventory is injected through `AddPatternsCtx` so tests drive a fixture list.
+- `main.ts` gained a two-button nav that remounts between the trial and add screens, each with its own dispatch loop. This is a placeholder for the `views/app.ts` shell, not a router.
 
 - Goal: a "by theory" list you can add patterns from, backed by a generated inventory.
 - Work: `scripts/derive-inventory.ts` (corpus in degree notation → n-gram counts → ranked, tiered inventory), checked-in output, `views/add-patterns.ts`.

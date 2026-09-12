@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "derive-inventory": "node --experimental-strip-types scripts/derive-inventory.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
