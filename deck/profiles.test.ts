@@ -18,11 +18,10 @@ function profile(id: string): Profile {
   return {
     id,
     name: id,
+    drone: true,
     color: "#123456",
-    tonicMode: "fixed",
     tonic: 60,
-    tonicLow: 55,
-    tonicHigh: 67,
+    cadenceSpeed: "medium",
   };
 }
 
@@ -56,15 +55,13 @@ describe("ProfileStore", () => {
     const storage = memoryStorage();
     storage.setItem(
       "profiles",
-      JSON.stringify([
-        { id: "a", name: "a", color: "#123456", tonicMode: "fixed", tonic: 60 },
-      ]),
+      JSON.stringify([{ id: "a", name: "a", color: "#123456", tonic: 60 }]),
     );
 
     const loaded = new ProfileStore(storage).get("a");
 
-    expect(loaded?.tonicLow).toBe(55);
-    expect(loaded?.tonicHigh).toBe(67);
+    expect(loaded?.cadenceSpeed).toBe("medium");
+    expect(loaded?.drone).toBe(true);
   });
 
   it("persists profiles and the active selection", () => {

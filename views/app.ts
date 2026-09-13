@@ -1,3 +1,4 @@
+import type { AudioEngine } from "../audio/engine.ts";
 import type { PlayController, PlayMsg } from "../audio/play-controller.ts";
 import type { Route, RouterController, RouterMsg } from "../router.ts";
 import { Binder, noop, ref, sanitize, show, type View } from "../vamp.ts";
@@ -30,6 +31,13 @@ import {
   update as songsUpdate,
 } from "./songs.ts";
 import {
+  type Msg as StartMsg,
+  type State as StartState,
+  StartView,
+  initialState as startInitialState,
+  update as startUpdate,
+} from "./start.ts";
+import {
   type TrialCtx,
   type Msg as TrialMsg,
   type State as TrialState,
@@ -44,6 +52,8 @@ export type State = {
   cards: AddState;
   songs: SongsState;
   options: OptionsState;
+  start: StartState;
+  audioUnlocked: boolean;
 };
 
 export type Msg =
@@ -52,9 +62,11 @@ export type Msg =
   | { type: "TRIAL_MSG"; msg: TrialMsg }
   | { type: "CARDS_MSG"; msg: AddMsg }
   | { type: "SONGS_MSG"; msg: SongsMsg }
-  | { type: "OPTIONS_MSG"; msg: OptionsMsg };
+  | { type: "OPTIONS_MSG"; msg: OptionsMsg }
+  | { type: "START_MSG"; msg: StartMsg };
 
 export type AppCtx = {
+  audio: AudioEngine;
   play: PlayController;
   router: RouterController;
   dismissStack: DismissStack;
@@ -71,6 +83,8 @@ export function initialState(route: Route, ctx: AppCtx): State {
     cards: addInitialState(ctx.cards),
     songs: songsInitialState(ctx.songs),
     options: optionsInitialState(ctx.options),
+    start: startInitialState(),
+    audioUnlocked: ctx.audio.unlocked,
   };
 }
 
@@ -78,7 +92,7 @@ export function update(
   state: State,
   msg: Msg,
   ctx: AppCtx,
-  _dispatch: (msg: Msg) => void,
+  dispatch: (msg: Msg) => void,
 ): void {
   switch (msg.type) {
     case "NAVIGATE": {
@@ -90,9 +104,10 @@ export function update(
         (previousRoute.page === "practice" || previousRoute.page === "options")
       ) {
         ctx.play.stop();
+        ctx.play.setDrone(undefined);
       }
       state.route = route;
-      if (route.page === "practice" && routeChanged) {
+      if (route.page === "practice" && routeChanged && state.audioUnlocked) {
         trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial);
       } else if (route.page === "cards") {
         state.cards.rows = addRows(ctx.cards);
@@ -118,6 +133,15 @@ export function update(
       break;
     case "OPTIONS_MSG":
       optionsUpdate(state.options, msg.msg, ctx.options);
+      break;
+    case "START_MSG":
+      startUpdate(state.start, msg.msg, { audio: ctx.audio }, (startMsg) =>
+        dispatch({ type: "START_MSG", msg: startMsg }),
+      );
+      if (msg.msg.type === "UNLOCKED") {
+        state.audioUnlocked = true;
+        trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial);
+      }
       break;
   }
 }
@@ -145,7 +169,7 @@ export class AppView implements View<State, Msg, AppCtx> {
     this.b.bindSlot(navRef, (state) =>
       show(
         NavView,
-        { route: state.route },
+        { page: state.route.page },
         { dismissStack: ctx.dismissStack },
         noop,
       ),
@@ -153,6 +177,11 @@ export class AppView implements View<State, Msg, AppCtx> {
     this.b.bindSlot(pageRef, (state) => {
       switch (state.route.page) {
         case "practice":
+          if (!state.audioUnlocked) {
+            return show(StartView, state.start, { audio: ctx.audio }, (msg) =>
+              dispatch({ type: "START_MSG", msg }),
+            );
+          }
           return show(TrialView, state.trial, ctx.trial, (msg) =>
             dispatch({ type: "TRIAL_MSG", msg }),
           );

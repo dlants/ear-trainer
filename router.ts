@@ -83,7 +83,12 @@ export class RouterView {
     const target = event.target;
     if (!(target instanceof Element)) return;
     const link = target.closest("a");
-    if (!link || link.hasAttribute("download")) return;
+    if (
+      !link ||
+      link.hasAttribute("download") ||
+      link.hasAttribute("data-router-ignore")
+    )
+      return;
     if (link.target && link.target !== "_self") return;
     const href = link.getAttribute("href");
     if (!href || href.startsWith("http") || href.startsWith("mailto:")) return;

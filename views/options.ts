@@ -1,9 +1,10 @@
+import type { CadenceSpeed } from "../audio/engine.ts";
 import type {
   PlayButtonId,
   PlayController,
   PlayStep,
 } from "../audio/play-controller.ts";
-import type { Profile, ProfileStore, TonicMode } from "../deck/profiles.ts";
+import type { Profile, ProfileStore } from "../deck/profiles.ts";
 import type { Midi } from "../music/pitch.ts";
 import {
   Binder,
@@ -20,19 +21,15 @@ export const MIN_TONIC: Midi = 36;
 export const MAX_TONIC: Midi = 84;
 
 export type State = {
-  tonicMode: TonicMode;
   tonic: Midi;
-  tonicLow: Midi;
-  tonicHigh: Midi;
+  cadenceSpeed: CadenceSpeed;
   error: string | undefined;
 };
 
 export type Msg =
-  | { type: "SET_MODE"; mode: TonicMode }
   | { type: "SET_TONIC"; tonic: Midi }
-  | { type: "SET_LOW"; tonic: Midi }
-  | { type: "SET_HIGH"; tonic: Midi }
-  | { type: "PREVIEW"; setting: "tonic" | "low" | "high" }
+  | { type: "SET_CADENCE_SPEED"; speed: CadenceSpeed }
+  | { type: "PREVIEW" }
   | { type: "ERROR"; message: string };
 
 export type OptionsCtx = {
@@ -43,10 +40,8 @@ export type OptionsCtx = {
 
 export function initialState(ctx: OptionsCtx): State {
   return {
-    tonicMode: ctx.profile.tonicMode,
     tonic: ctx.profile.tonic,
-    tonicLow: ctx.profile.tonicLow,
-    tonicHigh: ctx.profile.tonicHigh,
+    cadenceSpeed: ctx.profile.cadenceSpeed,
     error: undefined,
   };
 }
@@ -56,50 +51,48 @@ function clamp(tonic: Midi): Midi {
 }
 
 function persist(state: State, ctx: OptionsCtx): void {
-  ctx.profile.tonicMode = state.tonicMode;
   ctx.profile.tonic = state.tonic;
-  ctx.profile.tonicLow = state.tonicLow;
-  ctx.profile.tonicHigh = state.tonicHigh;
+  ctx.profile.cadenceSpeed = state.cadenceSpeed;
   ctx.profiles.save(ctx.profile);
 }
 
-function preview(
+function previewCadence(
   state: State,
-  setting: "tonic" | "low" | "high",
+  speed: CadenceSpeed,
   ctx: OptionsCtx,
 ): void {
-  const note =
-    setting === "tonic"
-      ? state.tonic
-      : setting === "low"
-        ? state.tonicLow
-        : state.tonicHigh;
-  const buttonId: PlayButtonId = `options:${setting}`;
-  const step: PlayStep = { buttonId, type: "note", note };
+  const buttonId: PlayButtonId = `options:cadence:${speed}`;
+  const step: PlayStep = {
+    buttonId,
+    type: "context",
+    context: "major-cadence",
+    tonic: state.tonic,
+    speed,
+  };
+  state.error = undefined;
+  ctx.play.toggle(buttonId, step);
+}
+
+function preview(state: State, ctx: OptionsCtx): void {
+  const buttonId: PlayButtonId = "options:tonic";
+  const step: PlayStep = { buttonId, type: "note", note: state.tonic };
   state.error = undefined;
   ctx.play.toggle(buttonId, step);
 }
 
 export function update(state: State, msg: Msg, ctx: OptionsCtx): void {
   switch (msg.type) {
-    case "SET_MODE":
-      state.tonicMode = msg.mode;
-      persist(state, ctx);
-      break;
     case "SET_TONIC":
       state.tonic = clamp(msg.tonic);
       persist(state, ctx);
       break;
-    case "SET_LOW":
-      state.tonicLow = Math.min(clamp(msg.tonic), state.tonicHigh);
+    case "SET_CADENCE_SPEED":
+      state.cadenceSpeed = msg.speed;
       persist(state, ctx);
-      break;
-    case "SET_HIGH":
-      state.tonicHigh = Math.max(clamp(msg.tonic), state.tonicLow);
-      persist(state, ctx);
+      previewCadence(state, msg.speed, ctx);
       break;
     case "PREVIEW":
-      preview(state, msg.setting, ctx);
+      preview(state, ctx);
       break;
     case "ERROR":
       state.error = msg.message;
@@ -144,7 +137,7 @@ mountStyle(`
   font-size: 30px;
 }
 .${optionsClass} .intro {
-  margin: 0 0 28px;
+  margin: 0 0 16px;
   color: var(--color-text-muted);
   line-height: 1.5;
 }
@@ -182,6 +175,17 @@ mountStyle(`
   width: 20px;
   height: 20px;
   accent-color: var(--color-brand);
+}
+.${optionsClass} .cadence-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.${optionsClass} .cadence-options > div {
+  display: flex;
+}
+.${optionsClass} .cadence-options button {
+  width: 100%;
 }
 .${optionsClass} .${fieldClass} {
   margin-bottom: 22px;
@@ -231,112 +235,55 @@ export class OptionsView implements View<State, Msg, Pick<OptionsCtx, "play">> {
     ctx: Pick<OptionsCtx, "play">,
   ) {
     const errorRef = ref("error");
-    const fixedModeRef = ref("fixed-mode");
-    const movingModeRef = ref("moving-mode");
-    const fixedFieldsRef = ref("fixed-fields");
-    const movingFieldsRef = ref("moving-fields");
     const tonicRef = ref("tonic");
     const tonicButtonRef = ref("tonic-button");
-    const lowRef = ref("low");
-    const lowButtonRef = ref("low-button");
-    const highRef = ref("high");
-    const highButtonRef = ref("high-button");
-    const modeName = ref("tonic-mode");
+    const slowCadenceRef = ref("slow-cadence");
+    const mediumCadenceRef = ref("medium-cadence");
+    const fastCadenceRef = ref("fast-cadence");
 
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${optionsClass}">
         <h1>options</h1>
-        <p class="intro">Choose where the home note (1 / do) sits so every pattern is comfortable to sing or hum.</p>
         <p data-ref="${errorRef}"></p>
         <fieldset>
           <legend>key</legend>
-          <div class="mode-options">
-            <label class="mode-option">
-              <input type="radio" name="${modeName}" value="moving" data-ref="${movingModeRef}">
-              <span>movable key</span>
-            </label>
-            <label class="mode-option">
-              <input type="radio" name="${modeName}" value="fixed" data-ref="${fixedModeRef}">
-              <span>static key</span>
-            </label>
-          </div>
-        </fieldset>
-        <div data-ref="${fixedFieldsRef}">
+          <p class="intro">Choose where the home note (1 / do) sits so every pattern is comfortable to sing or hum.</p>
           <div class="${fieldClass}">
             <div class="field-head">
               <label for="${tonicRef}">home note</label>
               <div class="${playSlotClass}" data-ref="${tonicButtonRef}"></div>
             </div>
-            <input id="${tonicRef}" type="range" min="${MIN_TONIC}" max="${MAX_TONIC}" step="1" data-ref="${tonicRef}">            <div class="octave-ticks" aria-hidden="true">
+            <input id="${tonicRef}" type="range" min="${MIN_TONIC}" max="${MAX_TONIC}" step="1" data-ref="${tonicRef}">
+            <div class="octave-ticks" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span>
             </div>
-
           </div>
-        </div>
-        <div data-ref="${movingFieldsRef}">
-          <div class="${fieldClass}">
-            <div class="field-head">
-              <label for="${lowRef}">lowest home note</label>
-              <div class="${playSlotClass}" data-ref="${lowButtonRef}"></div>
-            </div>
-            <input id="${lowRef}" type="range" min="${MIN_TONIC}" max="${MAX_TONIC}" step="1" data-ref="${lowRef}">            <div class="octave-ticks" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
-
+        </fieldset>
+        <fieldset>
+          <legend>cadence speed</legend>
+          <div class="cadence-options">
+            <div data-ref="${slowCadenceRef}"></div>
+            <div data-ref="${mediumCadenceRef}"></div>
+            <div data-ref="${fastCadenceRef}"></div>
           </div>
-          <div class="${fieldClass}">
-            <div class="field-head">
-              <label for="${highRef}">highest home note</label>
-              <div class="${playSlotClass}" data-ref="${highButtonRef}"></div>
-            </div>
-            <input id="${highRef}" type="range" min="${MIN_TONIC}" max="${MAX_TONIC}" step="1" data-ref="${highRef}">            <div class="octave-ticks" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
-
-          </div>
-          <p class="hint">A new home note is chosen from this range for each trial.</p>
-        </div>
+        </fieldset>
       </section>
     `;
     this.b = new Binder(container, initial);
 
-    this.b
-      .ref<HTMLInputElement>(fixedModeRef)
-      .addEventListener("change", () =>
-        dispatch({ type: "SET_MODE", mode: "fixed" }),
-      );
-    this.b
-      .ref<HTMLInputElement>(movingModeRef)
-      .addEventListener("change", () =>
-        dispatch({ type: "SET_MODE", mode: "moving" }),
-      );
     this.b.ref<HTMLInputElement>(tonicRef).addEventListener("input", (event) =>
       dispatch({
         type: "SET_TONIC",
         tonic: Number((event.target as HTMLInputElement).value),
       }),
     );
-    this.b.ref<HTMLInputElement>(lowRef).addEventListener("input", (event) =>
-      dispatch({
-        type: "SET_LOW",
-        tonic: Number((event.target as HTMLInputElement).value),
-      }),
-    );
-    this.b.ref<HTMLInputElement>(highRef).addEventListener("input", (event) =>
-      dispatch({
-        type: "SET_HIGH",
-        tonic: Number((event.target as HTMLInputElement).value),
-      }),
-    );
-    const bindPlayButton = (
-      slotRef: typeof tonicButtonRef,
-      setting: "tonic" | "low" | "high",
-      ariaLabel: string,
-      note: (state: State) => Midi,
+    const bindCadenceButton = (
+      slotRef: typeof slowCadenceRef,
+      speed: CadenceSpeed,
     ) => {
       this.b.bindSlot(slotRef, (state) => {
-        const id: PlayButtonId = `options:${setting}`;
+        const id: PlayButtonId = `options:cadence:${speed}`;
         const playback = ctx.play.getState();
         const playing =
           playback.status === "playing" && playback.buttonId === id;
@@ -344,62 +291,49 @@ export class OptionsView implements View<State, Msg, Pick<OptionsCtx, "play">> {
           PlayButtonView,
           {
             id,
-            label: noteName(note(state)),
-            ariaLabel,
+            label: speed,
+            ariaLabel: `select ${speed} cadence speed and preview cadence`,
             icon: "play",
             variant: "compact",
             visible: true,
             playing,
+            selected: state.cadenceSpeed === speed,
             durationMs: playing ? playback.durationMs : undefined,
           },
           {},
-          () => dispatch({ type: "PREVIEW", setting }),
+          () => dispatch({ type: "SET_CADENCE_SPEED", speed }),
         );
       });
     };
-    bindPlayButton(
-      tonicButtonRef,
-      "tonic",
-      "play home note",
-      (state) => state.tonic,
-    );
-    bindPlayButton(
-      lowButtonRef,
-      "low",
-      "play lowest home note",
-      (state) => state.tonicLow,
-    );
-    bindPlayButton(
-      highButtonRef,
-      "high",
-      "play highest home note",
-      (state) => state.tonicHigh,
-    );
+    bindCadenceButton(slowCadenceRef, "slow");
+    bindCadenceButton(mediumCadenceRef, "medium");
+    bindCadenceButton(fastCadenceRef, "fast");
+    this.b.bindSlot(tonicButtonRef, (state) => {
+      const id: PlayButtonId = "options:tonic";
+      const playback = ctx.play.getState();
+      const playing = playback.status === "playing" && playback.buttonId === id;
+      return show(
+        PlayButtonView,
+        {
+          id,
+          label: noteName(state.tonic),
+          ariaLabel: "play home note",
+          icon: "play",
+          variant: "compact",
+          visible: true,
+          playing,
+          durationMs: playing ? playback.durationMs : undefined,
+        },
+        {},
+        () => dispatch({ type: "PREVIEW" }),
+      );
+    });
     this.b
       .ref<HTMLInputElement>(tonicRef)
-      .addEventListener("change", () =>
-        dispatch({ type: "PREVIEW", setting: "tonic" }),
-      );
-    this.b
-      .ref<HTMLInputElement>(lowRef)
-      .addEventListener("change", () =>
-        dispatch({ type: "PREVIEW", setting: "low" }),
-      );
-    this.b
-      .ref<HTMLInputElement>(highRef)
-      .addEventListener("change", () =>
-        dispatch({ type: "PREVIEW", setting: "high" }),
-      );
-
+      .addEventListener("change", () => dispatch({ type: "PREVIEW" }));
     this.b.bindText(errorRef, (s) => s.error ?? "");
     this.b.bindVisible(errorRef, (s) => s.error !== undefined);
-    this.b.bindChecked(fixedModeRef, (s) => s.tonicMode === "fixed");
-    this.b.bindChecked(movingModeRef, (s) => s.tonicMode === "moving");
-    this.b.bindVisible(fixedFieldsRef, (s) => s.tonicMode === "fixed");
-    this.b.bindVisible(movingFieldsRef, (s) => s.tonicMode === "moving");
     this.b.bindValue(tonicRef, (s) => String(s.tonic));
-    this.b.bindValue(lowRef, (s) => String(s.tonicLow));
-    this.b.bindValue(highRef, (s) => String(s.tonicHigh));
   }
 
   sync(state: State): void {

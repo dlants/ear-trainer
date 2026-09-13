@@ -1,13 +1,20 @@
 import type { Context, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
-import type { AudioEngine, PlaybackEnd, PlaybackHandle } from "./engine.ts";
+import type {
+  AudioEngine,
+  CadenceSpeed,
+  PlaybackEnd,
+  PlaybackHandle,
+} from "./engine.ts";
 
 export type PlayButtonId =
+  | "trial:drone"
   | "trial:context"
   | "trial:pattern"
   | "options:tonic"
-  | "options:low"
-  | "options:high";
+  | "options:cadence:slow"
+  | "options:cadence:medium"
+  | "options:cadence:fast";
 
 export type PlayStep =
   | {
@@ -15,6 +22,7 @@ export type PlayStep =
       type: "context";
       context: Context;
       tonic: Midi;
+      speed: CadenceSpeed;
     }
   | {
       buttonId: PlayButtonId;
@@ -60,11 +68,7 @@ export class PlayController {
   constructor(
     private readonly audio: AudioEngine,
     private readonly dispatch: (msg: PlayMsg) => void,
-  ) {
-    if (!audio.unlocked) {
-      throw new Error("PlayController requires an unlocked AudioEngine");
-    }
-  }
+  ) {}
 
   getState(): PlayState {
     const active = this.active;
@@ -90,6 +94,14 @@ export class PlayController {
       return;
     }
     this.replace([step]);
+  }
+
+  /**
+   * The drone is deliberately outside the queue: it must survive the cancels
+   * that starting or stopping any other playback performs.
+   */
+  setDrone(tonic: Midi | undefined): void {
+    this.audio.setDrone(tonic);
   }
 
   stop(): void {
@@ -156,7 +168,7 @@ export class PlayController {
   private play(step: PlayStep): PlaybackHandle {
     switch (step.type) {
       case "context":
-        return this.audio.playContext(step.context, step.tonic);
+        return this.audio.playContext(step.context, step.tonic, step.speed);
       case "pattern":
         return this.audio.playPattern(step.pattern, step.tonic);
       case "note":

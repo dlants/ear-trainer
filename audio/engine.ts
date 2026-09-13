@@ -2,14 +2,28 @@ import { Soundfont } from "smplr";
 import type { Context, Pattern } from "../music/note.ts";
 import { cadenceMidi, type Midi, noteToMidi } from "../music/pitch.ts";
 
-export type ScheduledNote = { note: Midi; time: number; duration: number };
+export type ScheduledNote = {
+  note: Midi;
+  time: number;
+  duration: number;
+  velocity: number;
+};
 
 /** Seconds. `spacing` is onset-to-onset; `duration` is how long each note rings. */
+export type CadenceSpeed = "slow" | "medium" | "fast";
 export type Timing = { spacing: number; duration: number };
 
-export const CADENCE_TIMING: Timing = { spacing: 0.6, duration: 0.75 };
+export const CADENCE_TIMINGS: Record<CadenceSpeed, Timing> = {
+  slow: { spacing: 0.45, duration: 0.65 },
+  medium: { spacing: 0.2, duration: 0.4 },
+  fast: { spacing: 0.075, duration: 0.275 },
+};
 export const PATTERN_TIMING: Timing = { spacing: 0.5, duration: 0.55 };
 export const NOTE_TIMING: Timing = { spacing: 0, duration: 0.75 };
+
+const DEFAULT_VELOCITY = 100;
+const CONTEXT_BASS_VELOCITY = 120;
+const CONTEXT_UPPER_VELOCITY = 80;
 
 /**
  * Groups are simultaneity groups in time order: every note in a group shares an
@@ -19,12 +33,14 @@ export function scheduleGroups(
   groups: Midi[][],
   startTime: number,
   timing: Timing,
+  velocityForNote: (noteIndex: number) => number = () => DEFAULT_VELOCITY,
 ): ScheduledNote[] {
   return groups.flatMap((group, i) =>
-    group.map((note) => ({
+    group.map((note, noteIndex) => ({
       note,
       time: startTime + i * timing.spacing,
       duration: timing.duration,
+      velocity: velocityForNote(noteIndex),
     })),
   );
 }
@@ -48,7 +64,18 @@ export type PlaybackHandle = {
 
 /** The slice of an smplr instrument this engine depends on. */
 export interface Instrument {
-  start(event: { note: number; time: number; duration: number }): unknown;
+  /** Returns a stopper for just the voices this call started. */
+  start(event: {
+    note: number;
+    time: number;
+    duration: number;
+    velocity: number;
+  }): () => void;
+}
+
+/** A sustained tonic reference that outlives any individual playback. */
+export interface DroneSource {
+  start(note: Midi): void;
   stop(): void;
 }
 
@@ -56,9 +83,15 @@ export interface AudioEngine {
   readonly unlocked: boolean;
   /** Must be called from a user gesture (iOS autoplay policy). */
   unlock(): Promise<void>;
-  playContext(context: Context, tonic: Midi): PlaybackHandle;
+  playContext(
+    context: Context,
+    tonic: Midi,
+    speed: CadenceSpeed,
+  ): PlaybackHandle;
   playPattern(pattern: Pattern, tonic: Midi): PlaybackHandle;
   playNote(note: Midi): PlaybackHandle;
+  /** `undefined` silences the drone. */
+  setDrone(tonic: Midi | undefined): void;
 }
 
 const NOOP_HANDLE: PlaybackHandle = {
@@ -79,10 +112,13 @@ export class SamplerAudioEngine implements AudioEngine {
     private readonly loadInstrument: () => Promise<{
       instrument: Instrument;
       currentTime: () => number;
+      drone: DroneSource;
     }>,
   ) {}
 
   private clock: (() => number) | undefined;
+  private drone: DroneSource | undefined;
+  private droneNote: Midi | undefined;
 
   get unlocked(): boolean {
     return this.instrument !== undefined;
@@ -90,13 +126,23 @@ export class SamplerAudioEngine implements AudioEngine {
 
   async unlock(): Promise<void> {
     if (this.instrument) return;
-    const { instrument, currentTime } = await this.loadInstrument();
+    const { instrument, currentTime, drone } = await this.loadInstrument();
     this.instrument = instrument;
     this.clock = currentTime;
+    this.drone = drone;
   }
 
-  playContext(context: Context, tonic: Midi): PlaybackHandle {
-    return this.play(cadenceMidi(context, tonic), CADENCE_TIMING);
+  playContext(
+    context: Context,
+    tonic: Midi,
+    speed: CadenceSpeed,
+  ): PlaybackHandle {
+    return this.play(
+      cadenceMidi(context, tonic),
+      CADENCE_TIMINGS[speed],
+      (noteIndex) =>
+        noteIndex === 0 ? CONTEXT_BASS_VELOCITY : CONTEXT_UPPER_VELOCITY,
+    );
   }
 
   playPattern(pattern: Pattern, tonic: Midi): PlaybackHandle {
@@ -107,21 +153,31 @@ export class SamplerAudioEngine implements AudioEngine {
     return this.play([[note]], NOTE_TIMING);
   }
 
+  setDrone(tonic: Midi | undefined): void {
+    if (this.droneNote === tonic) return;
+    this.droneNote = tonic;
+    if (tonic === undefined) this.drone?.stop();
+    else this.drone?.start(tonic);
+  }
+
   /** Exactly one stream sounds at a time: starting anything cancels the rest. */
-  private play(groups: Midi[][], timing: Timing): PlaybackHandle {
+  private play(
+    groups: Midi[][],
+    timing: Timing,
+    velocityForNote?: (noteIndex: number) => number,
+  ): PlaybackHandle {
     const instrument = this.instrument;
     const clock = this.clock;
     if (!instrument || !clock) return NOOP_HANDLE;
 
     this.current?.cancel();
     const schedulingLead = 0.05;
-    for (const note of scheduleGroups(
+    const stoppers = scheduleGroups(
       groups,
       clock() + schedulingLead,
       timing,
-    )) {
-      instrument.start(note);
-    }
+      velocityForNote,
+    ).map((note) => instrument.start(note));
 
     const durationMs = Math.round(
       (schedulingLead + scheduleDuration(groups, timing)) * 1000,
@@ -143,7 +199,7 @@ export class SamplerAudioEngine implements AudioEngine {
         if (settled) return;
         settled = true;
         clearTimeout(completionTimer);
-        instrument.stop();
+        for (const stop of stoppers) stop();
         if (this.current === handle) this.current = undefined;
         resolveEnded("cancelled");
       },
@@ -151,6 +207,66 @@ export class SamplerAudioEngine implements AudioEngine {
     this.current = handle;
     return handle;
   }
+}
+
+const DRONE_GAIN = 0.085;
+const DRONE_FADE = 0.3;
+/** Tonic octaves only: adding a fifth would color the degrees being tested. */
+const DRONE_VOICES = [
+  { semitones: -12, detune: 0 },
+  { semitones: 0, detune: -5 },
+  { semitones: 0, detune: 5 },
+];
+
+function midiToFrequency(note: Midi): number {
+  return 440 * 2 ** ((note - 69) / 12);
+}
+
+/**
+ * Synthesized rather than sampled: soundfont notes decay after a few seconds,
+ * so they cannot hold a tonal reference under a whole trial.
+ */
+function oscillatorDrone(context: AudioContext): DroneSource {
+  let active: { oscillators: OscillatorNode[]; gain: GainNode } | undefined;
+
+  function stop(): void {
+    const current = active;
+    if (!current) return;
+    active = undefined;
+    const now = context.currentTime;
+    current.gain.gain.cancelScheduledValues(now);
+    current.gain.gain.setValueAtTime(current.gain.gain.value, now);
+    current.gain.gain.linearRampToValueAtTime(0, now + DRONE_FADE);
+    for (const oscillator of current.oscillators) {
+      oscillator.stop(now + DRONE_FADE);
+    }
+  }
+
+  return {
+    start(note) {
+      stop();
+      const now = context.currentTime;
+      const filter = context.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 1400;
+      filter.connect(context.destination);
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(DRONE_GAIN, now + DRONE_FADE);
+      gain.connect(filter);
+      const oscillators = DRONE_VOICES.map(({ semitones, detune }) => {
+        const oscillator = context.createOscillator();
+        oscillator.type = "triangle";
+        oscillator.frequency.value = midiToFrequency(note + semitones);
+        oscillator.detune.value = detune;
+        oscillator.connect(gain);
+        oscillator.start(now);
+        return oscillator;
+      });
+      active = { oscillators, gain };
+    },
+    stop,
+  };
 }
 
 export function soundfontEngine(instrumentName: string): SamplerAudioEngine {
@@ -162,6 +278,7 @@ export function soundfontEngine(instrumentName: string): SamplerAudioEngine {
     return {
       instrument: instrument as Instrument,
       currentTime: () => context.currentTime,
+      drone: oscillatorDrone(context),
     };
   });
 }

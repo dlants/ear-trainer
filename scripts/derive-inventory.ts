@@ -92,7 +92,7 @@ export function deriveInventory(
       id,
       tier,
       count,
-      gloss: `${TIER_GLOSS[tier]} — ${count} occurrences in the corpus`,
+      gloss: TIER_GLOSS[tier],
     });
   }
   return entries.sort(

@@ -8,10 +8,13 @@ export type CardId = string & { readonly __brand: "CardId" };
 export type Confidence = "known" | "unsure";
 export type Outcome = "got-it" | "missed";
 
+export type CardStatus = "deck" | "known";
+
 export type DeckCard = {
   id: CardId;
   patternId: PatternId;
   mode: Mode;
+  status: CardStatus;
   fsrs: FsrsCard;
 };
 

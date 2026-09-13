@@ -33,10 +33,9 @@ const DEFAULT_PROFILE: Profile = {
   id: "default",
   name: "me",
   color: "#4478ff",
-  tonicMode: "fixed",
   tonic: 60,
-  tonicLow: 55,
-  tonicHigh: 67,
+  cadenceSpeed: "medium",
+  drone: true,
 };
 
 function startApp(audio: AudioEngine): void {
@@ -56,11 +55,8 @@ function startApp(audio: AudioEngine): void {
     play,
     deck: new DeckStore(activeProfile.id, localStorage),
     profile: activeProfile,
+    profiles,
     now: () => new Date(),
-    randomTonic: () => {
-      const { tonicLow, tonicHigh } = activeProfile;
-      return tonicLow + Math.floor(Math.random() * (tonicHigh - tonicLow + 1));
-    },
   };
   const cardsCtx: AddPatternsCtx = {
     deck: trialCtx.deck,
@@ -75,6 +71,7 @@ function startApp(audio: AudioEngine): void {
   const initialRoute = currentRoute();
   const router = new RouterController(initialRoute);
   const ctx: AppCtx = {
+    audio,
     play,
     router,
     dismissStack: new DismissStack(),
@@ -106,12 +103,13 @@ function startApp(audio: AudioEngine): void {
   routerView = new RouterView(router, dispatch);
   routerView.sync();
   routerView.mount();
-  if (initialRoute.page === "practice") {
+  if (initialRoute.page === "practice" && audio.unlocked) {
     dispatch({ type: "TRIAL_MSG", msg: { type: "NEXT_TRIAL" } });
   }
 }
 
-const audio = soundfontEngine("acoustic_grand_piano");
+// A sung timbre sustains and matches the effector learners answer with.
+const audio = soundfontEngine("voice_oohs");
 startStartup({
   container: app,
   audio,

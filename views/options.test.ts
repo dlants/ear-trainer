@@ -9,6 +9,8 @@ import { type Profile, ProfileStore } from "../deck/profiles.ts";
 import type { KeyValueStore } from "../deck/store.ts";
 import {
   initialState,
+  MAX_TONIC,
+  MIN_TONIC,
   noteName,
   type OptionsCtx,
   OptionsView,
@@ -49,10 +51,9 @@ function setup(): {
     id: "p1",
     name: "me",
     color: "#000000",
-    tonicMode: "fixed",
     tonic: 60,
-    tonicLow: 55,
-    tonicHigh: 67,
+    cadenceSpeed: "medium",
+    drone: true,
   };
   profiles.save(profile);
   const play = new FakePlay();
@@ -64,42 +65,57 @@ function setup(): {
 }
 
 describe("options", () => {
-  it("persists key mode and pitch settings", () => {
+  it("persists the home note", () => {
     const { ctx, storage } = setup();
     const state = initialState(ctx);
-
-    update(state, { type: "SET_MODE", mode: "moving" }, ctx);
-    update(state, { type: "SET_LOW", tonic: 52 }, ctx);
-    update(state, { type: "SET_HIGH", tonic: 64 }, ctx);
-
+    update(state, { type: "SET_TONIC", tonic: 52 }, ctx);
     expect(new ProfileStore(storage).get("p1")).toMatchObject({
-      tonicMode: "moving",
-      tonicLow: 52,
-      tonicHigh: 64,
+      tonic: 52,
+      cadenceSpeed: "medium",
     });
   });
 
-  it("keeps the movable range ordered", () => {
-    const { ctx } = setup();
+  it("persists cadence speed and previews the cadence", () => {
+    const { ctx, storage, play } = setup();
     const state = initialState(ctx);
 
-    update(state, { type: "SET_LOW", tonic: 70 }, ctx);
-    expect(state.tonicLow).toBe(67);
-    update(state, { type: "SET_HIGH", tonic: 50 }, ctx);
-    expect(state.tonicHigh).toBe(67);
+    update(state, { type: "SET_CADENCE_SPEED", speed: "fast" }, ctx);
+
+    expect(state.cadenceSpeed).toBe("fast");
+    expect(new ProfileStore(storage).get("p1")?.cadenceSpeed).toBe("fast");
+    expect(play.toggles).toEqual([
+      {
+        buttonId: "options:cadence:fast",
+        step: {
+          buttonId: "options:cadence:fast",
+          type: "context",
+          context: "major-cadence",
+          tonic: 60,
+          speed: "fast",
+        },
+      },
+    ]);
+  });
+
+  it("clamps the home note to the playable range", () => {
+    const { ctx } = setup();
+    const state = initialState(ctx);
+    update(state, { type: "SET_TONIC", tonic: 200 }, ctx);
+    expect(state.tonic).toBe(MAX_TONIC);
+    update(state, { type: "SET_TONIC", tonic: 0 }, ctx);
+    expect(state.tonic).toBe(MIN_TONIC);
   });
 
   it("plays the released slider's current note", () => {
     const { ctx, play } = setup();
     const state = initialState(ctx);
 
-    update(state, { type: "SET_LOW", tonic: 52 }, ctx);
-    update(state, { type: "PREVIEW", setting: "low" }, ctx);
-
+    update(state, { type: "SET_TONIC", tonic: 52 }, ctx);
+    update(state, { type: "PREVIEW" }, ctx);
     expect(play.toggles).toEqual([
       {
-        buttonId: "options:low",
-        step: { buttonId: "options:low", type: "note", note: 52 },
+        buttonId: "options:tonic",
+        step: { buttonId: "options:tonic", type: "note", note: 52 },
       },
     ]);
   });
@@ -120,27 +136,44 @@ describe("options", () => {
     };
     view = new OptionsView(container, dispatch, state, ctx);
 
+    const intro = container.querySelector(".intro");
+    expect(
+      intro?.closest("fieldset")?.querySelector("legend")?.textContent,
+    ).toBe("key");
+    expect(
+      [...container.querySelectorAll("legend, input[type=range]")].map(
+        (element) => element.tagName,
+      ),
+    ).toEqual(["LEGEND", "INPUT", "LEGEND"]);
+
+    const fastCadence = container.querySelector<HTMLButtonElement>(
+      '[aria-label="select fast cadence speed and preview cadence"]',
+    );
+    expect(fastCadence).not.toBeNull();
+    fastCadence?.click();
+    expect(state.cadenceSpeed).toBe("fast");
+    expect(fastCadence?.getAttribute("aria-pressed")).toBe("true");
+    expect(play.toggles.at(-1)).toMatchObject({
+      buttonId: "options:cadence:fast",
+      step: { type: "context", speed: "fast" },
+    });
+
     const tonicButton = container.querySelector<HTMLButtonElement>(
       '[aria-label="play home note"]',
     );
-    const lowButton = container.querySelector<HTMLButtonElement>(
-      '[aria-label="play lowest home note"]',
-    );
     expect(tonicButton?.textContent?.trim()).toBe("C4");
-    expect(lowButton?.textContent?.trim()).toBe("G3");
     expect(tonicButton?.className).toContain("play-button-compact");
-
-    const lowSlider = container.querySelectorAll<HTMLInputElement>(
+    const tonicSlider = container.querySelector<HTMLInputElement>(
       'input[type="range"]',
-    )[1];
-    lowSlider.value = "52";
-    lowSlider.dispatchEvent(new Event("input", { bubbles: true }));
-    lowSlider.dispatchEvent(new Event("change", { bubbles: true }));
-
-    expect(lowButton?.textContent?.trim()).toBe("E3");
+    );
+    if (!tonicSlider) throw new Error("no tonic slider");
+    tonicSlider.value = "52";
+    tonicSlider.dispatchEvent(new Event("input", { bubbles: true }));
+    tonicSlider.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(tonicButton?.textContent?.trim()).toBe("E3");
     expect(play.toggles.at(-1)).toEqual({
-      buttonId: "options:low",
-      step: { buttonId: "options:low", type: "note", note: 52 },
+      buttonId: "options:tonic",
+      step: { buttonId: "options:tonic", type: "note", note: 52 },
     });
   });
 });

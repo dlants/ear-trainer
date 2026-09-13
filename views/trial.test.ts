@@ -6,6 +6,7 @@ import type {
 } from "../audio/play-controller.ts";
 import { makeCardId } from "../deck/card.ts";
 import type { Profile } from "../deck/profiles.ts";
+import { ProfileStore } from "../deck/profiles.ts";
 import { DeckStore, type KeyValueStore } from "../deck/store.ts";
 import { parsePattern } from "../music/format.ts";
 import type { Pattern } from "../music/note.ts";
@@ -39,6 +40,10 @@ class FakePlay {
     this.calls.push({ type: "toggle", buttonId, step });
   }
 
+  drones: (number | undefined)[] = [];
+  setDrone(tonic: number | undefined): void {
+    this.drones.push(tonic);
+  }
   stop(): void {
     this.calls.push({ type: "stop" });
   }
@@ -65,24 +70,22 @@ function setup(overrides: Partial<Profile> = {}) {
     id: "p1",
     name: "a",
     color: "#000",
-    tonicMode: "fixed",
     tonic: 60,
-    tonicLow: 55,
-    tonicHigh: 67,
+    cadenceSpeed: "medium",
+    drone: true,
     ...overrides,
   };
   const deck = new DeckStore(profile.id, memoryStorage());
+  const profiles = new ProfileStore(memoryStorage());
   const play = new FakePlay();
-  const tonics = [61, 62, 63, 64];
-  let tonicIndex = 0;
   const ctx: TrialCtx = {
     play: play as unknown as PlayController,
     deck,
     profile,
     now: () => new Date("2026-01-01T00:00:00Z"),
-    randomTonic: () => tonics[tonicIndex++ % tonics.length],
+    profiles,
   };
-  return { ctx, deck, play, profile };
+  return { ctx, deck, play, profile, profiles };
 }
 
 function start(ctx: TrialCtx): {
@@ -169,6 +172,7 @@ describe("trial flow", () => {
         type: "context",
         context: trial?.pattern.context,
         tonic: 60,
+        speed: "medium",
       },
       {
         buttonId: "trial:pattern",
@@ -191,6 +195,7 @@ describe("trial flow", () => {
         type: "context",
         context: state.trial?.pattern.context,
         tonic: 60,
+        speed: "medium",
       },
     ]);
     env.play.calls = [];
@@ -236,36 +241,12 @@ describe("trial flow", () => {
     });
   });
 
-  it("uses the configured tonic on every trial when fixed", () => {
+  it("uses the configured tonic on every trial", () => {
     const { state, dispatch } = start(env.ctx);
     expect(state.trial?.tonic).toBe(60);
     dispatch({ type: "COMMIT", confidence: "known" });
     dispatch({ type: "GRADE", outcome: "missed" });
     expect(state.trial?.tonic).toBe(60);
-  });
-
-  it("re-randomizes the tonic per trial when moving", () => {
-    const moving = setup({ tonicMode: "moving" });
-    moving.deck.addPattern(
-      pattern("1-3-5").id,
-      new Date("2025-12-31T00:00:00Z"),
-    );
-    const { state, dispatch } = start(moving.ctx);
-    expect(state.trial?.tonic).toBe(61);
-    dispatch({ type: "COMMIT", confidence: "known" });
-    dispatch({ type: "GRADE", outcome: "missed" });
-    expect(state.trial?.tonic).toBe(62);
-  });
-
-  it("leaves FSRS state untouched when tonicMode changes", () => {
-    const { dispatch } = start(env.ctx);
-    dispatch({ type: "COMMIT", confidence: "known" });
-    dispatch({ type: "GRADE", outcome: "got-it" });
-    const graded = JSON.stringify(env.deck.getState().cards);
-
-    env.ctx.profile.tonicMode = "moving";
-    start(env.ctx);
-    expect(JSON.stringify(env.deck.getState().cards)).toBe(graded);
   });
 
   it("replaces active trial playback when grading selects the next trial", () => {
@@ -279,11 +260,73 @@ describe("trial flow", () => {
     expect(expectAutoplay(env.play.calls[0])).toHaveLength(1);
   });
 
+  it("holds the trial tonic under the drone by default", () => {
+    start(env.ctx);
+    expect(env.play.drones).toEqual([60]);
+  });
+  it("toggling the drone persists on the profile and survives the next trial", () => {
+    const { dispatch } = start(env.ctx);
+
+    dispatch({ type: "TOGGLE_DRONE" });
+
+    expect(env.profile.drone).toBe(false);
+    expect(env.profiles.get("p1")?.drone).toBe(false);
+    expect(env.play.drones.at(-1)).toBeUndefined();
+
+    dispatch({ type: "COMMIT", confidence: "known" });
+    dispatch({ type: "GRADE", outcome: "got-it" });
+    expect(env.play.drones.at(-1)).toBeUndefined();
+  });
+  it("clears the drone when nothing is due", () => {
+    const empty = setup();
+    start(empty.ctx);
+    expect(empty.play.drones).toEqual([undefined]);
+  });
   it("stops playback when nothing is due", () => {
     const empty = setup();
     const { state } = start(empty.ctx);
     expect(state.trial).toBeUndefined();
     expect(empty.play.calls).toEqual([{ type: "stop" }]);
+  });
+
+  it("shows mode-specific instructions and the confident action", () => {
+    const { state, dispatch } = start(env.ctx);
+    const container = document.createElement("div");
+    const view = new TrialView(container, dispatch, state, env.ctx);
+
+    expect(container.textContent).toContain("identify the notes");
+    expect(container.textContent).toContain("confident");
+
+    withMode(state, env.deck, "audiation");
+    view.sync(state);
+    expect(container.textContent).toContain("sing these notes");
+  });
+
+  it("renders sequence spacing, stacked harmonies, and octave modifiers", () => {
+    const { state, dispatch } = start(env.ctx);
+    const trial = state.trial;
+    if (!trial) throw new Error("no trial");
+    state.trial = {
+      ...trial,
+      pattern: pattern("5^-3v-1+3+5"),
+      phase: "revealing",
+    };
+    const container = document.createElement("div");
+    new TrialView(container, dispatch, state, env.ctx);
+
+    const events = [...container.querySelectorAll("[data-notation-event]")];
+    expect(events).toHaveLength(3);
+    expect(
+      events.map((event) =>
+        [...event.querySelectorAll("[data-notation-note]")]
+          .map((note) => note.textContent?.trim())
+          .join(""),
+      ),
+    ).toEqual(["5↑", "3↓", "135"]);
+    expect(events[2]?.querySelectorAll("[data-notation-note]")).toHaveLength(3);
+    expect(events[0]?.querySelector("sup")?.textContent).toBe("↑");
+    expect(events[1]?.querySelector("sub")?.textContent).toBe("↓");
+    expect(container.textContent).not.toContain("5↑-");
   });
 
   it("moves the active treatment from context to pattern during autoplay", () => {

@@ -34,6 +34,27 @@ describe("router", () => {
     expect(window.location.pathname).toBe("/cards");
   });
 
+  it("leaves router-ignored links to native navigation", () => {
+    const messages: RouterMsg[] = [];
+    const controller = new RouterController({ page: "practice" });
+    const view = new RouterView(controller, (msg) => messages.push(msg));
+    const link = document.createElement("a");
+    link.href = "/";
+    link.setAttribute("data-router-ignore", "");
+    document.body.append(link);
+    view.mount();
+
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
+    link.dispatchEvent(event);
+
+    expect(messages).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+    view.destroy();
+  });
+
   it("turns local link clicks into navigation messages", () => {
     const messages: RouterMsg[] = [];
     const controller = new RouterController({ page: "practice" });

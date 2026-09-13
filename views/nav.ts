@@ -2,7 +2,7 @@ import { type Route, routeToPath } from "../router.ts";
 import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
 import type { DismissStack } from "./dropdown.ts";
 
-export type State = { route: Route };
+export type State = { page: Route["page"] | "about" };
 export type NavCtx = { dismissStack: DismissStack };
 
 const navClass = cls("burger-nav");
@@ -73,6 +73,7 @@ export class NavView implements View<State, never, NavCtx> {
     const cardsRef = ref("cards");
     const songsRef = ref("songs");
     const optionsRef = ref("options");
+    const aboutRef = ref("about");
 
     this.container = container;
     container.innerHTML = sanitize`
@@ -83,21 +84,25 @@ export class NavView implements View<State, never, NavCtx> {
           <a href="${routeToPath({ page: "cards" })}" data-ref="${cardsRef}">cards</a>
           <a href="${routeToPath({ page: "songs" })}" data-ref="${songsRef}">songs</a>
           <a href="${routeToPath({ page: "options" })}" data-ref="${optionsRef}">options</a>
+          <a href="/about" data-router-ignore data-ref="${aboutRef}">about</a>
         </nav>
       </details>
     `;
     this.b = new Binder(container, initial);
     this.b.bindAttr(practiceRef, "aria-current", (s) =>
-      s.route.page === "practice" ? "page" : undefined,
+      s.page === "practice" ? "page" : undefined,
     );
     this.b.bindAttr(cardsRef, "aria-current", (s) =>
-      s.route.page === "cards" ? "page" : undefined,
+      s.page === "cards" ? "page" : undefined,
     );
     this.b.bindAttr(songsRef, "aria-current", (s) =>
-      s.route.page === "songs" ? "page" : undefined,
+      s.page === "songs" ? "page" : undefined,
     );
     this.b.bindAttr(optionsRef, "aria-current", (s) =>
-      s.route.page === "options" ? "page" : undefined,
+      s.page === "options" ? "page" : undefined,
+    );
+    this.b.bindAttr(aboutRef, "aria-current", (s) =>
+      s.page === "about" ? "page" : undefined,
     );
 
     const details = this.b.ref<HTMLDetailsElement>(detailsRef);

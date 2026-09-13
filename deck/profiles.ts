@@ -1,16 +1,15 @@
+import type { CadenceSpeed } from "../audio/engine.ts";
 import type { Midi } from "../music/pitch.ts";
 import type { KeyValueStore } from "./store.ts";
-
-export type TonicMode = "fixed" | "moving";
 
 export type Profile = {
   id: string;
   name: string;
   color: string;
-  tonicMode: TonicMode;
   tonic: Midi;
-  tonicLow: Midi;
-  tonicHigh: Midi;
+  cadenceSpeed: CadenceSpeed;
+  /** Holds the tonic audible under every trial. */
+  drone: boolean;
 };
 
 /** A profile plus the raw deck blobs belonging to it, for export/import. */
@@ -24,14 +23,14 @@ export type ExportPayload = { profiles: ProfileExport[] };
 
 const PROFILES_KEY = "profiles";
 const ACTIVE_KEY = "profile:active";
-export const DEFAULT_TONIC_LOW: Midi = 55;
-export const DEFAULT_TONIC_HIGH: Midi = 67;
+export const DEFAULT_CADENCE_SPEED: CadenceSpeed = "medium";
+export const DEFAULT_DRONE = true;
 
 function normalizeProfile(profile: Profile): Profile {
   return {
     ...profile,
-    tonicLow: profile.tonicLow ?? DEFAULT_TONIC_LOW,
-    tonicHigh: profile.tonicHigh ?? DEFAULT_TONIC_HIGH,
+    cadenceSpeed: profile.cadenceSpeed ?? DEFAULT_CADENCE_SPEED,
+    drone: profile.drone ?? DEFAULT_DRONE,
   };
 }
 

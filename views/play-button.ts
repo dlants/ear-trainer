@@ -1,8 +1,8 @@
 import type { PlayButtonId } from "../audio/play-controller.ts";
-import { keyIcon, playIcon } from "../icons.ts";
+import { droneIcon, keyIcon, playIcon } from "../icons.ts";
 import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
 
-export type PlayButtonIcon = "key" | "play";
+export type PlayButtonIcon = "key" | "play" | "drone";
 export type PlayButtonVariant = "trial" | "compact";
 
 export type PlayButtonState = {
@@ -13,6 +13,7 @@ export type PlayButtonState = {
   variant: PlayButtonVariant;
   visible: boolean;
   playing: boolean;
+  selected?: boolean;
   durationMs: number | undefined;
 };
 
@@ -22,6 +23,7 @@ const buttonClass = cls("play-button");
 const trialClass = cls("play-button-trial");
 const compactClass = cls("play-button-compact");
 const playingClass = cls("play-button-playing");
+const selectedClass = cls("play-button-selected");
 const contentClass = cls("play-button-content");
 
 mountStyle(`
@@ -76,6 +78,10 @@ mountStyle(`
 .${buttonClass}.${compactClass} svg {
   font-size: 0.95em;
 }
+.${buttonClass}.${selectedClass} {
+  border-color: var(--color-brand-border);
+  background: var(--color-brand-surface);
+}
 @keyframes play-button-sweep {
   to { transform: scaleX(1); }
 }
@@ -99,7 +105,8 @@ export class PlayButtonView implements View<PlayButtonState, PlayButtonMsg> {
   ) {
     const buttonRef = ref("button");
     const labelRef = ref("label");
-    const icon = initial.icon === "key" ? keyIcon() : playIcon();
+    const icons = { key: keyIcon, play: playIcon, drone: droneIcon };
+    const icon = icons[initial.icon]();
 
     this.container = container;
     container.innerHTML = sanitize`
@@ -121,13 +128,14 @@ export class PlayButtonView implements View<PlayButtonState, PlayButtonMsg> {
         buttonClass,
         state.variant === "trial" ? trialClass : compactClass,
         state.playing ? playingClass : "",
+        state.selected ? selectedClass : "",
       ]
         .filter(Boolean)
         .join(" "),
     );
     this.b.bindAttr(buttonRef, "aria-label", (state) => state.ariaLabel);
     this.b.bindAttr(buttonRef, "aria-pressed", (state) =>
-      String(state.playing),
+      String(state.selected ?? state.playing),
     );
     this.b.bindAttr(buttonRef, "aria-busy", (state) =>
       state.playing ? "true" : undefined,

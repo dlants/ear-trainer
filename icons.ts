@@ -19,6 +19,17 @@ export function playIcon(): RawHtml {
   );
 }
 
+/** A sustained tonal reference: a held tone with radiating waves. */
+export function droneIcon(): RawHtml {
+  return svg(
+    '<path d="M12 8v8"/><path d="M8.5 9.5a4 4 0 0 0 0 5"/><path d="M15.5 9.5a4 4 0 0 1 0 5"/><path d="M5.5 6.5a8 8 0 0 0 0 11"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/>',
+  );
+}
+
+export function chevronIcon(): RawHtml {
+  return svg('<path d="m9 18 6-6-6-6"/>');
+}
+
 export function questionIcon(): RawHtml {
   return svg(
     '<path d="M8.8 8a3.5 3.5 0 1 1 6.8 1.2c0 2.3-3.6 2.3-3.6 5"/><path d="M12 19h.01"/>',

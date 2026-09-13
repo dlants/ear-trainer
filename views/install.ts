@@ -46,7 +46,7 @@ export class InstallView implements View<State, Msg> {
     this.container = container;
     container.innerHTML = sanitize`
       <div class="${screenClass}">
-        <h1>install ear trainer</h1>
+        <h1>install the ecological ear trainer</h1>
         <p>
           add it to your home screen so it opens offline and your practice
           history is never evicted by the browser.
@@ -54,7 +54,7 @@ export class InstallView implements View<State, Msg> {
         <ol data-ref="${stepsRef}">
           <li>tap the share button in Safari's toolbar</li>
           <li>choose "Add to Home Screen"</li>
-          <li>open ear trainer from the home screen icon</li>
+          <li>open the ecological ear trainer from the home screen icon</li>
         </ol>
         <p data-ref="${otherRef}">
           use your browser's "install" or "add to home screen" action.

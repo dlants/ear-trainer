@@ -73,9 +73,14 @@ mountStyle(`
   font-size: 18px;
   touch-action: manipulation;
 }
+.${screenClass} .about-link {
+  align-self: center;
+  color: var(--color-brand);
+  text-underline-offset: 3px;
+}
 `);
 
-export class StartView implements View<State, Msg> {
+export class StartView implements View<State, Msg, StartCtx> {
   container: HTMLElement;
   private readonly b: Binder<State>;
 
@@ -83,6 +88,7 @@ export class StartView implements View<State, Msg> {
     container: HTMLElement,
     dispatch: (msg: Msg) => void,
     initial: State,
+    _ctx: StartCtx,
   ) {
     const errorRef = ref("error");
     const startRef = ref("start");
@@ -90,10 +96,11 @@ export class StartView implements View<State, Msg> {
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${screenClass}">
-        <h1>ear trainer</h1>
+        <h1>the ecological ear trainer</h1>
         <p>Turn on sound to begin practicing.</p>
         <p class="${errorClass}" data-ref="${errorRef}" role="alert"></p>
         <button type="button" data-ref="${startRef}"></button>
+        <a class="about-link" href="/about" data-router-ignore>about</a>
       </section>
     `;
     this.b = new Binder(container, initial);

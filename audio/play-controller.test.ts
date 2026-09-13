@@ -40,6 +40,11 @@ class FakeAudio implements AudioEngine {
 
   async unlock(): Promise<void> {}
 
+  drone: Midi | undefined;
+  setDrone(tonic: Midi | undefined): void {
+    this.drone = tonic;
+    this.calls.push(`drone:${tonic ?? "off"}`);
+  }
   enqueue(handle: ControlledHandle): void {
     this.queuedHandles.push(handle);
   }
@@ -74,6 +79,7 @@ const contextStep: PlayStep = {
   type: "context",
   context: "major-cadence",
   tonic: 60,
+  speed: "medium",
 };
 const patternStep: PlayStep = {
   buttonId: "trial:pattern",
@@ -82,7 +88,7 @@ const patternStep: PlayStep = {
   tonic: 60,
 };
 const noteStep: PlayStep = {
-  buttonId: "options:low",
+  buttonId: "options:tonic",
   type: "note",
   note: 55,
 };
@@ -98,15 +104,6 @@ async function settlePromises(): Promise<void> {
 }
 
 describe("PlayController", () => {
-  it("requires audio to be unlocked before construction", () => {
-    const audio = new FakeAudio();
-    audio.unlocked = false;
-
-    expect(() => new PlayController(audio, () => {})).toThrow(
-      "PlayController requires an unlocked AudioEngine",
-    );
-  });
-
   it("advances a two-step autoplay only after natural completion", async () => {
     const audio = new FakeAudio();
     audio.enqueue(new ControlledHandle(1250));
@@ -158,13 +155,13 @@ describe("PlayController", () => {
     const { audio, controller, messages } = setup();
     controller.autoplay([contextStep, patternStep]);
 
-    controller.toggle("options:low", noteStep);
+    controller.toggle("options:tonic", noteStep);
 
     expect(audio.handles[0].cancelCount).toBe(1);
     expect(audio.calls).toEqual(["context:major-cadence:60", "note:55"]);
     expect(controller.getState()).toEqual({
       status: "playing",
-      buttonId: "options:low",
+      buttonId: "options:tonic",
       durationMs: 800,
       queueLength: 0,
     });
@@ -173,7 +170,7 @@ describe("PlayController", () => {
     expect(audio.calls).toEqual(["context:major-cadence:60", "note:55"]);
     expect(controller.getState()).toMatchObject({
       status: "playing",
-      buttonId: "options:low",
+      buttonId: "options:tonic",
     });
   });
 
@@ -184,7 +181,7 @@ describe("PlayController", () => {
     audio.enqueue(new ControlledHandle(800));
     const { controller, messages } = setup(audio);
     controller.autoplay([contextStep, patternStep]);
-    controller.toggle("options:low", noteStep);
+    controller.toggle("options:tonic", noteStep);
 
     staleHandle.complete();
     await settlePromises();
@@ -193,7 +190,7 @@ describe("PlayController", () => {
     expect(audio.calls).toEqual(["context:major-cadence:60", "note:55"]);
     expect(controller.getState()).toMatchObject({
       status: "playing",
-      buttonId: "options:low",
+      buttonId: "options:tonic",
     });
   });
 

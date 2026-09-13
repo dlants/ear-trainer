@@ -3,7 +3,7 @@ services:
     runtime: static
     name: ear-trainer
     repo: https://github.com/dlants/ear-trainer
-    branch: ear-trainer-v1
+    branch: main
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     routes:

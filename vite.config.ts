@@ -14,8 +14,8 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
       },
       manifest: {
-        name: "ear trainer",
-        short_name: "ear trainer",
+        name: "the ecological ear trainer",
+        short_name: "eco ear trainer",
         description: "functional ear training drills",
         start_url: "/",
         scope: "/",

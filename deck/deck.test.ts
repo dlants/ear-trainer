@@ -1,4 +1,4 @@
-import { Rating } from "ts-fsrs";
+import { Rating, State } from "ts-fsrs";
 import { describe, expect, it } from "vitest";
 import { makePattern } from "../music/note.ts";
 import {
@@ -25,6 +25,18 @@ const pattern = makePattern("major-cadence", [
   { notes: [{ degree: 3, alteration: 0, octave: 0 }] },
 ]);
 const transcription = makeCardId(pattern.id, "transcription");
+const octaveVariant = makePattern("major-cadence", [
+  { notes: [{ degree: 1, alteration: 0, octave: 1 }] },
+  { notes: [{ degree: 3, alteration: 0, octave: -1 }] },
+]);
+const secondPattern = makePattern("major-cadence", [
+  { notes: [{ degree: 5, alteration: 0, octave: 0 }] },
+  { notes: [{ degree: 3, alteration: 0, octave: 0 }] },
+]);
+const thirdPattern = makePattern("major-cadence", [
+  { notes: [{ degree: 4, alteration: 0, octave: 0 }] },
+  { notes: [{ degree: 2, alteration: 0, octave: 0 }] },
+]);
 
 const now = new Date("2026-01-01T00:00:00Z");
 
@@ -54,6 +66,76 @@ describe("DeckStore", () => {
     store.addPattern(pattern.id, now);
     expect(Object.keys(store.getState().cards)).toHaveLength(2);
     expect(store.getState().cards[transcription]?.fsrs.due).toEqual(due);
+  });
+
+  it("projects per-mode FSRS progress without assigning recall to new cards", () => {
+    const store = new DeckStore("a", memoryStorage());
+    expect(store.progressForPattern(pattern.id, now)).toEqual([]);
+
+    store.addPattern(pattern.id, now);
+    expect(store.progressForPattern(pattern.id, now)).toEqual([
+      expect.objectContaining({
+        mode: "transcription",
+        state: State.New,
+        retrievability: undefined,
+        reps: 0,
+        lapses: 0,
+        stability: 0,
+        difficulty: 0,
+      }),
+      expect.objectContaining({
+        mode: "audiation",
+        state: State.New,
+        retrievability: undefined,
+      }),
+    ]);
+
+    store.grade(transcription, "known", "got-it", now);
+    const progress = store.progressForPattern(
+      pattern.id,
+      new Date("2026-01-01T00:05:00Z"),
+    );
+    expect(progress[0]).toEqual(
+      expect.objectContaining({
+        mode: "transcription",
+        state: State.Learning,
+        reps: 1,
+        retrievability: expect.any(Number),
+      }),
+    );
+    expect(progress[1]?.retrievability).toBeUndefined();
+  });
+
+  it("moves a pattern between the deck and known without resetting progress", () => {
+    const storage = memoryStorage();
+    const store = new DeckStore("a", storage);
+    store.addPattern(pattern.id, now);
+    store.grade(transcription, "known", "got-it", now);
+    const due = store.getState().cards[transcription]?.fsrs.due;
+
+    store.markPatternKnown(pattern.id);
+
+    expect(store.patternStatus(pattern.id)).toBe("known");
+    expect(store.nextDue(now)).toBeUndefined();
+    expect(new DeckStore("a", storage).patternStatus(pattern.id)).toBe("known");
+
+    store.addPattern(pattern.id, now);
+
+    expect(store.patternStatus(pattern.id)).toBe("deck");
+    expect(store.getState().cards[transcription]?.fsrs.due).toEqual(due);
+  });
+
+  it("loads cards written before statuses existed as deck cards", () => {
+    const storage = memoryStorage();
+    const store = new DeckStore("a", storage);
+    store.addPattern(pattern.id, now);
+    const persisted = JSON.parse(
+      storage.data["profile:a:cards"] ?? "{}",
+    ) as Record<string, { status?: string }>;
+    for (const card of Object.values(persisted)) delete card.status;
+    storage.data["profile:a:cards"] = JSON.stringify(persisted);
+
+    expect(new DeckStore("a", storage).patternStatus(pattern.id)).toBe("deck");
   });
 
   it("removePattern removes both modes and persists the change", () => {
@@ -111,6 +193,49 @@ describe("DeckStore", () => {
     expect(after?.fsrs.last_review).toBeInstanceOf(Date);
     expect(after).toEqual(before);
     expect(reloaded.getState().log).toEqual(store.getState().log);
+  });
+
+  it("keeps reverse cards apart when other cards are due", () => {
+    const store = new DeckStore("a", memoryStorage());
+    for (const candidate of [pattern, secondPattern, thirdPattern]) {
+      store.addPattern(candidate.id, now);
+    }
+
+    const selectedPatternIds = [];
+    for (let index = 0; index < 4; index += 1) {
+      const card = store.nextDue(now);
+      if (!card) throw new Error("missing due card");
+      selectedPatternIds.push(card.patternId);
+      store.grade(card.id, "known", "got-it", now);
+    }
+
+    expect(selectedPatternIds).toEqual([
+      pattern.id,
+      secondPattern.id,
+      thirdPattern.id,
+      pattern.id,
+    ]);
+  });
+
+  it("treats octave variants as siblings", () => {
+    const store = new DeckStore("a", memoryStorage());
+    for (const candidate of [pattern, octaveVariant, secondPattern]) {
+      store.addPattern(candidate.id, now);
+    }
+
+    const first = store.nextDue(now);
+    if (!first) throw new Error("missing due card");
+    store.grade(first.id, "known", "got-it", now);
+
+    expect(store.nextDue(now)?.patternId).toBe(secondPattern.id);
+  });
+
+  it("falls back to a recent sibling when no other card is due", () => {
+    const store = new DeckStore("a", memoryStorage());
+    store.addPattern(pattern.id, now);
+    store.grade(transcription, "known", "got-it", now);
+
+    expect(store.nextDue(now)?.id).toBe(makeCardId(pattern.id, "audiation"));
   });
 
   it("nextDue returns nothing when every card is in the future", () => {

@@ -120,19 +120,19 @@ describe("noteToMidi", () => {
 
   it("voices a major cadence as I-IV-V-I", () => {
     expect(cadenceMidi("major-cadence", 60)).toEqual([
-      [60, 64, 67],
-      [53, 57, 60],
-      [55, 59, 62],
-      [60, 64, 67],
+      [48, 64],
+      [53, 57],
+      [55, 59],
+      [48, 60],
     ]);
   });
 
   it("voices a minor cadence as i-iv-V-i", () => {
     expect(cadenceMidi("minor-cadence", 60)).toEqual([
-      [60, 63, 67],
-      [53, 56, 60],
-      [55, 59, 62],
-      [60, 63, 67],
+      [48, 63],
+      [53, 56],
+      [55, 59],
+      [48, 60],
     ]);
   });
 });

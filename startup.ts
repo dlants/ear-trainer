@@ -1,12 +1,8 @@
 import type { AudioEngine } from "./audio/engine.ts";
 import { DISMISS_KEY, installEnv, shouldShowInstall } from "./pwa/install.ts";
+import { AboutView } from "./views/about.ts";
+import { DismissStack } from "./views/dropdown.ts";
 import { InstallView } from "./views/install.ts";
-import {
-  type Msg as StartMsg,
-  StartView,
-  initialState as startInitialState,
-  update as startUpdate,
-} from "./views/start.ts";
 
 export type StartupOptions = {
   container: HTMLElement;
@@ -18,28 +14,17 @@ export type StartupOptions = {
 
 export function startStartup(options: StartupOptions): void {
   const { container, audio, window, storage, ready } = options;
-
-  const mountAudioGate = (): void => {
-    const state = startInitialState();
-    let view: StartView;
-    let complete = false;
-    const dispatch = (msg: StartMsg): void => {
-      if (complete) return;
-      startUpdate(state, msg, { audio }, dispatch);
-      if (msg.type === "UNLOCKED") {
-        complete = true;
-        view.destroy();
-        ready(audio);
-        return;
-      }
-      view.sync(state);
-    };
-    view = new StartView(container, dispatch, state);
-  };
+  const dismissStack = new DismissStack();
+  const pathname =
+    (window.location?.pathname ?? "/").replace(/\/+$/, "") || "/";
+  if (pathname === "/about") {
+    new AboutView(container, () => {}, {}, { dismissStack });
+    return;
+  }
 
   const installState = { env: installEnv(window, storage) };
   if (!shouldShowInstall(installState.env)) {
-    mountAudioGate();
+    ready(audio);
     return;
   }
 
@@ -48,7 +33,7 @@ export function startStartup(options: StartupOptions): void {
     () => {
       storage.setItem(DISMISS_KEY, "1");
       installView.destroy();
-      mountAudioGate();
+      ready(audio);
     },
     installState,
   );

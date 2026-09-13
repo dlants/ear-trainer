@@ -1,10 +1,17 @@
-import { createEmptyCard, type Card as FsrsCard, fsrs } from "ts-fsrs";
+import {
+  createEmptyCard,
+  type Card as FsrsCard,
+  State as FsrsState,
+  fsrs,
+} from "ts-fsrs";
 import type { PatternId } from "../music/note.ts";
 import {
   type CardId,
+  type CardStatus,
   type Confidence,
   type DeckCard,
   MODES,
+  type Mode,
   makeCardId,
   type Outcome,
   ratingFor,
@@ -16,6 +23,18 @@ export type DeckState = {
   cards: Record<CardId, DeckCard>;
   log: TrialLogEntry[];
 };
+export type PatternStatus = "proposed" | CardStatus;
+
+export type CardProgress = {
+  mode: Mode;
+  state: FsrsState;
+  due: Date;
+  retrievability: number | undefined;
+  reps: number;
+  lapses: number;
+  stability: number;
+  difficulty: number;
+};
 
 /** The slice of `Storage` the deck needs, so tests can pass a plain object. */
 export interface KeyValueStore {
@@ -26,6 +45,16 @@ export interface KeyValueStore {
 const scheduler = fsrs();
 
 const DATE_FIELDS = ["due", "last_review"] as const;
+
+function siblingKey(patternId: PatternId): string {
+  const separator = patternId.indexOf("|");
+  const context = patternId.slice(0, separator + 1);
+  const body = patternId
+    .slice(separator + 1)
+    .replaceAll("^", "")
+    .replaceAll("v", "");
+  return context + body;
+}
 
 function reviveCard(raw: Record<string, unknown>): FsrsCard {
   const card = { ...raw } as Record<string, unknown>;
@@ -57,12 +86,19 @@ export class DeckStore {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<
       string,
-      { id: CardId; patternId: PatternId; mode: DeckCard["mode"]; fsrs: object }
+      {
+        id: CardId;
+        patternId: PatternId;
+        mode: DeckCard["mode"];
+        status?: CardStatus;
+        fsrs: object;
+      }
     >;
     const cards: Record<CardId, DeckCard> = {};
     for (const [id, card] of Object.entries(parsed)) {
       cards[id as CardId] = {
         ...card,
+        status: card.status ?? "deck",
         fsrs: reviveCard(card.fsrs as Record<string, unknown>),
       };
     }
@@ -83,21 +119,70 @@ export class DeckStore {
     return { cards: this.cards, log: this.log };
   }
 
+  progressForPattern(patternId: PatternId, now: Date): CardProgress[] {
+    const progress: CardProgress[] = [];
+    for (const mode of MODES) {
+      const card = this.cards[makeCardId(patternId, mode)];
+      if (!card) continue;
+      progress.push({
+        mode,
+        state: card.fsrs.state,
+        due: card.fsrs.due,
+        retrievability:
+          card.fsrs.state === FsrsState.New
+            ? undefined
+            : scheduler.get_retrievability(card.fsrs, now, false),
+        reps: card.fsrs.reps,
+        lapses: card.fsrs.lapses,
+        stability: card.fsrs.stability,
+        difficulty: card.fsrs.difficulty,
+      });
+    }
+    return progress;
+  }
+
+  patternStatus(patternId: PatternId): PatternStatus {
+    const cards = MODES.map((mode) => this.cards[makeCardId(patternId, mode)]);
+    if (cards.some((card) => card?.status === "deck")) return "deck";
+    if (cards.some((card) => card?.status === "known")) return "known";
+    return "proposed";
+  }
+
   /** Idempotent: re-adding a pattern never resets existing scheduling state. */
   addPattern(patternId: PatternId, now: Date = new Date()): void {
-    let added = false;
+    let changed = false;
     for (const mode of MODES) {
       const id = makeCardId(patternId, mode);
-      if (this.cards[id]) continue;
+      const existing = this.cards[id];
+      if (existing) {
+        if (existing.status === "known") {
+          this.cards[id] = { ...existing, status: "deck" };
+          changed = true;
+        }
+        continue;
+      }
       this.cards[id] = {
         id,
         patternId,
         mode,
+        status: "deck",
         fsrs: createEmptyCard(now),
       };
-      added = true;
+      changed = true;
     }
-    if (added) this.persist();
+    if (changed) this.persist();
+  }
+
+  markPatternKnown(patternId: PatternId): void {
+    let changed = false;
+    for (const mode of MODES) {
+      const id = makeCardId(patternId, mode);
+      const card = this.cards[id];
+      if (!card || card.status === "known") continue;
+      this.cards[id] = { ...card, status: "known" };
+      changed = true;
+    }
+    if (changed) this.persist();
   }
 
   removePattern(patternId: PatternId): void {
@@ -111,15 +196,31 @@ export class DeckStore {
     if (removed) this.persist();
   }
 
-  nextDue(now: Date): DeckCard | undefined {
+  nextDue(now: Date, siblingGap = 2): DeckCard | undefined {
+    const recentSiblingKeys = new Set(
+      this.log
+        .slice(-siblingGap)
+        .map(({ cardId }) => this.cards[cardId]?.patternId)
+        .filter((patternId) => patternId !== undefined)
+        .map(siblingKey),
+    );
     let best: DeckCard | undefined;
+    let bestWithoutRecentSibling: DeckCard | undefined;
     for (const card of Object.values(this.cards)) {
+      if (card.status !== "deck") continue;
       if (card.fsrs.due.getTime() > now.getTime()) continue;
       if (!best || card.fsrs.due.getTime() < best.fsrs.due.getTime()) {
         best = card;
       }
+      if (
+        !recentSiblingKeys.has(siblingKey(card.patternId)) &&
+        (!bestWithoutRecentSibling ||
+          card.fsrs.due.getTime() < bestWithoutRecentSibling.fsrs.due.getTime())
+      ) {
+        bestWithoutRecentSibling = card;
+      }
     }
-    return best;
+    return bestWithoutRecentSibling ?? best;
   }
 
   grade(
@@ -129,7 +230,7 @@ export class DeckStore {
     now: Date,
   ): void {
     const card = this.cards[cardId];
-    if (!card) return;
+    if (card?.status !== "deck") return;
     const { card: next } = scheduler.next(
       card.fsrs,
       now,

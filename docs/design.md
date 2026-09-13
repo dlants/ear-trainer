@@ -1,4 +1,4 @@
-# Functional Ear Trainer — Design Notes
+# The Ecological Ear Trainer — Design Notes
 
 ## Motivation
 

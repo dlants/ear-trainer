@@ -35,6 +35,15 @@ describe("deriveInventory", () => {
   it("drops patterns below the minimum count", () => {
     expect(entries.map((e) => e.id)).not.toContain("major-cadence|3-1");
   });
+
+  it("keeps corpus frequency separate from the pedagogical gloss", () => {
+    expect(entries[0]).toEqual(
+      expect.objectContaining({
+        count: 4,
+        gloss: "two notes of the tonic triad",
+      }),
+    );
+  });
 });
 
 describe("the generated inventory", () => {

@@ -4,7 +4,6 @@ import type {
   PlaybackEnd,
   PlaybackHandle,
 } from "./audio/engine.ts";
-import { PlayController } from "./audio/play-controller.ts";
 import { DISMISS_KEY } from "./pwa/install.ts";
 import { startStartup } from "./startup.ts";
 
@@ -41,6 +40,7 @@ class FakeAudio implements AudioEngine {
     });
   }
 
+  setDrone(): void {}
   playContext(): PlaybackHandle {
     return completedHandle();
   }
@@ -78,42 +78,58 @@ function standaloneWindow(): Window {
 
 describe("startup", () => {
   beforeEach(() => {
+    history.replaceState(null, "", "/");
     document.body.innerHTML = '<div id="app"></div>';
     localStorage.clear();
   });
 
-  it("constructs app dependencies only after a successful unlock gesture", async () => {
+  it("renders the about page without unlocking audio", () => {
+    history.replaceState(null, "", "/about");
     const container = appContainer();
     const audio = new FakeAudio();
-    let constructed = false;
 
     startStartup({
       container,
       audio,
-      window: standaloneWindow(),
+      window,
       storage: localStorage,
-      ready: (unlockedAudio) => {
-        const play = new PlayController(unlockedAudio, vi.fn());
-        constructed = true;
-        play.autoplay([{ buttonId: "options:tonic", type: "note", note: 60 }]);
-      },
+      ready: vi.fn(),
     });
 
-    expect(constructed).toBe(false);
+    expect(container.textContent).toContain("My journey with ear training");
+    expect(
+      container.querySelector('summary[aria-label="open navigation menu"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('a[href="/about"][aria-current="page"]'),
+    ).not.toBeNull();
     expect(audio.attempts).toHaveLength(0);
-    clickButton(container, "start practicing");
-    expect(audio.attempts).toHaveLength(1);
-    expect(constructed).toBe(false);
-
-    audio.attempts[0].resolve();
-    await audio.attempts[0].promise;
-    await vi.waitFor(() => expect(constructed).toBe(true));
-
-    expect(audio.unlocked).toBe(true);
-    expect(audio.played).toEqual([60]);
   });
 
-  it("shows an unlock failure and allows retry without mounting the app", async () => {
+  it("continues from the install prompt to the app", () => {
+    const container = appContainer();
+    const audio = new FakeAudio();
+    const ready = vi.fn();
+
+    startStartup({
+      container,
+      audio,
+      window,
+      storage: localStorage,
+      ready,
+    });
+
+    expect(container.textContent).toContain(
+      "install the ecological ear trainer",
+    );
+    clickButton(container, "continue in browser");
+
+    expect(localStorage.getItem(DISMISS_KEY)).toBe("1");
+    expect(ready).toHaveBeenCalledWith(audio);
+    expect(audio.attempts).toHaveLength(0);
+  });
+
+  it("takes an installed launch straight to the app", () => {
     const container = appContainer();
     const audio = new FakeAudio();
     const ready = vi.fn();
@@ -126,55 +142,9 @@ describe("startup", () => {
       ready,
     });
 
-    clickButton(container, "start practicing");
-    audio.attempts[0].reject(new Error("audio blocked"));
-    await vi.waitFor(() =>
-      expect(container.textContent).toContain("Error: audio blocked"),
+    expect(container.textContent).not.toContain(
+      "install the ecological ear trainer",
     );
-    expect(ready).not.toHaveBeenCalled();
-
-    clickButton(container, "try again");
-    expect(audio.attempts).toHaveLength(2);
-    audio.attempts[1].resolve();
-    await vi.waitFor(() => expect(ready).toHaveBeenCalledWith(audio));
-  });
-
-  it("continues from the install prompt to the audio gate", () => {
-    const container = appContainer();
-    const audio = new FakeAudio();
-
-    startStartup({
-      container,
-      audio,
-      window,
-      storage: localStorage,
-      ready: vi.fn(),
-    });
-
-    expect(container.textContent).toContain("install ear trainer");
-    clickButton(container, "continue in browser");
-
-    expect(localStorage.getItem(DISMISS_KEY)).toBe("1");
-    expect(container.textContent).toContain(
-      "Turn on sound to begin practicing.",
-    );
-    expect(audio.attempts).toHaveLength(0);
-  });
-
-  it("takes an installed launch directly to the audio gate", () => {
-    const container = appContainer();
-
-    startStartup({
-      container,
-      audio: new FakeAudio(),
-      window: standaloneWindow(),
-      storage: localStorage,
-      ready: vi.fn(),
-    });
-
-    expect(container.textContent).not.toContain("install ear trainer");
-    expect(container.textContent).toContain(
-      "Turn on sound to begin practicing.",
-    );
+    expect(ready).toHaveBeenCalledWith(audio);
   });
 });

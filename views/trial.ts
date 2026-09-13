@@ -1,20 +1,22 @@
 import type { PlayController, PlayStep } from "../audio/play-controller.ts";
 import type { Confidence, DeckCard, Outcome } from "../deck/card.ts";
-import type { Profile } from "../deck/profiles.ts";
+import type { Profile, ProfileStore } from "../deck/profiles.ts";
 import type { DeckStore } from "../deck/store.ts";
 import { checkIcon, questionIcon } from "../icons.ts";
-import { formatPattern, patternFromId } from "../music/format.ts";
+import { patternFromId } from "../music/format.ts";
 import type { Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import {
   Binder,
   cls,
   mountStyle,
+  noop,
   ref,
   sanitize,
   show,
   type View,
 } from "../vamp.ts";
+import { PatternNotationView } from "./pattern-notation.ts";
 import { PlayButtonView } from "./play-button.ts";
 
 export type TrialPhase = "presenting" | "revealing";
@@ -37,6 +39,7 @@ export type Msg =
   | { type: "NEXT_TRIAL" }
   | { type: "PLAY_CONTEXT" }
   | { type: "PLAY_PATTERN" }
+  | { type: "TOGGLE_DRONE" }
   | { type: "COMMIT"; confidence: Confidence }
   | { type: "GRADE"; outcome: Outcome }
   | { type: "ERROR"; message: string };
@@ -45,16 +48,9 @@ export type TrialCtx = {
   play: PlayController;
   deck: DeckStore;
   profile: Profile;
+  profiles: ProfileStore;
   now(): Date;
-  /** Only consulted when the profile's `tonicMode` is `"moving"`. */
-  randomTonic(): Midi;
 };
-
-function trialTonic(ctx: TrialCtx): Midi {
-  return ctx.profile.tonicMode === "fixed"
-    ? ctx.profile.tonic
-    : ctx.randomTonic();
-}
 
 export function nextTrial(ctx: TrialCtx): Trial | undefined {
   const card = ctx.deck.nextDue(ctx.now());
@@ -64,7 +60,7 @@ export function nextTrial(ctx: TrialCtx): Trial | undefined {
   return {
     card,
     pattern: pattern.value,
-    tonic: trialTonic(ctx),
+    tonic: ctx.profile.tonic,
     phase: "presenting",
     confidence: undefined,
   };
@@ -87,13 +83,19 @@ export function initialState(_ctx: TrialCtx): State {
   return { trial: undefined, error: undefined };
 }
 
-function contextStep(trial: Trial): PlayStep {
+function contextStep(trial: Trial, ctx: TrialCtx): PlayStep {
   return {
     buttonId: "trial:context",
     type: "context",
     context: trial.pattern.context,
     tonic: trial.tonic,
+    speed: ctx.profile.cadenceSpeed,
   };
+}
+
+/** The drone holds the tonic audible for the whole trial, not just playback. */
+function droneTonic(trial: Trial | undefined, ctx: TrialCtx): Midi | undefined {
+  return trial && ctx.profile.drone ? trial.tonic : undefined;
 }
 
 function patternStep(trial: Trial): PlayStep {
@@ -108,14 +110,15 @@ function patternStep(trial: Trial): PlayStep {
 function selectNextTrial(state: State, ctx: TrialCtx): void {
   state.trial = nextTrial(ctx);
   const trial = state.trial;
+  ctx.play.setDrone(droneTonic(trial, ctx));
   if (!trial) {
     ctx.play.stop();
     return;
   }
   ctx.play.autoplay(
     trial.card.mode === "transcription"
-      ? [contextStep(trial), patternStep(trial)]
-      : [contextStep(trial)],
+      ? [contextStep(trial, ctx), patternStep(trial)]
+      : [contextStep(trial, ctx)],
   );
 }
 
@@ -127,7 +130,7 @@ export function update(state: State, msg: Msg, ctx: TrialCtx): void {
 
     case "PLAY_CONTEXT": {
       const trial = state.trial;
-      if (trial) ctx.play.toggle("trial:context", contextStep(trial));
+      if (trial) ctx.play.toggle("trial:context", contextStep(trial, ctx));
       break;
     }
 
@@ -136,6 +139,13 @@ export function update(state: State, msg: Msg, ctx: TrialCtx): void {
       if (trial && canPlayPattern(trial)) {
         ctx.play.toggle("trial:pattern", patternStep(trial));
       }
+      break;
+    }
+
+    case "TOGGLE_DRONE": {
+      ctx.profile.drone = !ctx.profile.drone;
+      ctx.profiles.save(ctx.profile);
+      ctx.play.setDrone(droneTonic(state.trial, ctx));
       break;
     }
 
@@ -165,8 +175,11 @@ export function update(state: State, msg: Msg, ctx: TrialCtx): void {
 }
 
 const trialClass = cls("trial");
+const promptClass = cls("prompt");
+const instructionClass = cls("instruction");
 const rowClass = cls("row");
 const playSlotClass = cls("play-slot");
+const droneRowClass = cls("drone-row");
 const bigClass = cls("big");
 const unsureClass = cls("unsure");
 const knownClass = cls("known");
@@ -184,13 +197,20 @@ mountStyle(`
   box-sizing: border-box;
   font-family: system-ui, sans-serif;
 }
-.${trialClass} .${bigClass} {
+.${trialClass} .${promptClass} {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 15vw;
-  letter-spacing: 0.05em;
+  gap: 8px;
+}
+.${trialClass} .${bigClass} {
+  font-size: clamp(56px, 15vw, 160px);
+}
+.${trialClass} .${instructionClass} {
+  color: var(--color-text-muted);
+  font-size: 18px;
 }
 .${trialClass} .${rowClass} {
   display: flex;
@@ -215,6 +235,10 @@ mountStyle(`
   flex: 0 0 auto;
   font-size: 1.15em;
 }
+.${trialClass} .${droneRowClass} {
+  display: flex;
+  justify-content: center;
+}
 .${trialClass} .${unsureClass} {
   border: 2px solid var(--color-unsure-border);
   background: var(--color-unsure-surface);
@@ -237,7 +261,9 @@ mountStyle(`
 }
 `);
 
-export class TrialView implements View<State, Msg, Pick<TrialCtx, "play">> {
+export class TrialView
+  implements View<State, Msg, Pick<TrialCtx, "play" | "profile">>
+{
   container: HTMLElement;
   private b: Binder<State>;
 
@@ -245,11 +271,14 @@ export class TrialView implements View<State, Msg, Pick<TrialCtx, "play">> {
     container: HTMLElement,
     dispatch: (msg: Msg) => void,
     initial: State,
-    ctx: Pick<TrialCtx, "play">,
+    ctx: Pick<TrialCtx, "play" | "profile">,
   ) {
     const notationRef = ref("notation");
+    const questionRef = ref("question");
+    const instructionRef = ref("instruction");
     const emptyRef = ref("empty");
     const errorRef = ref("error");
+    const droneRef = ref("drone");
     const contextRef = ref("context");
     const patternRef = ref("pattern");
     const commitRowRef = ref("commitRow");
@@ -264,14 +293,21 @@ export class TrialView implements View<State, Msg, Pick<TrialCtx, "play">> {
       <div class="${trialClass}">
         <div data-ref="${errorRef}"></div>
         <div data-ref="${emptyRef}">nothing due — come back later</div>
-        <div class="${bigClass}" data-ref="${notationRef}"></div>
+        <div class="${promptClass}">
+          <div class="${bigClass}">
+            <div data-ref="${notationRef}"></div>
+            <div data-ref="${questionRef}">?</div>
+          </div>
+          <div class="${instructionClass}" data-ref="${instructionRef}"></div>
+        </div>
+        <div class="${droneRowClass}" data-ref="${droneRef}"></div>
         <div class="${rowClass}">
           <div class="${playSlotClass}" data-ref="${contextRef}"></div>
           <div class="${playSlotClass}" data-ref="${patternRef}"></div>
         </div>
         <div class="${rowClass}" data-ref="${commitRowRef}">
           <button type="button" class="${unsureClass}" data-ref="${unsureRef}">unsure ${questionIcon()}</button>
-          <button type="button" class="${knownClass}" data-ref="${knownRef}">known ${checkIcon()}</button>
+          <button type="button" class="${knownClass}" data-ref="${knownRef}">confident ${checkIcon()}</button>
         </div>
         <div class="${rowClass}" data-ref="${outcomeRowRef}">
           <button type="button" class="${incorrectClass}" data-ref="${missedRef}">missed</button>
@@ -284,6 +320,25 @@ export class TrialView implements View<State, Msg, Pick<TrialCtx, "play">> {
     const on = (r: ReturnType<typeof ref>, msg: Msg) =>
       this.b.ref(r).addEventListener("click", () => dispatch(msg));
 
+    this.b.bindSlot(droneRef, (state) => {
+      const droneOn = ctx.profile.drone;
+      return show(
+        PlayButtonView,
+        {
+          id: "trial:drone",
+          label: droneOn ? "drone on" : "drone off",
+          ariaLabel: "hold the tonic under every trial",
+          icon: "drone",
+          variant: "compact",
+          visible: state.trial !== undefined,
+          playing: false,
+          selected: droneOn,
+          durationMs: undefined,
+        },
+        {},
+        () => dispatch({ type: "TOGGLE_DRONE" }),
+      );
+    });
     this.b.bindSlot(contextRef, (state) => {
       const playback = ctx.play.getState();
       const playing =
@@ -332,10 +387,20 @@ export class TrialView implements View<State, Msg, Pick<TrialCtx, "play">> {
     this.b.bindText(errorRef, (s) => s.error ?? "");
     this.b.bindVisible(errorRef, (s) => s.error !== undefined);
     this.b.bindVisible(emptyRef, (s) => s.trial === undefined);
-    this.b.bindText(notationRef, (s) =>
+    this.b.bindText(instructionRef, (s) =>
+      s.trial?.card.mode === "transcription"
+        ? "identify the notes"
+        : "sing these notes",
+    );
+    this.b.bindVisible(instructionRef, (s) => s.trial !== undefined);
+    this.b.bindSlot(notationRef, (s) =>
       s.trial && showsNotation(s.trial)
-        ? formatPattern(s.trial.pattern, "numeric")
-        : "?",
+        ? show(PatternNotationView, s.trial.pattern, {}, noop)
+        : undefined,
+    );
+    this.b.bindVisible(
+      questionRef,
+      (s) => s.trial === undefined || !showsNotation(s.trial),
     );
     this.b.bindVisible(commitRowRef, (s) => s.trial?.phase === "presenting");
     this.b.bindVisible(outcomeRowRef, (s) => s.trial?.phase === "revealing");

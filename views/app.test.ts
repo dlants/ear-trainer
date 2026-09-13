@@ -6,6 +6,7 @@ import type {
 } from "../audio/engine.ts";
 import { PlayController, type PlayMsg } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
+import { ProfileStore } from "../deck/profiles.ts";
 import { DeckStore, type KeyValueStore } from "../deck/store.ts";
 import { parsePattern } from "../music/format.ts";
 import type { Context, Pattern } from "../music/note.ts";
@@ -39,6 +40,10 @@ class FakeAudio implements AudioEngine {
 
   async unlock(): Promise<void> {}
 
+  drone: Midi | undefined;
+  setDrone(tonic: Midi | undefined): void {
+    this.drone = tonic;
+  }
   playContext(_context: Context, _tonic: Midi): PlaybackHandle {
     return this.handle();
   }
@@ -70,15 +75,15 @@ function emptyState(page: State["route"]["page"]): State {
   return {
     route: { page },
     trial: { trial: undefined, error: undefined },
-    cards: { rows: [], hideAdded: false },
+    cards: { rows: [], showKnown: false, showDeck: true },
     songs: { songs: [] },
     options: {
-      tonicMode: "fixed",
       tonic: 60,
-      tonicLow: 55,
-      tonicHigh: 67,
+      cadenceSpeed: "medium",
       error: undefined,
     },
+    start: { status: "idle", error: undefined },
+    audioUnlocked: true,
   };
 }
 
@@ -87,10 +92,9 @@ function trialContext(play: PlayController): AppCtx["trial"] {
     id: "p1",
     name: "me",
     color: "#000000",
-    tonicMode: "fixed",
     tonic: 60,
-    tonicLow: 55,
-    tonicHigh: 67,
+    cadenceSpeed: "medium",
+    drone: true,
   };
   const deck = new DeckStore(profile.id, memoryStorage());
   const parsed = parsePattern("1-3-5", "major-cadence");
@@ -101,13 +105,18 @@ function trialContext(play: PlayController): AppCtx["trial"] {
     deck,
     profile,
     now: () => new Date("2026-09-12T00:00:00Z"),
-    randomTonic: () => 60,
+    profiles: new ProfileStore(memoryStorage()),
   };
 }
 
-function appContext(play: PlayController, route: State["route"]): AppCtx {
+function appContext(
+  play: PlayController,
+  route: State["route"],
+  audio?: AudioEngine,
+): AppCtx {
   const trial = trialContext(play);
   return {
+    audio: audio ?? new FakeAudio(),
     play,
     router: new RouterController(route),
     trial,
@@ -145,6 +154,7 @@ describe("app playback lifecycle", () => {
         stop: vi.fn(),
         autoplay: vi.fn(),
         update: vi.fn(),
+        setDrone: vi.fn(),
       } as unknown as PlayController;
       const state = emptyState(page);
       const ctx = appContext(play, state.route);
@@ -165,6 +175,7 @@ describe("app playback lifecycle", () => {
       stop: vi.fn(),
       autoplay: vi.fn(),
       update: vi.fn(),
+      setDrone: vi.fn(),
     } as unknown as PlayController;
     const state = emptyState("cards");
     const ctx = appContext(play, state.route);
@@ -183,6 +194,7 @@ describe("app playback lifecycle", () => {
         type: "context",
         context: "major-cadence",
         tonic: 60,
+        speed: "medium",
       },
       {
         buttonId: "trial:pattern",
@@ -191,5 +203,53 @@ describe("app playback lifecycle", () => {
         tonic: 60,
       },
     ]);
+  });
+
+  it("starts practice after the audio gate unlocks", () => {
+    const audio = new FakeAudio();
+    audio.unlocked = false;
+    const play = {
+      stop: vi.fn(),
+      autoplay: vi.fn(),
+      update: vi.fn(),
+      setDrone: vi.fn(),
+    } as unknown as PlayController;
+    const state = emptyState("practice");
+    state.audioUnlocked = false;
+    const ctx = appContext(play, state.route, audio);
+
+    update(
+      state,
+      { type: "START_MSG", msg: { type: "UNLOCKED" } },
+      ctx,
+      () => {},
+    );
+
+    expect(state.audioUnlocked).toBe(true);
+    expect(play.autoplay).toHaveBeenCalledOnce();
+  });
+
+  it("leaves other pages reachable while audio is locked", () => {
+    const audio = new FakeAudio();
+    audio.unlocked = false;
+    const play = {
+      stop: vi.fn(),
+      autoplay: vi.fn(),
+      update: vi.fn(),
+      setDrone: vi.fn(),
+    } as unknown as PlayController;
+    const state = emptyState("cards");
+    state.audioUnlocked = false;
+    const ctx = appContext(play, state.route, audio);
+
+    update(
+      state,
+      { type: "NAVIGATE", route: { page: "practice" } },
+      ctx,
+      () => {},
+    );
+
+    expect(state.route.page).toBe("practice");
+    expect(play.autoplay).not.toHaveBeenCalled();
   });
 });
