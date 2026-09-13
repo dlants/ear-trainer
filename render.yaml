@@ -1,0 +1,12 @@
+services:
+  - type: web
+    runtime: static
+    name: ear-trainer
+    repo: https://github.com/dlants/ear-trainer
+    branch: ear-trainer-v1
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
