@@ -565,6 +565,38 @@ export function scrollIntoView(el: HTMLElement): void {
   el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/** Class applied to a control while it is held down; see `onPress`. */
+export const pressedClass = "is-pressed";
+
+/**
+ * Bind an activation handler to a control, firing on `pointerdown` instead of
+ * `click` so touch taps register on finger-down rather than finger-up.
+ *
+ * Pointer-driven `click` events are ignored (the `pointerdown` already fired);
+ * keyboard activation synthesizes a click with `detail === 0`, which is the
+ * only click we act on.
+ *
+ * While pressed the element carries `pressedClass`. CSS `:active` is unreliable
+ * for immediate feedback on touch, so the pressed styling is driven from the
+ * same events as the handler.
+ */
+export function onPress(el: HTMLElement, handler: () => void): void {
+  const release = () => el.classList.remove(pressedClass);
+  el.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    el.classList.add(pressedClass);
+    window.addEventListener("pointerup", release, { once: true });
+    window.addEventListener("pointercancel", release, { once: true });
+    handler();
+  });
+  el.addEventListener("click", (event) => {
+    if (event.detail !== 0) return;
+    el.classList.add(pressedClass);
+    window.setTimeout(release, 120);
+    handler();
+  });
+}
+
 /** Inject a raw CSS string into the page via a <style> tag. */
 export function mountStyle(css: string): void {
   const el = document.createElement("style");

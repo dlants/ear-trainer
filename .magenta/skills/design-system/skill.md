@@ -56,6 +56,17 @@ Every control that starts audible playback must use `PlayButtonView` from `views
 - `PlayButtonView` owns the audible control's button markup, trusted icon, accessibility state, and playback sweep. Do not add one-off sound buttons or page-local playback animations.
 - Use `--color-playback-sweep` for the timed sweep and `--color-playback-active` for the static reduced-motion treatment. Their lifetime must come from the controller-provided playback duration, not duplicated CSS or view timers.
 
+## Touch responsiveness
+
+Taps must register on finger-down and look pressed in the same frame.
+
+- This applies to every tappable affordance, not just `<button>`: menu toggles, `<summary>`, and any custom control a user presses. Plain `click` listeners are only correct for non-activation targets such as delegated link navigation.
+- Bind activation with `onPress` from `vamp.ts`, never `addEventListener("click", ...)`. `onPress` fires on primary-button `pointerdown` and falls back to keyboard-synthesized clicks (`detail === 0`), so both touch and keyboard activation work without double-dispatch.
+- When a control has native click-driven behavior (notably `<summary>` toggling its `<details>`), suppress it with a `click` handler calling `preventDefault()` and drive the state change from `onPress` instead, so pointer and keyboard both go through one path.
+- Pressed styling comes from the `pressedClass` that `onPress` toggles on the element, not from CSS `:active`, which browsers delay on touch and which would lag behind the pointerdown-time handler. `theme.ts` styles that class globally, so any control bound with `onPress` gets the feedback for free; do not add per-view `:active` rules for press feedback.
+- Do not restate `touch-action: manipulation` or tap-highlight suppression in a view. `theme.ts` applies it globally to `button` and `summary`; extend that global rule if a new kind of tappable element appears.
+- If a control needs a stronger pressed state than the global one, layer a `:active` rule using semantic tokens; do not remove the global feedback by overriding `filter` or `transform` without a replacement.
+
 ## Icons
 
 `icons.ts` exports hand-authored static SVG functions returning `RawHtml`. Insert them only inside a `sanitize` template. Current icons are:

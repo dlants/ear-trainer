@@ -1,5 +1,13 @@
 import type { InstallEnv } from "../pwa/install.ts";
-import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
+import {
+  Binder,
+  cls,
+  mountStyle,
+  onPress,
+  ref,
+  sanitize,
+  type View,
+} from "../vamp.ts";
 
 export type State = { env: InstallEnv };
 
@@ -26,7 +34,6 @@ mountStyle(`
   font-size: 18px;
   padding: 16px;
   border-radius: var(--radius-control);
-  touch-action: manipulation;
 }
 `);
 
@@ -64,9 +71,7 @@ export class InstallView implements View<State, Msg> {
     `;
     this.b = new Binder(container, initial);
 
-    this.b
-      .ref(dismissRef)
-      .addEventListener("click", () => dispatch({ type: "DISMISS" }));
+    onPress(this.b.ref(dismissRef), () => dispatch({ type: "DISMISS" }));
 
     this.b.bindVisible(stepsRef, (s) => s.env.ios);
     this.b.bindVisible(otherRef, (s) => !s.env.ios);

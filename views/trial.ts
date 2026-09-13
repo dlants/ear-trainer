@@ -11,6 +11,7 @@ import {
   cls,
   mountStyle,
   noop,
+  onPress,
   ref,
   sanitize,
   show,
@@ -229,7 +230,6 @@ mountStyle(`
   font-size: 20px;
   padding: 20px 8px;
   border-radius: var(--radius-control);
-  touch-action: manipulation;
 }
 .${trialClass} .${rowClass} > button svg {
   flex: 0 0 auto;
@@ -318,7 +318,7 @@ export class TrialView
     this.b = new Binder(container, initial);
 
     const on = (r: ReturnType<typeof ref>, msg: Msg) =>
-      this.b.ref(r).addEventListener("click", () => dispatch(msg));
+      onPress(this.b.ref(r), () => dispatch(msg));
 
     this.b.bindSlot(droneRef, (state) => {
       const droneOn = ctx.profile.drone;

@@ -1,4 +1,4 @@
-import { mountStyle } from "./vamp.ts";
+import { mountStyle, pressedClass } from "./vamp.ts";
 
 mountStyle(`
 :root {
@@ -51,10 +51,30 @@ input {
   font: inherit;
 }
 
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
 button {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Immediate press feedback: handlers fire on pointerdown, so the control must
+   look pressed in the same frame as the touch. onPress toggles this class,
+   since CSS :active is delayed on touch. */
+.${pressedClass}:not(:disabled) {
+  filter: brightness(0.94);
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .${pressedClass}:not(:disabled) {
+    transform: none;
+  }
 }
 
 button:focus-visible,

@@ -1,5 +1,14 @@
 import { type Route, routeToPath } from "../router.ts";
-import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
+import {
+  Binder,
+  cls,
+  mountStyle,
+  onPress,
+  ref,
+  sanitize,
+  type View,
+} from "../vamp.ts";
+import { APP_VERSION } from "../version.ts";
 import type { DismissStack } from "./dropdown.ts";
 
 export type State = { page: Route["page"] | "about" };
@@ -45,6 +54,11 @@ mountStyle(`
   background: var(--color-brand-strong);
   box-shadow: 0 4px 18px rgb(0 0 0 / 25%);
 }
+.${navClass} .menu-version {
+  padding: 6px 14px 10px;
+  color: rgb(255 255 255 / 70%);
+  font-size: 13px;
+}
 .${navClass} .menu-items a {
   padding: 12px 14px;
   border-radius: 8px;
@@ -80,6 +94,7 @@ export class NavView implements View<State, never, NavCtx> {
       <details class="${navClass}" data-ref="${detailsRef}">
         <summary aria-label="open navigation menu">☰</summary>
         <nav class="menu-items" aria-label="main navigation">
+          <span class="menu-version">the ecological ear trainer v${APP_VERSION}</span>
           <a href="${routeToPath({ page: "practice" })}" data-ref="${practiceRef}">practice</a>
           <a href="${routeToPath({ page: "cards" })}" data-ref="${cardsRef}">cards</a>
           <a href="${routeToPath({ page: "songs" })}" data-ref="${songsRef}">songs</a>
@@ -106,6 +121,11 @@ export class NavView implements View<State, never, NavCtx> {
     );
 
     const details = this.b.ref<HTMLDetailsElement>(detailsRef);
+    const summary = details.querySelector("summary") as HTMLElement;
+    summary.addEventListener("click", (event) => event.preventDefault());
+    onPress(summary, () => {
+      details.open = !details.open;
+    });
     details.addEventListener("click", (event) => {
       if (event.target instanceof Element && event.target.closest("a")) {
         details.open = false;

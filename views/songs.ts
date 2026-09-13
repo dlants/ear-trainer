@@ -6,6 +6,7 @@ import {
   Binder,
   cls,
   mountStyle,
+  onPress,
   ref,
   sanitize,
   showKeyed,
@@ -127,7 +128,6 @@ mountStyle(`
   padding: 8px 0;
   font-size: 17px;
   text-align: left;
-  touch-action: manipulation;
 }
 .${listClass} .${songClass} .head .progress {
   margin-left: auto;
@@ -159,7 +159,6 @@ mountStyle(`
   font-size: 16px;
   padding: 10px 18px;
   border-radius: var(--radius-control);
-  touch-action: manipulation;
 }
 `);
 
@@ -185,11 +184,9 @@ class PatternRowView implements View<PatternRow, Msg> {
     `;
     this.b = new Binder(container, initial);
 
-    this.b
-      .ref(addRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "ADD", id: initial.id }),
-      );
+    onPress(this.b.ref(addRef), () =>
+      dispatch({ type: "ADD", id: initial.id }),
+    );
 
     this.b.bindText(labelRef, (s) => s.label);
     this.b.bindVisible(addedRef, (s) => s.added);
@@ -235,16 +232,12 @@ class SongRowView implements View<SongRow, Msg> {
     `;
     this.b = new Binder(container, initial);
 
-    this.b
-      .ref(headRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "SELECT", songId: initial.id }),
-      );
-    this.b
-      .ref(addAllRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "ADD_ALL", songId: initial.id }),
-      );
+    onPress(this.b.ref(headRef), () =>
+      dispatch({ type: "SELECT", songId: initial.id }),
+    );
+    onPress(this.b.ref(addAllRef), () =>
+      dispatch({ type: "ADD_ALL", songId: initial.id }),
+    );
 
     this.b.bindText(titleRef, (s) => s.title);
     this.b.bindText(progressRef, (s) => `${s.knownCount}/${s.total} known`);

@@ -9,6 +9,7 @@ import {
   cls,
   mountStyle,
   noop,
+  onPress,
   type RawHtml,
   raw,
   ref,
@@ -248,7 +249,6 @@ mountStyle(`
   padding: 10px 12px;
   border-radius: var(--radius-control);
   font-size: 14px;
-  touch-action: manipulation;
 }
 .${listClass} .${rowClass} .details {
   padding: 0 10px 16px;
@@ -306,7 +306,6 @@ mountStyle(`
   border-radius: 50%;
   color: var(--color-text-muted);
   font-size: 13px;
-  touch-action: manipulation;
 }
 .${helpClass} .tooltip {
   position: absolute;
@@ -492,26 +491,18 @@ class RowView implements View<Row, Msg> {
       if (s.status === "known") return `${rowClass} ${knownRowClass}`;
       return rowClass;
     });
-    this.b
-      .ref(toggleRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "TOGGLE_DETAILS", id: initial.id }),
-      );
-    this.b
-      .ref(addRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "ADD_TO_DECK", id: initial.id }),
-      );
-    this.b
-      .ref(knownRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "MARK_KNOWN", id: initial.id }),
-      );
-    this.b
-      .ref(removeRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "REMOVE_FROM_DECK", id: initial.id }),
-      );
+    onPress(this.b.ref(toggleRef), () =>
+      dispatch({ type: "TOGGLE_DETAILS", id: initial.id }),
+    );
+    onPress(this.b.ref(addRef), () =>
+      dispatch({ type: "ADD_TO_DECK", id: initial.id }),
+    );
+    onPress(this.b.ref(knownRef), () =>
+      dispatch({ type: "MARK_KNOWN", id: initial.id }),
+    );
+    onPress(this.b.ref(removeRef), () =>
+      dispatch({ type: "REMOVE_FROM_DECK", id: initial.id }),
+    );
 
     this.b.bindAttr(toggleRef, "aria-expanded", (s) => String(s.expanded));
     this.b.bindClass(caretRef, (s) =>

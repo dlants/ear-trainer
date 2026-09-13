@@ -1,6 +1,14 @@
 import type { PlayButtonId } from "../audio/play-controller.ts";
 import { droneIcon, keyIcon, playIcon } from "../icons.ts";
-import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
+import {
+  Binder,
+  cls,
+  mountStyle,
+  onPress,
+  ref,
+  sanitize,
+  type View,
+} from "../vamp.ts";
 
 export type PlayButtonIcon = "key" | "play" | "drone";
 export type PlayButtonVariant = "trial" | "compact";
@@ -35,7 +43,6 @@ mountStyle(`
   justify-content: center;
   gap: 8px;
   border-radius: var(--radius-control);
-  touch-action: manipulation;
   cursor: pointer;
   isolation: isolate;
 }
@@ -116,11 +123,9 @@ export class PlayButtonView implements View<PlayButtonState, PlayButtonMsg> {
     `;
     this.b = new Binder(container, initial);
 
-    this.b
-      .ref(buttonRef)
-      .addEventListener("click", () =>
-        dispatch({ type: "PRESS", id: initial.id }),
-      );
+    onPress(this.b.ref(buttonRef), () =>
+      dispatch({ type: "PRESS", id: initial.id }),
+    );
     this.b.bindText(labelRef, (state) => state.label);
     this.b.bindVisible(buttonRef, (state) => state.visible);
     this.b.bindClass(buttonRef, (state) =>

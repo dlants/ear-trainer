@@ -1,5 +1,15 @@
 import type { AudioEngine } from "../audio/engine.ts";
-import { Binder, cls, mountStyle, ref, sanitize, type View } from "../vamp.ts";
+import { githubIcon } from "../icons.ts";
+import {
+  Binder,
+  cls,
+  mountStyle,
+  onPress,
+  ref,
+  sanitize,
+  type View,
+} from "../vamp.ts";
+import { APP_VERSION } from "../version.ts";
 
 export type State = {
   status: "idle" | "unlocking" | "error";
@@ -44,6 +54,7 @@ export function update(
 
 const screenClass = cls("start");
 const errorClass = cls("start-error");
+const cornerClass = cls("start-github");
 
 mountStyle(`
 .${screenClass} {
@@ -71,7 +82,27 @@ mountStyle(`
   padding: 16px;
   border-radius: var(--radius-control);
   font-size: 18px;
-  touch-action: manipulation;
+}
+.${screenClass} h1 .version {
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: normal;
+}
+.${cornerClass} {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 68px;
+  height: 68px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: max(7px, env(safe-area-inset-top)) 0 0 7px;
+  box-sizing: border-box;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  background: var(--color-brand-strong);
+  color: white;
+  font-size: 20px;
 }
 .${screenClass} .about-link {
   align-self: center;
@@ -96,7 +127,9 @@ export class StartView implements View<State, Msg, StartCtx> {
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${screenClass}">
-        <h1>the ecological ear trainer</h1>
+        <a class="${cornerClass}" href="https://github.com/dlants/ear-trainer"
+           target="_blank" rel="noreferrer" aria-label="source code on GitHub">${githubIcon()}</a>
+        <h1>the ecological ear trainer <span class="version">v${APP_VERSION}</span></h1>
         <p>Turn on sound to begin practicing.</p>
         <p class="${errorClass}" data-ref="${errorRef}" role="alert"></p>
         <button type="button" data-ref="${startRef}"></button>
@@ -105,9 +138,7 @@ export class StartView implements View<State, Msg, StartCtx> {
     `;
     this.b = new Binder(container, initial);
 
-    this.b
-      .ref(startRef)
-      .addEventListener("click", () => dispatch({ type: "UNLOCK" }));
+    onPress(this.b.ref(startRef), () => dispatch({ type: "UNLOCK" }));
     this.b.bindText(errorRef, (state) => state.error ?? "");
     this.b.bindVisible(errorRef, (state) => state.error !== undefined);
     this.b.bindText(startRef, (state) => {
