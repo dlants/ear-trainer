@@ -4,7 +4,7 @@ import {
   Binder,
   cls,
   mountStyle,
-  onPress,
+  onActivate,
   ref,
   sanitize,
   type View,
@@ -138,7 +138,7 @@ export class StartView implements View<State, Msg, StartCtx> {
     `;
     this.b = new Binder(container, initial);
 
-    onPress(this.b.ref(startRef), () => dispatch({ type: "UNLOCK" }));
+    onActivate(this.b.ref(startRef), () => dispatch({ type: "UNLOCK" }));
     this.b.bindText(errorRef, (state) => state.error ?? "");
     this.b.bindVisible(errorRef, (state) => state.error !== undefined);
     this.b.bindText(startRef, (state) => {

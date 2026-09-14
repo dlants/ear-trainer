@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": { "/*": ["./*"] },
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "types": ["vite/client", "node", "vite-plugin-pwa/client"],
     "strict": true,

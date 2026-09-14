@@ -1,6 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
 import "./theme.ts";
 import { type AudioEngine, soundfontEngine } from "./audio/engine.ts";
+import { MicPitchDetector } from "./audio/mic-pitch.ts";
 import { PlayController } from "./audio/play-controller.ts";
 
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
@@ -78,7 +79,14 @@ function startApp(audio: AudioEngine): void {
     trial: trialCtx,
     cards: cardsCtx,
     songs: songsCtx,
-    options: { play, profile: activeProfile, profiles },
+    options: {
+      play,
+      profile: activeProfile,
+      profiles,
+      mic: new MicPitchDetector((msg) =>
+        dispatch({ type: "OPTIONS_MSG", msg: { type: "MIC_MSG", msg } }),
+      ),
+    },
   };
   const state = appInitialState(initialRoute, ctx);
   let dispatching = false;

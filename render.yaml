@@ -4,6 +4,7 @@ services:
     name: ear-trainer
     repo: https://github.com/dlants/ear-trainer
     branch: main
+    autoDeploy: true
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     routes:

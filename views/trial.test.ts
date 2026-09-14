@@ -1,366 +1,394 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import type {
-  PlayButtonId,
-  PlayController,
-  PlayStep,
-} from "../audio/play-controller.ts";
-import { makeCardId } from "../deck/card.ts";
-import type { Profile } from "../deck/profiles.ts";
-import { ProfileStore } from "../deck/profiles.ts";
-import { DeckStore, type KeyValueStore } from "../deck/store.ts";
-import { parsePattern } from "../music/format.ts";
-import type { Pattern } from "../music/note.ts";
-import {
-  initialState,
-  type Msg,
-  type State,
-  type TrialCtx,
-  TrialView,
-  update,
-} from "./trial.ts";
+import { expect, test } from "@playwright/test";
+import { HARNESS_URL } from "../test/support.ts";
 
-type PlayCall =
-  | { type: "autoplay"; steps: PlayStep[] }
-  | { type: "toggle"; buttonId: PlayButtonId; step: PlayStep }
-  | { type: "stop" };
+test.beforeEach(async ({ page }) => {
+  await page.goto(HARNESS_URL);
+});
 
-class FakePlay {
-  calls: PlayCall[] = [];
-  state: ReturnType<PlayController["getState"]> = { status: "idle" };
-
-  getState(): ReturnType<PlayController["getState"]> {
-    return this.state;
-  }
-
-  autoplay(steps: PlayStep[]): void {
-    this.calls.push({ type: "autoplay", steps });
-  }
-
-  toggle(buttonId: PlayButtonId, step: PlayStep): void {
-    this.calls.push({ type: "toggle", buttonId, step });
-  }
-
-  drones: (number | undefined)[] = [];
-  setDrone(tonic: number | undefined): void {
-    this.drones.push(tonic);
-  }
-  stop(): void {
-    this.calls.push({ type: "stop" });
-  }
-}
-
-function memoryStorage(): KeyValueStore {
-  const data: Record<string, string> = {};
-  return {
-    getItem: (k) => data[k] ?? null,
-    setItem: (k, v) => {
-      data[k] = v;
-    },
-  };
-}
-
-function pattern(input: string): Pattern {
-  const result = parsePattern(input, "major-cadence");
-  if (!result.ok) throw new Error(result.error);
-  return result.value;
-}
-
-function setup(overrides: Partial<Profile> = {}) {
-  const profile: Profile = {
-    id: "p1",
-    name: "a",
-    color: "#000",
-    tonic: 60,
-    cadenceSpeed: "medium",
-    drone: true,
-    ...overrides,
-  };
-  const deck = new DeckStore(profile.id, memoryStorage());
-  const profiles = new ProfileStore(memoryStorage());
-  const play = new FakePlay();
-  const ctx: TrialCtx = {
-    play: play as unknown as PlayController,
-    deck,
-    profile,
-    now: () => new Date("2026-01-01T00:00:00Z"),
-    profiles,
-  };
-  return { ctx, deck, play, profile, profiles };
-}
-
-function start(ctx: TrialCtx): {
-  state: State;
-  dispatch: (msg: Msg) => void;
-} {
-  const state = initialState(ctx);
-  const dispatch = (msg: Msg) => update(state, msg, ctx);
-  dispatch({ type: "NEXT_TRIAL" });
-  return { state, dispatch };
-}
-
-function preferMode(
-  deck: DeckStore,
-  patternId: Pattern["id"],
-  mode: "transcription" | "audiation",
-): void {
-  const other = mode === "transcription" ? "audiation" : "transcription";
-  const card = deck.getState().cards[makeCardId(patternId, other)];
-  if (!card) throw new Error("no card");
-  card.fsrs.due = new Date("2027-01-01T00:00:00Z");
-}
-
-function expectAutoplay(call: PlayCall | undefined): PlayStep[] {
-  expect(call?.type).toBe("autoplay");
-  return call?.type === "autoplay" ? call.steps : [];
-}
-
-function withMode(
-  state: State,
-  deck: DeckStore,
-  mode: "transcription" | "audiation",
-): void {
-  const trial = state.trial;
-  if (!trial) throw new Error("no trial");
-  const card = deck.getState().cards[makeCardId(trial.pattern.id, mode)];
-  if (!card) throw new Error("no card");
-  state.trial = { ...trial, card };
-}
-
-describe("trial flow", () => {
-  let env: ReturnType<typeof setup>;
-
-  beforeEach(() => {
-    env = setup();
-    env.deck.addPattern(pattern("1-3-5").id, new Date("2025-12-31T00:00:00Z"));
-  });
-
-  it("writes exactly one log entry per trial with the committed pair", () => {
-    const { state, dispatch } = start(env.ctx);
-    const cardId = state.trial?.card.id;
-    dispatch({ type: "COMMIT", confidence: "unsure" });
-    expect(state.trial?.phase).toBe("revealing");
-    dispatch({ type: "GRADE", outcome: "got-it" });
-
-    const log = env.deck.getState().log;
-    expect(log).toHaveLength(1);
-    expect(log[0]).toMatchObject({
-      cardId,
+test.describe("trial flow", () => {
+  test("writes exactly one log entry per trial with the committed pair", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      const cardId = state.trial?.card.id;
+      dispatch({ type: "COMMIT", confidence: "unsure" });
+      const phase = state.trial?.phase;
+      dispatch({ type: "GRADE", outcome: "got-it" });
+      const log = env.deck.getState().log;
+      return {
+        cardId,
+        phase,
+        log: log.map((entry) => ({
+          cardId: entry.cardId,
+          confidence: entry.confidence,
+          outcome: entry.outcome,
+        })),
+      };
+    });
+    expect(result.phase).toBe("revealing");
+    expect(result.log).toHaveLength(1);
+    expect(result.log[0]).toMatchObject({
+      cardId: result.cardId,
       confidence: "unsure",
       outcome: "got-it",
     });
   });
 
-  it("replays nothing into the deck, in either phase", () => {
-    const { state, dispatch } = start(env.ctx);
-    const before = JSON.stringify(env.deck.getState());
-    dispatch({ type: "PLAY_CONTEXT" });
-    dispatch({ type: "PLAY_PATTERN" });
-    dispatch({ type: "COMMIT", confidence: "known" });
-    dispatch({ type: "PLAY_CONTEXT" });
-    dispatch({ type: "PLAY_PATTERN" });
-    expect(JSON.stringify(env.deck.getState())).toBe(before);
-    expect(state.trial?.phase).toBe("revealing");
-  });
-
-  it("autoplays context then pattern for a transcription presentation", () => {
-    const { state } = start(env.ctx);
-    const trial = state.trial;
-    expect(trial?.card.mode).toBe("transcription");
-    expect(expectAutoplay(env.play.calls[0])).toEqual([
-      {
-        buttonId: "trial:context",
-        type: "context",
-        context: trial?.pattern.context,
-        tonic: 60,
-        speed: "medium",
-      },
-      {
-        buttonId: "trial:pattern",
-        type: "pattern",
-        pattern: trial?.pattern,
-        tonic: 60,
-      },
-    ]);
-  });
-
-  it("autoplays only context and gates manual pattern play in audiation", () => {
-    const patternId = pattern("1-3-5").id;
-    preferMode(env.deck, patternId, "audiation");
-    const { state, dispatch } = start(env.ctx);
-
-    expect(state.trial?.card.mode).toBe("audiation");
-    expect(expectAutoplay(env.play.calls[0])).toEqual([
-      {
-        buttonId: "trial:context",
-        type: "context",
-        context: state.trial?.pattern.context,
-        tonic: 60,
-        speed: "medium",
-      },
-    ]);
-    env.play.calls = [];
-    dispatch({ type: "PLAY_PATTERN" });
-    expect(env.play.calls).toEqual([]);
-  });
-
-  it("audiation reveal replaces presentation playback with only the pattern", () => {
-    const { state, dispatch } = start(env.ctx);
-    withMode(state, env.deck, "audiation");
-    env.play.calls = [];
-
-    dispatch({ type: "COMMIT", confidence: "known" });
-
-    expect(expectAutoplay(env.play.calls[0])).toEqual([
-      {
-        buttonId: "trial:pattern",
-        type: "pattern",
-        pattern: state.trial?.pattern,
-        tonic: 60,
-      },
-    ]);
-    dispatch({ type: "PLAY_PATTERN" });
-    expect(env.play.calls[1]?.type).toBe("toggle");
-  });
-
-  it("does not autoplay again when revealing a transcription trial", () => {
-    const { dispatch } = start(env.ctx);
-    env.play.calls = [];
-
-    dispatch({ type: "COMMIT", confidence: "known" });
-
-    expect(env.play.calls).toEqual([]);
-  });
-
-  it("plays pattern audio in transcription during presentation", () => {
-    const { state, dispatch } = start(env.ctx);
-    withMode(state, env.deck, "transcription");
-    dispatch({ type: "PLAY_PATTERN" });
-    expect(env.play.calls.at(-1)).toMatchObject({
-      type: "toggle",
-      buttonId: "trial:pattern",
+  test("replays nothing into the deck, in either phase", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      const before = JSON.stringify(env.deck.getState());
+      dispatch({ type: "PLAY_CONTEXT" });
+      dispatch({ type: "PLAY_PATTERN" });
+      dispatch({ type: "COMMIT", confidence: "known" });
+      dispatch({ type: "PLAY_CONTEXT" });
+      dispatch({ type: "PLAY_PATTERN" });
+      return {
+        unchanged: JSON.stringify(env.deck.getState()) === before,
+        phase: state.trial?.phase,
+      };
     });
+    expect(result.unchanged).toBe(true);
+    expect(result.phase).toBe("revealing");
   });
 
-  it("uses the configured tonic on every trial", () => {
-    const { state, dispatch } = start(env.ctx);
-    expect(state.trial?.tonic).toBe(60);
-    dispatch({ type: "COMMIT", confidence: "known" });
-    dispatch({ type: "GRADE", outcome: "missed" });
-    expect(state.trial?.tonic).toBe(60);
+  test("autoplays context then pattern for a transcription presentation", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { state } = start(env.ctx);
+      const call = env.play.calls[0];
+      return {
+        mode: state.trial?.card.mode,
+        callType: call?.type,
+        steps: call?.type === "autoplay" ? call.steps : [],
+        context: state.trial?.pattern.context,
+        pattern: state.trial?.pattern,
+      };
+    });
+    expect(result.mode).toBe("transcription");
+    expect(result.callType).toBe("autoplay");
+    expect(result.steps).toEqual([
+      {
+        buttonId: "trial:context",
+        type: "context",
+        context: result.context,
+        tonic: 60,
+        speed: "medium",
+      },
+      {
+        buttonId: "trial:pattern",
+        type: "pattern",
+        pattern: result.pattern,
+        tonic: 60,
+      },
+    ]);
   });
 
-  it("replaces active trial playback when grading selects the next trial", () => {
-    const { dispatch } = start(env.ctx);
-    dispatch({ type: "COMMIT", confidence: "known" });
-    env.play.calls = [];
-
-    dispatch({ type: "GRADE", outcome: "got-it" });
-
-    expect(env.play.calls).toHaveLength(1);
-    expect(expectAutoplay(env.play.calls[0])).toHaveLength(1);
+  test("autoplays only context and gates manual pattern play in audiation", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start, pattern, preferMode } = await import(
+        "/test/trial-harness.ts"
+      );
+      const env = setupDue();
+      preferMode(env.deck, pattern("1-3-5").id, "audiation");
+      const { state, dispatch } = start(env.ctx);
+      const call = env.play.calls[0];
+      const first = {
+        mode: state.trial?.card.mode,
+        callType: call?.type,
+        steps: call?.type === "autoplay" ? call.steps : [],
+        context: state.trial?.pattern.context,
+      };
+      env.play.calls = [];
+      dispatch({ type: "PLAY_PATTERN" });
+      return { ...first, afterManualPlay: env.play.calls };
+    });
+    expect(result.mode).toBe("audiation");
+    expect(result.callType).toBe("autoplay");
+    expect(result.steps).toEqual([
+      {
+        buttonId: "trial:context",
+        type: "context",
+        context: result.context,
+        tonic: 60,
+        speed: "medium",
+      },
+    ]);
+    expect(result.afterManualPlay).toEqual([]);
   });
 
-  it("holds the trial tonic under the drone by default", () => {
-    start(env.ctx);
-    expect(env.play.drones).toEqual([60]);
-  });
-  it("toggling the drone persists on the profile and survives the next trial", () => {
-    const { dispatch } = start(env.ctx);
-
-    dispatch({ type: "TOGGLE_DRONE" });
-
-    expect(env.profile.drone).toBe(false);
-    expect(env.profiles.get("p1")?.drone).toBe(false);
-    expect(env.play.drones.at(-1)).toBeUndefined();
-
-    dispatch({ type: "COMMIT", confidence: "known" });
-    dispatch({ type: "GRADE", outcome: "got-it" });
-    expect(env.play.drones.at(-1)).toBeUndefined();
-  });
-  it("clears the drone when nothing is due", () => {
-    const empty = setup();
-    start(empty.ctx);
-    expect(empty.play.drones).toEqual([undefined]);
-  });
-  it("stops playback when nothing is due", () => {
-    const empty = setup();
-    const { state } = start(empty.ctx);
-    expect(state.trial).toBeUndefined();
-    expect(empty.play.calls).toEqual([{ type: "stop" }]);
-  });
-
-  it("shows mode-specific instructions and the confident action", () => {
-    const { state, dispatch } = start(env.ctx);
-    const container = document.createElement("div");
-    const view = new TrialView(container, dispatch, state, env.ctx);
-
-    expect(container.textContent).toContain("identify the notes");
-    expect(container.textContent).toContain("confident");
-
-    withMode(state, env.deck, "audiation");
-    view.sync(state);
-    expect(container.textContent).toContain("sing these notes");
+  test("audiation reveal replaces presentation playback with only the pattern", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start, withMode } = await import(
+        "/test/trial-harness.ts"
+      );
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      withMode(state, env.deck, "audiation");
+      env.play.calls = [];
+      dispatch({ type: "COMMIT", confidence: "known" });
+      const call = env.play.calls[0];
+      const revealed = {
+        callType: call?.type,
+        steps: call?.type === "autoplay" ? call.steps : [],
+        pattern: state.trial?.pattern,
+      };
+      dispatch({ type: "PLAY_PATTERN" });
+      return { ...revealed, secondType: env.play.calls[1]?.type };
+    });
+    expect(result.callType).toBe("autoplay");
+    expect(result.steps).toEqual([
+      {
+        buttonId: "trial:pattern",
+        type: "pattern",
+        pattern: result.pattern,
+        tonic: 60,
+      },
+    ]);
+    expect(result.secondType).toBe("toggle");
   });
 
-  it("renders sequence spacing, stacked harmonies, and octave modifiers", () => {
-    const { state, dispatch } = start(env.ctx);
-    const trial = state.trial;
-    if (!trial) throw new Error("no trial");
-    state.trial = {
-      ...trial,
-      pattern: pattern("5^-3v-1+3+5"),
-      phase: "revealing",
-    };
-    const container = document.createElement("div");
-    new TrialView(container, dispatch, state, env.ctx);
-
-    const events = [...container.querySelectorAll("[data-notation-event]")];
-    expect(events).toHaveLength(3);
-    expect(
-      events.map((event) =>
-        [...event.querySelectorAll("[data-notation-note]")]
-          .map((note) => note.textContent?.trim())
-          .join(""),
-      ),
-    ).toEqual(["5↑", "3↓", "135"]);
-    expect(events[2]?.querySelectorAll("[data-notation-note]")).toHaveLength(3);
-    expect(events[0]?.querySelector("sup")?.textContent).toBe("↑");
-    expect(events[1]?.querySelector("sub")?.textContent).toBe("↓");
-    expect(container.textContent).not.toContain("5↑-");
+  test("does not autoplay again when revealing a transcription trial", async ({
+    page,
+  }) => {
+    const calls = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { dispatch } = start(env.ctx);
+      env.play.calls = [];
+      dispatch({ type: "COMMIT", confidence: "known" });
+      return env.play.calls;
+    });
+    expect(calls).toEqual([]);
   });
 
-  it("moves the active treatment from context to pattern during autoplay", () => {
-    const { state, dispatch } = start(env.ctx);
-    const container = document.createElement("div");
-    const view = new TrialView(container, dispatch, state, env.ctx);
-    const contextButton = container.querySelector<HTMLButtonElement>(
-      '[aria-label="play key"]',
-    );
-    const patternButton = container.querySelector<HTMLButtonElement>(
-      '[aria-label="play pattern"]',
-    );
+  test("plays pattern audio in transcription during presentation", async ({
+    page,
+  }) => {
+    const last = await page.evaluate(async () => {
+      const { setupDue, start, withMode } = await import(
+        "/test/trial-harness.ts"
+      );
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      withMode(state, env.deck, "transcription");
+      dispatch({ type: "PLAY_PATTERN" });
+      return env.play.calls.at(-1);
+    });
+    expect(last).toMatchObject({ type: "toggle", buttonId: "trial:pattern" });
+  });
 
-    env.play.state = {
-      status: "playing",
-      buttonId: "trial:context",
-      durationMs: 900,
-      queueLength: 1,
-    };
-    view.sync(state);
-    expect(contextButton?.getAttribute("aria-pressed")).toBe("true");
-    expect(patternButton?.getAttribute("aria-pressed")).toBe("false");
+  test("uses the configured tonic on every trial", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      const first = state.trial?.tonic;
+      dispatch({ type: "COMMIT", confidence: "known" });
+      dispatch({ type: "GRADE", outcome: "missed" });
+      return { first, next: state.trial?.tonic };
+    });
+    expect(result.first).toBe(60);
+    expect(result.next).toBe(60);
+  });
 
-    env.play.state = {
-      status: "playing",
-      buttonId: "trial:pattern",
-      durationMs: 700,
-      queueLength: 0,
-    };
-    view.sync(state);
-    expect(contextButton?.getAttribute("aria-pressed")).toBe("false");
-    expect(patternButton?.getAttribute("aria-pressed")).toBe("true");
-    expect(patternButton?.style.getPropertyValue("--play-duration")).toBe(
-      "700ms",
-    );
+  test("replaces active trial playback when grading selects the next trial", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { dispatch } = start(env.ctx);
+      dispatch({ type: "COMMIT", confidence: "known" });
+      env.play.calls = [];
+      dispatch({ type: "GRADE", outcome: "got-it" });
+      const call = env.play.calls[0];
+      return {
+        calls: env.play.calls.length,
+        callType: call?.type,
+        steps: call?.type === "autoplay" ? call.steps.length : -1,
+      };
+    });
+    expect(result.calls).toBe(1);
+    expect(result.callType).toBe("autoplay");
+    expect(result.steps).toBe(1);
+  });
+
+  test("holds the trial tonic under the drone by default", async ({ page }) => {
+    const drones = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      start(env.ctx);
+      return env.play.drones;
+    });
+    expect(drones).toEqual([60]);
+  });
+
+  test("toggling the drone persists on the profile and survives the next trial", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const { dispatch } = start(env.ctx);
+      dispatch({ type: "TOGGLE_DRONE" });
+      const toggled = {
+        profileDrone: env.profile.drone,
+        storedDrone: env.profiles.get("p1")?.drone,
+        lastDrone: env.play.drones.at(-1) ?? null,
+      };
+      dispatch({ type: "COMMIT", confidence: "known" });
+      dispatch({ type: "GRADE", outcome: "got-it" });
+      return { ...toggled, afterNext: env.play.drones.at(-1) ?? null };
+    });
+    expect(result.profileDrone).toBe(false);
+    expect(result.storedDrone).toBe(false);
+    expect(result.lastDrone).toBeNull();
+    expect(result.afterNext).toBeNull();
+  });
+
+  test("clears the drone when nothing is due", async ({ page }) => {
+    const drones = await page.evaluate(async () => {
+      const { setup, start } = await import("/test/trial-harness.ts");
+      const empty = setup();
+      start(empty.ctx);
+      return empty.play.drones.map((drone) => drone ?? null);
+    });
+    expect(drones).toEqual([null]);
+  });
+
+  test("stops playback when nothing is due", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { setup, start } = await import("/test/trial-harness.ts");
+      const empty = setup();
+      const { state } = start(empty.ctx);
+      return { hasTrial: state.trial !== undefined, calls: empty.play.calls };
+    });
+    expect(result.hasTrial).toBe(false);
+    expect(result.calls).toEqual([{ type: "stop" }]);
+  });
+
+  test("shows mode-specific instructions and the confident action", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start, withMode } = await import(
+        "/test/trial-harness.ts"
+      );
+      const { TrialView } = await import("/views/trial.ts");
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      const container = document.createElement("div");
+      document.body.append(container);
+      const view = new TrialView(container, dispatch, state, env.ctx);
+      const transcription = container.textContent ?? "";
+      withMode(state, env.deck, "audiation");
+      view.sync(state);
+      return { transcription, audiation: container.textContent ?? "" };
+    });
+    expect(result.transcription).toContain("identify the notes");
+    expect(result.transcription).toContain("confident");
+    expect(result.audiation).toContain("sing these notes");
+  });
+
+  test("renders sequence spacing, stacked harmonies, and octave modifiers", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start, pattern } = await import(
+        "/test/trial-harness.ts"
+      );
+      const { TrialView } = await import("/views/trial.ts");
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      const trial = state.trial;
+      if (!trial) throw new Error("no trial");
+      state.trial = {
+        ...trial,
+        pattern: pattern("5^-3v-1+3+5"),
+        phase: "revealing",
+      };
+      const container = document.createElement("div");
+      document.body.append(container);
+      new TrialView(container, dispatch, state, env.ctx);
+      const events = [...container.querySelectorAll("[data-notation-event]")];
+      return {
+        count: events.length,
+        texts: events.map((event) =>
+          [...event.querySelectorAll("[data-notation-note]")]
+            .map((note) => note.textContent?.trim())
+            .join(""),
+        ),
+        lastNoteCount:
+          events[2]?.querySelectorAll("[data-notation-note]").length ?? 0,
+        firstSup: events[0]?.querySelector("sup")?.textContent,
+        secondSub: events[1]?.querySelector("sub")?.textContent,
+        text: container.textContent ?? "",
+      };
+    });
+    expect(result.count).toBe(3);
+    expect(result.texts).toEqual(["5↑", "3↓", "135"]);
+    expect(result.lastNoteCount).toBe(3);
+    expect(result.firstSup).toBe("↑");
+    expect(result.secondSub).toBe("↓");
+    expect(result.text).not.toContain("5↑-");
+  });
+
+  test("moves the active treatment from context to pattern during autoplay", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const { TrialView } = await import("/views/trial.ts");
+      const env = setupDue();
+      const { state, dispatch } = start(env.ctx);
+      const container = document.createElement("div");
+      document.body.append(container);
+      const view = new TrialView(container, dispatch, state, env.ctx);
+      const contextButton = container.querySelector<HTMLButtonElement>(
+        '[aria-label="play key"]',
+      );
+      const patternButton = container.querySelector<HTMLButtonElement>(
+        '[aria-label="play pattern"]',
+      );
+      const snapshot = () => ({
+        context: contextButton?.getAttribute("aria-pressed"),
+        pattern: patternButton?.getAttribute("aria-pressed"),
+        duration: patternButton?.style.getPropertyValue("--play-duration"),
+      });
+      env.play.state = {
+        status: "playing",
+        buttonId: "trial:context",
+        durationMs: 900,
+        queueLength: 1,
+      };
+      view.sync(state);
+      const playingContext = snapshot();
+      env.play.state = {
+        status: "playing",
+        buttonId: "trial:pattern",
+        durationMs: 700,
+        queueLength: 0,
+      };
+      view.sync(state);
+      return { playingContext, playingPattern: snapshot() };
+    });
+    expect(result.playingContext.context).toBe("true");
+    expect(result.playingContext.pattern).toBe("false");
+    expect(result.playingPattern.context).toBe("false");
+    expect(result.playingPattern.pattern).toBe("true");
+    expect(result.playingPattern.duration).toBe("700ms");
   });
 });

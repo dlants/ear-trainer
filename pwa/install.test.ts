@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, test } from "@playwright/test";
 import { DISMISS_KEY, installEnv, shouldShowInstall } from "./install.ts";
 
 const env = (over: Partial<Parameters<typeof shouldShowInstall>[0]> = {}) => ({
@@ -8,24 +8,24 @@ const env = (over: Partial<Parameters<typeof shouldShowInstall>[0]> = {}) => ({
   ...over,
 });
 
-describe("shouldShowInstall", () => {
-  it("shows on a first run in the browser", () => {
+test.describe("shouldShowInstall", () => {
+  test("shows on a first run in the browser", () => {
     expect(shouldShowInstall(env())).toBe(true);
   });
 
-  it("never shows once launched from the home screen", () => {
+  test("never shows once launched from the home screen", () => {
     expect(shouldShowInstall(env({ standalone: true, dismissed: false }))).toBe(
       false,
     );
   });
 
-  it("stays dismissed across runs", () => {
+  test("stays dismissed across runs", () => {
     expect(shouldShowInstall(env({ dismissed: true }))).toBe(false);
   });
 });
 
-describe("installEnv", () => {
-  it("reads standalone, platform and the dismissed flag", () => {
+test.describe("installEnv", () => {
+  test("reads standalone, platform and the dismissed flag", () => {
     const storage = new Map<string, string>([[DISMISS_KEY, "1"]]);
     const win = {
       navigator: { standalone: true, userAgent: "iPhone" },

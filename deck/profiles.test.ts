@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, test } from "@playwright/test";
 import { makePattern } from "../music/note.ts";
 import { makeCardId } from "./card.ts";
 import { type Profile, ProfileStore } from "./profiles.ts";
@@ -32,8 +32,8 @@ const pattern = makePattern("major-cadence", [
 const cardId = makeCardId(pattern.id, "transcription");
 const now = new Date("2026-01-01T00:00:00Z");
 
-describe("profile scoping", () => {
-  it("grading under one profile leaves the other's deck untouched", () => {
+test.describe("profile scoping", () => {
+  test("grading under one profile leaves the other's deck untouched", () => {
     const storage = memoryStorage();
     const a = new DeckStore("a", storage);
     const b = new DeckStore("b", storage);
@@ -50,8 +50,8 @@ describe("profile scoping", () => {
   });
 });
 
-describe("ProfileStore", () => {
-  it("fills the movable range when loading an older profile", () => {
+test.describe("ProfileStore", () => {
+  test("fills the movable range when loading an older profile", () => {
     const storage = memoryStorage();
     storage.setItem(
       "profiles",
@@ -64,7 +64,7 @@ describe("ProfileStore", () => {
     expect(loaded?.drone).toBe(true);
   });
 
-  it("persists profiles and the active selection", () => {
+  test("persists profiles and the active selection", () => {
     const storage = memoryStorage();
     const store = new ProfileStore(storage);
     store.save(profile("a"));
@@ -76,7 +76,7 @@ describe("ProfileStore", () => {
     expect(reloaded.active()?.id).toBe("b");
   });
 
-  it("exports every profile with its deck data", () => {
+  test("exports every profile with its deck data", () => {
     const storage = memoryStorage();
     const store = new ProfileStore(storage);
     store.save(profile("a"));
@@ -91,7 +91,7 @@ describe("ProfileStore", () => {
     expect(payload.profiles[1]?.cards).toBeNull();
   });
 
-  it("imports by merging on id without clobbering unrelated profiles", () => {
+  test("imports by merging on id without clobbering unrelated profiles", () => {
     const source = memoryStorage();
     const from = new ProfileStore(source);
     from.save(profile("a"));

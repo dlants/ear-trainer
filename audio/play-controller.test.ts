@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, test } from "@playwright/test";
 import { type Context, makePattern, type Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import type { AudioEngine, PlaybackEnd, PlaybackHandle } from "./engine.ts";
@@ -103,8 +103,8 @@ async function settlePromises(): Promise<void> {
   await Promise.resolve();
 }
 
-describe("PlayController", () => {
-  it("advances a two-step autoplay only after natural completion", async () => {
+test.describe("PlayController", () => {
+  test("advances a two-step autoplay only after natural completion", async () => {
     const audio = new FakeAudio();
     audio.enqueue(new ControlledHandle(1250));
     audio.enqueue(new ControlledHandle(900));
@@ -137,7 +137,7 @@ describe("PlayController", () => {
     });
   });
 
-  it("toggles the active button off and discards queued autoplay", async () => {
+  test("toggles the active button off and discards queued autoplay", async () => {
     const { audio, controller, messages } = setup();
     controller.autoplay([contextStep, patternStep]);
 
@@ -151,7 +151,7 @@ describe("PlayController", () => {
     expect(controller.getState()).toEqual({ status: "idle" });
   });
 
-  it("replaces active playback and its queue with a different button", async () => {
+  test("replaces active playback and its queue with a different button", async () => {
     const { audio, controller, messages } = setup();
     controller.autoplay([contextStep, patternStep]);
 
@@ -174,7 +174,7 @@ describe("PlayController", () => {
     });
   });
 
-  it("ignores a superseded handle completion that arrives late", async () => {
+  test("ignores a superseded handle completion that arrives late", async () => {
     const audio = new FakeAudio();
     const staleHandle = new ControlledHandle(1000, false);
     audio.enqueue(staleHandle);
@@ -194,7 +194,7 @@ describe("PlayController", () => {
     });
   });
 
-  it("makes repeated stops idempotent", async () => {
+  test("makes repeated stops idempotent", async () => {
     const { audio, controller, messages } = setup();
     controller.autoplay([contextStep, patternStep]);
 

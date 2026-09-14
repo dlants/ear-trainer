@@ -46,6 +46,22 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+/* Desktop: keep the single-column mobile layout centered. Containment makes #app
+   the containing block for the position:fixed nav/corner chrome so they stay
+   pinned to the column rather than the window. */
+#app {
+  max-width: 480px;
+  margin-inline: auto;
+  min-height: 100dvh;
+  contain: layout paint;
+}
+
+@media (min-width: 481px) {
+  #app {
+    border-inline: 1px solid var(--color-border);
+  }
+}
+
 button,
 input {
   font: inherit;

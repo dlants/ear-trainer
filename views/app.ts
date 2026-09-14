@@ -105,6 +105,7 @@ export function update(
       ) {
         ctx.play.stop();
         ctx.play.setDrone(undefined);
+        ctx.options.mic.stop();
       }
       state.route = route;
       if (route.page === "practice" && routeChanged && state.audioUnlocked) {

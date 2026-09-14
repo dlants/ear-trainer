@@ -597,6 +597,20 @@ export function onPress(el: HTMLElement, handler: () => void): void {
   });
 }
 
+/**
+ * Activation for controls that gate a browser capability requiring user
+ * activation (`AudioContext.resume`, `getUserMedia`). Binding those to
+ * `pointerdown` broke audio unlock on Android; `click` is what the browser
+ * vendors document as the reliable activation trigger.
+ */
+export function onActivate(el: HTMLElement, handler: () => void): void {
+  el.addEventListener("click", () => {
+    el.classList.add(pressedClass);
+    window.setTimeout(() => el.classList.remove(pressedClass), 120);
+    handler();
+  });
+}
+
 /** Inject a raw CSS string into the page via a <style> tag. */
 export function mountStyle(css: string): void {
   const el = document.createElement("style");

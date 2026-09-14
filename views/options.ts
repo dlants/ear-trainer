@@ -1,15 +1,26 @@
 import type { CadenceSpeed } from "../audio/engine.ts";
+import {
+  centsOff,
+  type MicPitchDetector,
+  type MicPitchMsg,
+  nearestMidi,
+  type Pitch,
+  SILENCE_LEVEL,
+} from "../audio/mic-pitch.ts";
 import type {
   PlayButtonId,
   PlayController,
   PlayStep,
 } from "../audio/play-controller.ts";
 import type { Profile, ProfileStore } from "../deck/profiles.ts";
+import { micIcon } from "../icons.ts";
 import type { Midi } from "../music/pitch.ts";
 import {
   Binder,
   cls,
   mountStyle,
+  onActivate,
+  onPress,
   ref,
   sanitize,
   show,
@@ -20,9 +31,21 @@ import { PlayButtonView } from "./play-button.ts";
 export const MIN_TONIC: Midi = 36;
 export const MAX_TONIC: Midi = 84;
 
+export type MicState =
+  | { status: "off" }
+  | { status: "starting" }
+  | {
+      status: "listening";
+      level: number;
+      meter: number;
+      pitch: Pitch | undefined;
+    }
+  | { status: "error"; message: string };
+
 export type State = {
   tonic: Midi;
   cadenceSpeed: CadenceSpeed;
+  mic: MicState;
   error: string | undefined;
 };
 
@@ -30,18 +53,23 @@ export type Msg =
   | { type: "SET_TONIC"; tonic: Midi }
   | { type: "SET_CADENCE_SPEED"; speed: CadenceSpeed }
   | { type: "PREVIEW" }
+  | { type: "TOGGLE_MIC" }
+  | { type: "MIC_MSG"; msg: MicPitchMsg }
+  | { type: "USE_HEARD_NOTE" }
   | { type: "ERROR"; message: string };
 
 export type OptionsCtx = {
   play: PlayController;
   profile: Profile;
   profiles: ProfileStore;
+  mic: MicPitchDetector;
 };
 
 export function initialState(ctx: OptionsCtx): State {
   return {
     tonic: ctx.profile.tonic,
     cadenceSpeed: ctx.profile.cadenceSpeed,
+    mic: { status: "off" },
     error: undefined,
   };
 }
@@ -80,6 +108,38 @@ function preview(state: State, ctx: OptionsCtx): void {
   ctx.play.toggle(buttonId, step);
 }
 
+function heardMidi(mic: MicState): Midi | undefined {
+  if (mic.status !== "listening" || !mic.pitch) return undefined;
+  return nearestMidi(mic.pitch.midi);
+}
+
+function micUpdate(state: State, msg: MicPitchMsg): void {
+  switch (msg.type) {
+    case "MIC_STARTED":
+      state.mic = {
+        status: "listening",
+        level: 0,
+        meter: 0,
+        pitch: undefined,
+      };
+      break;
+    case "MIC_READING":
+      // A momentary silence between sung notes keeps the last reading on screen
+      // rather than flickering the readout away.
+      if (state.mic.status === "listening")
+        state.mic = {
+          status: "listening",
+          level: msg.reading.level,
+          meter: msg.reading.meter,
+          pitch: msg.reading.pitch ?? state.mic.pitch,
+        };
+      break;
+    case "MIC_ERROR":
+      state.mic = { status: "error", message: msg.message };
+      break;
+  }
+}
+
 export function update(state: State, msg: Msg, ctx: OptionsCtx): void {
   switch (msg.type) {
     case "SET_TONIC":
@@ -94,6 +154,27 @@ export function update(state: State, msg: Msg, ctx: OptionsCtx): void {
     case "PREVIEW":
       preview(state, ctx);
       break;
+    case "TOGGLE_MIC":
+      if (state.mic.status === "off" || state.mic.status === "error") {
+        state.mic = { status: "starting" };
+        ctx.mic.start();
+      } else {
+        state.mic = { status: "off" };
+        ctx.mic.stop();
+      }
+      break;
+    case "MIC_MSG":
+      micUpdate(state, msg.msg);
+      break;
+    case "USE_HEARD_NOTE": {
+      const heard = heardMidi(state.mic);
+      if (heard !== undefined) {
+        state.tonic = clamp(heard);
+        persist(state, ctx);
+        preview(state, ctx);
+      }
+      break;
+    }
     case "ERROR":
       state.error = msg.message;
       break;
@@ -123,6 +204,7 @@ export function noteName(midi: Midi): string {
 const optionsClass = cls("options");
 const fieldClass = cls("options-field");
 const playSlotClass = cls("options-play-slot");
+const micClass = cls("options-mic");
 
 mountStyle(`
 .${optionsClass} {
@@ -216,6 +298,54 @@ mountStyle(`
   border-radius: 1px;
   background: var(--color-text-muted);
 }
+.${optionsClass} .${micClass} {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.${optionsClass} .${micClass} button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+}
+.${optionsClass} .${micClass} .listening {
+  border-color: var(--color-brand-border);
+  background: var(--color-brand-surface);
+  color: var(--color-brand);
+}
+.${optionsClass} .${micClass} .heard {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.${optionsClass} .${micClass} .heard strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.${optionsClass} .${micClass} .level {
+  flex: 1 1 80px;
+  height: 8px;
+  min-width: 80px;
+  border-radius: 4px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.${optionsClass} .${micClass} .level span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-brand);
+  transition: width 80ms linear;
+}
+.${optionsClass} .${micClass} .heard span {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
 .${optionsClass} .hint {
   margin: 4px 0 0;
   color: var(--color-text-muted);
@@ -240,6 +370,15 @@ export class OptionsView implements View<State, Msg, Pick<OptionsCtx, "play">> {
     const slowCadenceRef = ref("slow-cadence");
     const mediumCadenceRef = ref("medium-cadence");
     const fastCadenceRef = ref("fast-cadence");
+    const micToggleRef = ref("mic-toggle");
+    const micLabelRef = ref("mic-label");
+    const micHintRef = ref("mic-hint");
+    const heardRef = ref("heard");
+    const heardNoteRef = ref("heard-note");
+    const heardCentsRef = ref("heard-cents");
+    const useHeardRef = ref("use-heard");
+    const levelRef = ref("level");
+    const levelFillRef = ref("level-fill");
 
     this.container = container;
     container.innerHTML = sanitize`
@@ -258,6 +397,20 @@ export class OptionsView implements View<State, Msg, Pick<OptionsCtx, "play">> {
             <div class="octave-ticks" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span>
             </div>
+            <div class="${micClass}">
+              <button type="button" data-ref="${micToggleRef}">
+                ${micIcon()}<span data-ref="${micLabelRef}"></span>
+              </button>
+              <div class="heard" data-ref="${heardRef}">
+                <strong data-ref="${heardNoteRef}"></strong>
+                <span data-ref="${heardCentsRef}"></span>
+              </div>
+              <button type="button" data-ref="${useHeardRef}">use as home note</button>
+              <div class="level" data-ref="${levelRef}" aria-hidden="true">
+                <span data-ref="${levelFillRef}"></span>
+              </div>
+            </div>
+            <p class="hint" data-ref="${micHintRef}"></p>
           </div>
         </fieldset>
         <fieldset>
@@ -331,6 +484,59 @@ export class OptionsView implements View<State, Msg, Pick<OptionsCtx, "play">> {
     this.b
       .ref<HTMLInputElement>(tonicRef)
       .addEventListener("change", () => dispatch({ type: "PREVIEW" }));
+    onActivate(this.b.ref(micToggleRef), () =>
+      dispatch({ type: "TOGGLE_MIC" }),
+    );
+    onPress(this.b.ref(useHeardRef), () =>
+      dispatch({ type: "USE_HEARD_NOTE" }),
+    );
+    this.b.bindText(micLabelRef, (s) =>
+      s.mic.status === "off" || s.mic.status === "error"
+        ? "sing a note"
+        : "stop listening",
+    );
+    this.b.bindClass(micToggleRef, (s) =>
+      s.mic.status === "listening" || s.mic.status === "starting"
+        ? "listening"
+        : "",
+    );
+    this.b.bindVisible(
+      levelRef,
+      (s) => s.mic.status === "listening" || s.mic.status === "starting",
+    );
+    this.b.bindStyle(levelFillRef, (s) => ({
+      width:
+        s.mic.status === "listening"
+          ? `${Math.round(s.mic.meter * 100)}%`
+          : "0%",
+    }));
+    this.b.bindVisible(heardRef, (s) => heardMidi(s.mic) !== undefined);
+    this.b.bindVisible(useHeardRef, (s) => heardMidi(s.mic) !== undefined);
+    this.b.bindText(heardNoteRef, (s) => {
+      const heard = heardMidi(s.mic);
+      return heard === undefined ? "" : noteName(heard);
+    });
+    this.b.bindText(heardCentsRef, (s) => {
+      if (s.mic.status !== "listening" || !s.mic.pitch) return "";
+      const cents = centsOff(s.mic.pitch.midi);
+      return `${cents >= 0 ? "+" : ""}${cents} cents`;
+    });
+    this.b.bindText(micHintRef, (s) => {
+      switch (s.mic.status) {
+        case "off":
+          return "Not sure where your voice sits? Sing or hum a comfortable note and we'll name it for you.";
+        case "starting":
+          return "Waiting for the microphone…";
+        case "listening":
+          if (s.mic.level < SILENCE_LEVEL)
+            return "Listening — I can't hear anything yet.";
+          if (!s.mic.pitch)
+            return "I hear you — hold one steady vowel, like “ah”.";
+          return "Keep humming — pick a note you can sing comfortably above and below.";
+        case "error":
+          return s.mic.message;
+      }
+    });
     this.b.bindText(errorRef, (s) => s.error ?? "");
     this.b.bindVisible(errorRef, (s) => s.error !== undefined);
     this.b.bindValue(tonicRef, (s) => String(s.tonic));

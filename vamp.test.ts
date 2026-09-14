@@ -1,42 +1,64 @@
-import { describe, expect, it } from "vitest";
-import { PostRenderEventBus } from "./vamp.ts";
+import { expect, test } from "@playwright/test";
+import { HARNESS_URL } from "./test/support.ts";
 
-type TestEvent = { type: "a" } | { type: "b" };
+test.beforeEach(async ({ page }) => {
+  await page.goto(HARNESS_URL);
+});
 
-describe("PostRenderEventBus", () => {
-  it("delivers queued events to all subscribers in order on flush, once", () => {
-    const bus = new PostRenderEventBus<TestEvent>();
-    const seen1: TestEvent[] = [];
-    const seen2: TestEvent[] = [];
-    bus.subscribe((e) => seen1.push(e));
-    bus.subscribe((e) => seen2.push(e));
+test.describe("PostRenderEventBus", () => {
+  test("delivers queued events to all subscribers in order on flush, once", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { PostRenderEventBus } = await import("/vamp.ts");
+      type TestEvent = { type: "a" } | { type: "b" };
+      const bus = new PostRenderEventBus<TestEvent>();
+      const seen1: TestEvent[] = [];
+      const seen2: TestEvent[] = [];
+      bus.subscribe((e) => seen1.push(e));
+      bus.subscribe((e) => seen2.push(e));
 
-    const a: TestEvent = { type: "a" };
-    const b: TestEvent = { type: "b" };
-    bus.emit(a);
-    bus.emit(b);
-    bus.flush();
+      const a: TestEvent = { type: "a" };
+      const b: TestEvent = { type: "b" };
+      bus.emit(a);
+      bus.emit(b);
+      bus.flush();
 
-    expect(seen1).toEqual([a, b]);
-    expect(seen2).toEqual([a, b]);
+      const afterFirstFlush = { seen1: [...seen1], seen2: [...seen2] };
 
-    bus.flush();
-    expect(seen1).toEqual([a, b]);
-    expect(seen2).toEqual([a, b]);
+      bus.flush();
+      return {
+        afterFirstFlush,
+        afterSecondFlush: { seen1: [...seen1], seen2: [...seen2] },
+      };
+    });
+
+    const expected = [{ type: "a" }, { type: "b" }];
+    expect(result.afterFirstFlush.seen1).toEqual(expected);
+    expect(result.afterFirstFlush.seen2).toEqual(expected);
+    expect(result.afterSecondFlush.seen1).toEqual(expected);
+    expect(result.afterSecondFlush.seen2).toEqual(expected);
   });
 
-  it("stops delivering to an unsubscribed listener", () => {
-    const bus = new PostRenderEventBus<TestEvent>();
-    const seen: TestEvent[] = [];
-    const unsubscribe = bus.subscribe((e) => seen.push(e));
+  test("stops delivering to an unsubscribed listener", async ({ page }) => {
+    const counts = await page.evaluate(async () => {
+      const { PostRenderEventBus } = await import("/vamp.ts");
+      type TestEvent = { type: "a" } | { type: "b" };
+      const bus = new PostRenderEventBus<TestEvent>();
+      const seen: TestEvent[] = [];
+      const unsubscribe = bus.subscribe((e) => seen.push(e));
 
-    bus.emit({ type: "a" });
-    bus.flush();
-    expect(seen).toHaveLength(1);
+      bus.emit({ type: "a" });
+      bus.flush();
+      const afterFirst = seen.length;
 
-    unsubscribe();
-    bus.emit({ type: "b" });
-    bus.flush();
-    expect(seen).toHaveLength(1);
+      unsubscribe();
+      bus.emit({ type: "b" });
+      bus.flush();
+      return { afterFirst, afterUnsubscribe: seen.length };
+    });
+
+    expect(counts.afterFirst).toBe(1);
+    expect(counts.afterUnsubscribe).toBe(1);
   });
 });

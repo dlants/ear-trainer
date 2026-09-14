@@ -1,91 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  AudioEngine,
-  PlaybackEnd,
-  PlaybackHandle,
-} from "./audio/engine.ts";
-import { DISMISS_KEY } from "./pwa/install.ts";
-import { startStartup } from "./startup.ts";
+import { expect, test } from "@playwright/test";
+import { HARNESS_URL } from "./test/support.ts";
 
-function deferred<T>() {
-  let resolve = (_value: T | PromiseLike<T>): void => {
-    throw new Error("deferred promise is not initialized");
-  };
-  let reject = (_reason?: unknown): void => {
-    throw new Error("deferred promise is not initialized");
-  };
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
-const completedHandle = (): PlaybackHandle => ({
-  durationMs: 0,
-  ended: Promise.resolve<PlaybackEnd>("completed"),
-  cancel() {},
-});
-
-class FakeAudio implements AudioEngine {
-  unlocked = false;
-  readonly attempts: ReturnType<typeof deferred<void>>[] = [];
-  readonly played: number[] = [];
-
-  unlock(): Promise<void> {
-    const attempt = deferred<void>();
-    this.attempts.push(attempt);
-    return attempt.promise.then(() => {
-      this.unlocked = true;
-    });
-  }
-
-  setDrone(): void {}
-  playContext(): PlaybackHandle {
-    return completedHandle();
-  }
-
-  playPattern(): PlaybackHandle {
-    return completedHandle();
-  }
-
-  playNote(note: number): PlaybackHandle {
-    this.played.push(note);
-    return completedHandle();
-  }
-}
-
-function appContainer(): HTMLElement {
-  const container = document.getElementById("app");
-  if (!container) throw new Error("missing app container");
-  return container;
-}
-
-function clickButton(container: HTMLElement, label: string): void {
-  const button = [...container.querySelectorAll("button")].find(
-    (candidate) => candidate.textContent === label,
-  );
-  if (!button) throw new Error(`missing button: ${label}`);
-  button.click();
-}
-
-function standaloneWindow(): Window {
-  return {
-    navigator: { standalone: true, userAgent: "iPhone" },
-    matchMedia: () => ({ matches: true }),
-  } as unknown as Window;
-}
-
-describe("startup", () => {
-  beforeEach(() => {
-    history.replaceState(null, "", "/");
+test.beforeEach(async ({ page }) => {
+  await page.goto(HARNESS_URL);
+  await page.evaluate(() => {
     document.body.innerHTML = '<div id="app"></div>';
     localStorage.clear();
   });
+});
 
-  it("renders the about page without unlocking audio", () => {
+test("renders the about page without unlocking audio", async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { startStartup } = await import("/startup.ts");
+    const { FakeAudio } = await import("/test/startup-harness.ts");
     history.replaceState(null, "", "/about");
-    const container = appContainer();
+    const container = document.getElementById("app");
+    if (!container) throw new Error("missing app container");
     const audio = new FakeAudio();
 
     startStartup({
@@ -93,58 +23,94 @@ describe("startup", () => {
       audio,
       window,
       storage: localStorage,
-      ready: vi.fn(),
+      ready: () => {},
     });
 
-    expect(container.textContent).toContain("My journey with ear training");
-    expect(
-      container.querySelector('summary[aria-label="open navigation menu"]'),
-    ).not.toBeNull();
-    expect(
-      container.querySelector('a[href="/about"][aria-current="page"]'),
-    ).not.toBeNull();
-    expect(audio.attempts).toHaveLength(0);
+    return {
+      text: container.textContent ?? "",
+      hasMenu: Boolean(
+        container.querySelector('summary[aria-label="open navigation menu"]'),
+      ),
+      hasCurrent: Boolean(
+        container.querySelector('a[href="/about"][aria-current="page"]'),
+      ),
+      attempts: audio.attempts.length,
+    };
   });
 
-  it("continues from the install prompt to the app", () => {
-    const container = appContainer();
+  expect(result.text).toContain("My journey with ear training");
+  expect(result.hasMenu).toBe(true);
+  expect(result.hasCurrent).toBe(true);
+  expect(result.attempts).toBe(0);
+});
+
+test("continues from the install prompt to the app", async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { startStartup } = await import("/startup.ts");
+    const { DISMISS_KEY } = await import("/pwa/install.ts");
+    const { FakeAudio } = await import("/test/startup-harness.ts");
+    history.replaceState(null, "", "/");
+    const container = document.getElementById("app");
+    if (!container) throw new Error("missing app container");
     const audio = new FakeAudio();
-    const ready = vi.fn();
+    const readyWith: unknown[] = [];
 
     startStartup({
       container,
       audio,
       window,
       storage: localStorage,
-      ready,
+      ready: (engine) => readyWith.push(engine),
     });
 
-    expect(container.textContent).toContain(
-      "install the ecological ear trainer",
+    const promptText = container.textContent ?? "";
+    const button = [...container.querySelectorAll("button")].find(
+      (candidate) => candidate.textContent === "continue in browser",
     );
-    clickButton(container, "continue in browser");
+    if (!button) throw new Error("missing button: continue in browser");
+    button.click();
 
-    expect(localStorage.getItem(DISMISS_KEY)).toBe("1");
-    expect(ready).toHaveBeenCalledWith(audio);
-    expect(audio.attempts).toHaveLength(0);
+    return {
+      promptText,
+      dismissed: localStorage.getItem(DISMISS_KEY),
+      readyWithAudio: readyWith.length === 1 && readyWith[0] === audio,
+      attempts: audio.attempts.length,
+    };
   });
 
-  it("takes an installed launch straight to the app", () => {
-    const container = appContainer();
+  expect(result.promptText).toContain("install the ecological ear trainer");
+  expect(result.dismissed).toBe("1");
+  expect(result.readyWithAudio).toBe(true);
+  expect(result.attempts).toBe(0);
+});
+
+test("takes an installed launch straight to the app", async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { startStartup } = await import("/startup.ts");
+    const { FakeAudio } = await import("/test/startup-harness.ts");
+    history.replaceState(null, "", "/");
+    const container = document.getElementById("app");
+    if (!container) throw new Error("missing app container");
     const audio = new FakeAudio();
-    const ready = vi.fn();
+    const readyWith: unknown[] = [];
 
     startStartup({
       container,
       audio,
-      window: standaloneWindow(),
+      window: {
+        navigator: { standalone: true, userAgent: "iPhone" },
+        matchMedia: () => ({ matches: true }),
+      } as unknown as Window,
       storage: localStorage,
-      ready,
+      ready: (engine) => readyWith.push(engine),
     });
 
-    expect(container.textContent).not.toContain(
-      "install the ecological ear trainer",
-    );
-    expect(ready).toHaveBeenCalledWith(audio);
+    return {
+      text: container.textContent ?? "",
+      readyWithAudio: readyWith.length === 1 && readyWith[0] === audio,
+    };
   });
+
+  expect(result.text).not.toContain("install the ecological ear trainer");
+  expect(result.readyWithAudio).toBe(true);
 });

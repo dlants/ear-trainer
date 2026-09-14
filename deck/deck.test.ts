@@ -1,5 +1,5 @@
+import { expect, test } from "@playwright/test";
 import { Rating, State } from "ts-fsrs";
-import { describe, expect, it } from "vitest";
 import { makePattern } from "../music/note.ts";
 import {
   type Confidence,
@@ -40,7 +40,7 @@ const thirdPattern = makePattern("major-cadence", [
 
 const now = new Date("2026-01-01T00:00:00Z");
 
-describe("ratingFor", () => {
+test.describe("ratingFor", () => {
   const table: [Confidence, Outcome, Rating][] = [
     ["known", "got-it", Rating.Good],
     ["known", "missed", Rating.Again],
@@ -48,14 +48,14 @@ describe("ratingFor", () => {
     ["unsure", "missed", Rating.Again],
   ];
   for (const [confidence, outcome, rating] of table) {
-    it(`${confidence}+${outcome} is ${Rating[rating]}`, () => {
+    test(`${confidence}+${outcome} is ${Rating[rating]}`, () => {
       expect(ratingFor(confidence, outcome)).toBe(rating);
     });
   }
 });
 
-describe("DeckStore", () => {
-  it("addPattern creates one card per mode and is idempotent", () => {
+test.describe("DeckStore", () => {
+  test("addPattern creates one card per mode and is idempotent", () => {
     const store = new DeckStore("a", memoryStorage());
     store.addPattern(pattern.id, now);
     expect(Object.keys(store.getState().cards)).toHaveLength(2);
@@ -68,7 +68,7 @@ describe("DeckStore", () => {
     expect(store.getState().cards[transcription]?.fsrs.due).toEqual(due);
   });
 
-  it("projects per-mode FSRS progress without assigning recall to new cards", () => {
+  test("projects per-mode FSRS progress without assigning recall to new cards", () => {
     const store = new DeckStore("a", memoryStorage());
     expect(store.progressForPattern(pattern.id, now)).toEqual([]);
 
@@ -106,7 +106,7 @@ describe("DeckStore", () => {
     expect(progress[1]?.retrievability).toBeUndefined();
   });
 
-  it("moves a pattern between the deck and known without resetting progress", () => {
+  test("moves a pattern between the deck and known without resetting progress", () => {
     const storage = memoryStorage();
     const store = new DeckStore("a", storage);
     store.addPattern(pattern.id, now);
@@ -125,7 +125,7 @@ describe("DeckStore", () => {
     expect(store.getState().cards[transcription]?.fsrs.due).toEqual(due);
   });
 
-  it("loads cards written before statuses existed as deck cards", () => {
+  test("loads cards written before statuses existed as deck cards", () => {
     const storage = memoryStorage();
     const store = new DeckStore("a", storage);
     store.addPattern(pattern.id, now);
@@ -138,7 +138,7 @@ describe("DeckStore", () => {
     expect(new DeckStore("a", storage).patternStatus(pattern.id)).toBe("deck");
   });
 
-  it("removePattern removes both modes and persists the change", () => {
+  test("removePattern removes both modes and persists the change", () => {
     const storage = memoryStorage();
     const store = new DeckStore("a", storage);
     store.addPattern(pattern.id, now);
@@ -151,7 +151,7 @@ describe("DeckStore", () => {
     ).toHaveLength(0);
   });
 
-  it("only known+got-it schedules further out", () => {
+  test("only known+got-it schedules further out", () => {
     const dueAfter = (confidence: Confidence, outcome: Outcome): number => {
       const store = new DeckStore("a", memoryStorage());
       store.addPattern(pattern.id, now);
@@ -166,7 +166,7 @@ describe("DeckStore", () => {
     expect(dueAfter("unsure", "missed")).toBeLessThan(good);
   });
 
-  it("grade writes exactly one log entry", () => {
+  test("grade writes exactly one log entry", () => {
     const store = new DeckStore("a", memoryStorage());
     store.addPattern(pattern.id, now);
     store.grade(transcription, "unsure", "got-it", now);
@@ -180,7 +180,7 @@ describe("DeckStore", () => {
     ]);
   });
 
-  it("survives a persistence round-trip with Dates intact", () => {
+  test("survives a persistence round-trip with Dates intact", () => {
     const storage = memoryStorage();
     const store = new DeckStore("a", storage);
     store.addPattern(pattern.id, now);
@@ -195,7 +195,7 @@ describe("DeckStore", () => {
     expect(reloaded.getState().log).toEqual(store.getState().log);
   });
 
-  it("keeps reverse cards apart when other cards are due", () => {
+  test("keeps reverse cards apart when other cards are due", () => {
     const store = new DeckStore("a", memoryStorage());
     for (const candidate of [pattern, secondPattern, thirdPattern]) {
       store.addPattern(candidate.id, now);
@@ -217,7 +217,7 @@ describe("DeckStore", () => {
     ]);
   });
 
-  it("treats octave variants as siblings", () => {
+  test("treats octave variants as siblings", () => {
     const store = new DeckStore("a", memoryStorage());
     for (const candidate of [pattern, octaveVariant, secondPattern]) {
       store.addPattern(candidate.id, now);
@@ -230,7 +230,7 @@ describe("DeckStore", () => {
     expect(store.nextDue(now)?.patternId).toBe(secondPattern.id);
   });
 
-  it("falls back to a recent sibling when no other card is due", () => {
+  test("falls back to a recent sibling when no other card is due", () => {
     const store = new DeckStore("a", memoryStorage());
     store.addPattern(pattern.id, now);
     store.grade(transcription, "known", "got-it", now);
@@ -238,7 +238,7 @@ describe("DeckStore", () => {
     expect(store.nextDue(now)?.id).toBe(makeCardId(pattern.id, "audiation"));
   });
 
-  it("nextDue returns nothing when every card is in the future", () => {
+  test("nextDue returns nothing when every card is in the future", () => {
     const store = new DeckStore("a", memoryStorage());
     expect(store.nextDue(now)).toBeUndefined();
 
@@ -250,7 +250,7 @@ describe("DeckStore", () => {
     expect(store.nextDue(now)).toBeUndefined();
   });
 
-  it("exportJson includes cards and log", () => {
+  test("exportJson includes cards and log", () => {
     const store = new DeckStore("a", memoryStorage());
     store.addPattern(pattern.id, now);
     store.grade(transcription, "known", "got-it", now);

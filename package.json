@@ -7,20 +7,20 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "make-icons": "node --experimental-strip-types scripts/make-icons.ts",
-    "derive-inventory": "node --experimental-strip-types scripts/derive-inventory.ts"
+    "derive-inventory": "node --experimental-strip-types scripts/derive-inventory.ts",
+    "test:android": "playwright test -c playwright.android.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.2",
-    "jsdom": "^30.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
-    "vite-plugin-pwa": "^1.3.0",
-    "vitest": "^5.0.0"
+    "vite-plugin-pwa": "^1.3.0"
   },
   "dependencies": {
     "smplr": "^1.0.0",

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, test } from "@playwright/test";
 import { patternFromId } from "../music/format.ts";
 import { deriveInventory } from "../scripts/derive-inventory.ts";
 import { CORPUS, type CorpusMelody } from "./corpus.ts";
@@ -20,10 +20,10 @@ const FIXTURE: CorpusMelody[] = [
   },
 ];
 
-describe("deriveInventory", () => {
+test.describe("deriveInventory", () => {
   const entries = deriveInventory(FIXTURE, { lengths: [2], minCount: 2 });
 
-  it("ranks by frequency within theory tiers", () => {
+  test("ranks by frequency within theory tiers", () => {
     expect(entries.map((e) => [e.id, e.tier, e.count])).toEqual([
       ["major-cadence|1-3", 0, 4],
       ["major-cadence|3-5", 0, 2],
@@ -32,11 +32,11 @@ describe("deriveInventory", () => {
     ]);
   });
 
-  it("drops patterns below the minimum count", () => {
+  test("drops patterns below the minimum count", () => {
     expect(entries.map((e) => e.id)).not.toContain("major-cadence|3-1");
   });
 
-  it("keeps corpus frequency separate from the pedagogical gloss", () => {
+  test("keeps corpus frequency separate from the pedagogical gloss", () => {
     expect(entries[0]).toEqual(
       expect.objectContaining({
         count: 4,
@@ -46,8 +46,8 @@ describe("deriveInventory", () => {
   });
 });
 
-describe("the generated inventory", () => {
-  it("round-trips every id through the parser", () => {
+test.describe("the generated inventory", () => {
+  test("round-trips every id through the parser", () => {
     for (const entry of INVENTORY) {
       const parsed = patternFromId(entry.id);
       expect(parsed.ok, entry.id).toBe(true);
@@ -55,21 +55,21 @@ describe("the generated inventory", () => {
     }
   });
 
-  it("is ordered by tier", () => {
+  test("is ordered by tier", () => {
     const tiers = INVENTORY.map((e) => e.tier);
     expect([...tiers].sort((a, b) => a - b)).toEqual(tiers);
   });
 });
 
-describe("the generated songs", () => {
+test.describe("the generated songs", () => {
   const ids = new Set(INVENTORY.map((e) => e.id));
 
-  it("reference only inventory patterns", () => {
+  test("reference only inventory patterns", () => {
     for (const song of SONGS)
       for (const id of song.patternIds) expect(ids.has(id), id).toBe(true);
   });
 
-  it("decompose every corpus melody into at least one pattern", () => {
+  test("decompose every corpus melody into at least one pattern", () => {
     expect(SONGS).toHaveLength(CORPUS.length);
     for (const song of SONGS)
       expect(song.patternIds.length, song.id).toBeGreaterThan(0);
