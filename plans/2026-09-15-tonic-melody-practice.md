@@ -288,18 +288,21 @@ Make `/` the activity catalog and add `/activities/sing-tonic` and `/activities/
 
 ## Add the activity catalog and tonic activity pages
 
-- Goal: Add an activity-catalog view and tonic activity views using the project-local Vamp and design-system patterns. The catalog renders direct links for the two activities. The sing-tonic page exposes the existing optional context controls plus fragment, reveal, repeat, and next actions. The identification page renders a three-row vertical measure viewport with explicit beat and bar boundaries, empty rest spans, and one keyed child slot per sounded melody event. Labeled up/down controls with shared arrow icons scroll one measure at a time through longer fragments. Selecting a slot exposes one shared answer palette; all dynamic viewport, selection, answer, reveal, result, and playing states are Binder-driven, and tappable controls use `onPress`.
+- Status: Completed in Stage 5. Added the activity catalog, separate sing-tonic and identify-tonic-notes views, optional key/drone support, rhythmic measure rows, shared answer palette, reveal results, viewport controls, and controller-driven playback highlighting.
+- Decisions: Activity support drones are activity-local and begin off even when the legacy profile preference is on, so neither exercise enables tonal support automatically. Manual audible buttons use controller toggle semantics; pressing the currently active melody button stops it, while pressing it after completion replays it. Playback synchronization reads only the controller's current generation-filtered state, so cancelled cue callbacks cannot highlight or scroll a replacement trial.
+
+- [x] Goal: Add an activity-catalog view and tonic activity views using the project-local Vamp and design-system patterns. The catalog renders direct links for the two activities. The sing-tonic page exposes the existing optional context controls plus fragment, reveal, repeat, and next actions. The identification page renders a three-row vertical measure viewport with explicit beat and bar boundaries, empty rest spans, and one keyed child slot per sounded melody event. Labeled up/down controls with shared arrow icons scroll one measure at a time through longer fragments. Selecting a slot exposes one shared answer palette; all dynamic viewport, selection, answer, reveal, result, and playing states are Binder-driven, and tappable controls use `onPress`.
 - Tests:
-  - The catalog lists both activities as ordinary links and exposes no SRS practice, cards, or song-library action.
-  - Sing-tonic presentation plays only the selected fragment and exposes fragment, cadence, and drone controls but not the tonic answer; cadence and drone activate only on explicit learner input, and reveal enables the answer note and repeat/next controls.
-  - Every identification slot starts as `?`; selecting a slot and choosing `1`, `not 1`, or `?` updates only that slot, and the answer model accepts a fixture prompt containing both `1` and `3`.
-  - Slot geometry follows authored onset and duration ticks within explicit beat and measure rows while rests produce empty space and no selectable slot; pitch and octave do not affect geometry.
-  - Two- and three-measure fixtures render every measure simultaneously; four- and seven-measure fixtures expose scrolling windows `1–3`, `2–4`, and through `5–7`, while a one-measure fixture is rejected by exercise selection.
-  - Up/down controls shift the viewport by one measure, disable at its bounds, preserve all answers, and expose the visible bar range in text.
-  - Starting replay resets the viewport to the first measure; playback cues minimally scroll it to keep the active measure visible without accepting stale cues from cancelled playback.
-  - During playback, cue messages highlight the corresponding slot, clear during rests and after completion, and stale cues from cancelled playback cannot update the replacement trial.
-  - Reveal computes correct, missed, extra, and unanswered results, presents a textual or symbolic distinction in addition to semantic color, and prevents further answer edits.
-  - View state updates through Binder bindings and keyed child views rather than imperative DOM mutation.
+  - [x] The catalog lists both activities as ordinary links and exposes no SRS practice, cards, or song-library action.
+  - [x] Sing-tonic presentation plays only the selected fragment and exposes fragment, cadence, and drone controls but not the tonic answer; cadence and drone activate only on explicit learner input, and reveal enables the answer note and repeat/next controls.
+  - [x] Every identification slot starts as `?`; selecting a slot and choosing `1`, `not 1`, or `?` updates only that slot, and the answer model accepts a fixture prompt containing both `1` and `3`.
+  - [x] Slot geometry follows authored onset and duration ticks within explicit beat and measure rows while rests produce empty space and no selectable slot; pitch and octave do not affect geometry.
+  - [x] Two- and three-measure fixtures render every measure simultaneously; four- and seven-measure fixtures expose scrolling windows `1–3`, `2–4`, and through `5–7`, while a one-measure fixture is rejected by exercise selection.
+  - [x] Up/down controls shift the viewport by one measure, disable at its bounds, preserve all answers, and expose the visible bar range in text.
+  - [x] Starting replay resets the viewport to the first measure; playback cues minimally scroll it to keep the active measure visible without accepting stale cues from cancelled playback.
+  - [x] During playback, cue messages highlight the corresponding slot, clear during rests and after completion, and stale cues from cancelled playback cannot update the replacement trial.
+  - [x] Reveal computes correct, missed, extra, and unanswered results, presents a textual or symbolic distinction in addition to semantic color, and prevents further answer edits.
+  - [x] View state updates through Binder bindings and keyed child views rather than imperative DOM mutation.
 
 ## Route only the activity experience
 

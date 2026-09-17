@@ -213,7 +213,6 @@ test.describe("sing-tonic reducer", () => {
     expect(state.trial).toEqual({ phrase: second, phase: "presenting" });
     expect(audio.calls).toEqual([
       `score:${first.id}:60`,
-      `score:${first.id}:60`,
       "note:60",
       `score:${second.id}:60`,
     ]);
@@ -278,7 +277,6 @@ test.describe("identify-tonic-notes reducer", () => {
       true,
     );
     expect(audio.calls).toEqual([
-      `score:${first.id}:60`,
       `score:${first.id}:60`,
       `score:${second.id}:60`,
     ]);

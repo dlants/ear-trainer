@@ -37,6 +37,14 @@ export function chevronIcon(): RawHtml {
   return svg('<path d="m9 18 6-6-6-6"/>');
 }
 
+export function arrowUpIcon(): RawHtml {
+  return svg('<path d="m6 15 6-6 6 6"/>');
+}
+
+export function arrowDownIcon(): RawHtml {
+  return svg('<path d="m6 9 6 6 6-6"/>');
+}
+
 export function questionIcon(): RawHtml {
   return svg(
     '<path d="M8.8 8a3.5 3.5 0 1 1 6.8 1.2c0 2.3-3.6 2.3-3.6 5"/><path d="M12 19h.01"/>',

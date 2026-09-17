@@ -33,11 +33,13 @@ export type IdentifyTonicTrial = {
 export type SingTonicState = {
   activity: "sing-tonic";
   trial: SingTonicTrial | undefined;
+  droneOn: boolean;
 };
 
 export type IdentifyTonicState = {
   activity: "identify-tonic-notes";
   trial: IdentifyTonicTrial | undefined;
+  droneOn: boolean;
 };
 
 export type TonicPracticeState = SingTonicState | IdentifyTonicState;
@@ -51,17 +53,23 @@ export type TonicPracticeCtx = {
 
 export type SingTonicMsg =
   | { type: "START" }
+  | { type: "PLAY_CONTEXT" }
+  | { type: "TOGGLE_DRONE" }
   | { type: "REPEAT" }
   | { type: "REVEAL" }
+  | { type: "PLAY_ANSWER" }
   | { type: "NEXT" };
 
 export type IdentifyTonicMsg =
   | { type: "START" }
+  | { type: "PLAY_CONTEXT" }
+  | { type: "TOGGLE_DRONE" }
   | { type: "REPEAT" }
   | { type: "SELECT_SLOT"; eventIndex: number }
   | { type: "SET_ANSWER"; answer: MelodySlotAnswer }
   | { type: "REVEAL" }
   | { type: "SCROLL"; delta: -1 | 1 }
+  | { type: "SYNC_PLAYBACK" }
   | { type: "NEXT" };
 
 export type TonicPracticeMsg =
@@ -112,11 +120,15 @@ export function tonicAnswerIndexes(phrase: Phrase): number[] {
 }
 
 export function initialSingTonicState(): SingTonicState {
-  return { activity: "sing-tonic", trial: undefined };
+  return { activity: "sing-tonic", trial: undefined, droneOn: false };
 }
 
 export function initialIdentifyTonicState(): IdentifyTonicState {
-  return { activity: "identify-tonic-notes", trial: undefined };
+  return {
+    activity: "identify-tonic-notes",
+    trial: undefined,
+    droneOn: false,
+  };
 }
 
 function melodyStep(phrase: Phrase, ctx: TonicPracticeCtx): PlayStep {
@@ -130,6 +142,28 @@ function melodyStep(phrase: Phrase, ctx: TonicPracticeCtx): PlayStep {
 
 function playMelody(phrase: Phrase, ctx: TonicPracticeCtx): void {
   ctx.play.autoplay([melodyStep(phrase, ctx)]);
+}
+
+function toggleMelody(phrase: Phrase, ctx: TonicPracticeCtx): void {
+  ctx.play.toggle("tonic:melody", melodyStep(phrase, ctx));
+}
+
+function playContext(phrase: Phrase, ctx: TonicPracticeCtx): void {
+  ctx.play.toggle("trial:context", {
+    buttonId: "trial:context",
+    type: "context",
+    context: phrase.context,
+    tonic: ctx.profile.tonic,
+    speed: ctx.profile.cadenceSpeed,
+  });
+}
+
+function toggleDrone(
+  state: SingTonicState | IdentifyTonicState,
+  ctx: TonicPracticeCtx,
+): void {
+  state.droneOn = !state.droneOn;
+  ctx.play.setDrone(state.droneOn ? ctx.profile.tonic : undefined);
 }
 
 function selectSingTrial(state: SingTonicState, ctx: TonicPracticeCtx): void {
@@ -153,8 +187,14 @@ export function updateSingTonic(
     case "NEXT":
       selectSingTrial(state, ctx);
       break;
+    case "PLAY_CONTEXT":
+      if (state.trial) playContext(state.trial.phrase, ctx);
+      break;
+    case "TOGGLE_DRONE":
+      toggleDrone(state, ctx);
+      break;
     case "REPEAT":
-      if (state.trial) playMelody(state.trial.phrase, ctx);
+      if (state.trial) toggleMelody(state.trial.phrase, ctx);
       break;
     case "REVEAL":
       if (state.trial?.phase !== "presenting") break;
@@ -166,6 +206,15 @@ export function updateSingTonic(
           note: ctx.profile.tonic,
         },
       ]);
+      break;
+    case "PLAY_ANSWER":
+      if (state.trial?.phase === "revealing") {
+        ctx.play.toggle("tonic:answer", {
+          buttonId: "tonic:answer",
+          type: "note",
+          note: ctx.profile.tonic,
+        });
+      }
       break;
   }
 }
@@ -209,10 +258,16 @@ export function updateIdentifyTonic(
     case "NEXT":
       selectIdentifyTrial(state, ctx);
       break;
+    case "PLAY_CONTEXT":
+      if (state.trial) playContext(state.trial.phrase, ctx);
+      break;
+    case "TOGGLE_DRONE":
+      toggleDrone(state, ctx);
+      break;
     case "REPEAT":
       if (state.trial) {
         state.trial.firstVisibleMeasureIndex = 0;
-        playMelody(state.trial.phrase, ctx);
+        toggleMelody(state.trial.phrase, ctx);
       }
       break;
     case "SELECT_SLOT": {
@@ -253,6 +308,37 @@ export function updateIdentifyTonic(
         maxFirstVisibleMeasure(trial),
         Math.max(0, trial.firstVisibleMeasureIndex + msg.delta),
       );
+      break;
+    }
+    case "SYNC_PLAYBACK": {
+      const trial = state.trial;
+      const playback = ctx.play.getState();
+      if (
+        !trial ||
+        playback.status !== "playing" ||
+        playback.buttonId !== "tonic:melody" ||
+        playback.eventIndex === undefined
+      ) {
+        break;
+      }
+      const event = voice(trial.phrase, "melody")?.events[playback.eventIndex];
+      if (!event) break;
+      const measureIndex = trial.phrase.measures.findIndex(
+        (measure) =>
+          event.onsetTicks >= measure.startTicks &&
+          event.onsetTicks < measure.endTicks,
+      );
+      if (measureIndex < trial.firstVisibleMeasureIndex) {
+        trial.firstVisibleMeasureIndex = measureIndex;
+      } else if (
+        measureIndex >=
+        trial.firstVisibleMeasureIndex + VISIBLE_MEASURE_COUNT
+      ) {
+        trial.firstVisibleMeasureIndex = Math.min(
+          maxFirstVisibleMeasure(trial),
+          measureIndex - VISIBLE_MEASURE_COUNT + 1,
+        );
+      }
       break;
     }
   }
