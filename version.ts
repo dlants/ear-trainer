@@ -1,2 +1,2 @@
-/** Displayed app version. Bump alongside user-visible releases. */
-export const APP_VERSION = "0.1";
+/** Displayed app version. Increment the minor version with every change. */
+export const APP_VERSION = "0.22";
