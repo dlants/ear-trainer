@@ -13,6 +13,7 @@ import type { Profile } from "../deck/profiles.ts";
 import { ProfileStore } from "../deck/profiles.ts";
 import { DeckStore, type KeyValueStore } from "../deck/store.ts";
 import { parsePattern } from "../music/format.ts";
+import type { Score } from "../music/melody.ts";
 import type { Context, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import { RouterController } from "../router.ts";
@@ -20,6 +21,7 @@ import type { AppCtx, State } from "../views/app.ts";
 
 export class ControlledHandle implements PlaybackHandle {
   readonly durationMs = 100;
+  readonly cues = [];
   readonly ended: Promise<PlaybackEnd>;
   private resolveEnded: (end: PlaybackEnd) => void = () => {};
 
@@ -54,6 +56,10 @@ export class FakeAudio implements AudioEngine {
   }
 
   playPattern(_pattern: Pattern, _tonic: Midi): PlaybackHandle {
+    return this.handle();
+  }
+
+  playScore(_score: Score, _tonic: Midi): PlaybackHandle {
     return this.handle();
   }
 

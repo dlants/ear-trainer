@@ -11,6 +11,7 @@ import type {
 
 const completedHandle = (): PlaybackHandle => ({
   durationMs: 0,
+  cues: [],
   ended: Promise.resolve<PlaybackEnd>("completed"),
   cancel() {},
 });
@@ -36,6 +37,10 @@ export class FakeAudio implements AudioEngine {
   }
 
   playPattern(): PlaybackHandle {
+    return completedHandle();
+  }
+
+  playScore(): PlaybackHandle {
     return completedHandle();
   }
 

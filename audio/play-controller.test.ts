@@ -1,7 +1,14 @@
 import { expect, test } from "@playwright/test";
+import type { Score } from "../music/melody.ts";
 import { type Context, makePattern, type Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
-import type { AudioEngine, PlaybackEnd, PlaybackHandle } from "./engine.ts";
+import { fakeTimers } from "../test/support.ts";
+import type {
+  AudioEngine,
+  PlaybackCue,
+  PlaybackEnd,
+  PlaybackHandle,
+} from "./engine.ts";
 import {
   PlayController,
   type PlayMsg,
@@ -16,6 +23,7 @@ class ControlledHandle implements PlaybackHandle {
   constructor(
     readonly durationMs: number,
     private readonly settleOnCancel = true,
+    readonly cues: PlaybackCue[] = [],
   ) {
     this.ended = new Promise((resolve) => {
       this.resolveEnded = resolve;
@@ -59,6 +67,11 @@ class FakeAudio implements AudioEngine {
     return this.nextHandle();
   }
 
+  playScore(score: Score, tonic: Midi): PlaybackHandle {
+    this.calls.push(`score:${score.durationTicks}:${tonic}`);
+    return this.nextHandle();
+  }
+
   playNote(note: Midi): PlaybackHandle {
     this.calls.push(`note:${note}`);
     return this.nextHandle();
@@ -91,6 +104,30 @@ const noteStep: PlayStep = {
   buttonId: "options:tonic",
   type: "note",
   note: 55,
+};
+const score: Score = {
+  context: "major-cadence",
+  tempoBpm: 120,
+  durationTicks: 48,
+  measures: [{ startTicks: 0, endTicks: 48, beatDurationsTicks: [24, 24] }],
+  voices: [
+    {
+      id: "melody",
+      events: [
+        {
+          notes: [{ degree: 1, alteration: 0, octave: 0 }],
+          onsetTicks: 0,
+          durationTicks: 24,
+        },
+      ],
+    },
+  ],
+};
+const scoreStep: PlayStep = {
+  buttonId: "tonic:melody",
+  type: "score",
+  score,
+  tonic: 60,
 };
 
 function setup(audio = new FakeAudio()) {
@@ -135,6 +172,32 @@ test.describe("PlayController", () => {
       durationMs: 900,
       queueLength: 0,
     });
+  });
+
+  test("advances once after score playback completes naturally", async () => {
+    const audio = new FakeAudio();
+    audio.enqueue(new ControlledHandle(1050));
+    audio.enqueue(new ControlledHandle(800));
+    const { controller, messages } = setup(audio);
+    controller.autoplay([scoreStep, noteStep]);
+
+    audio.handles[0].complete();
+    await settlePromises();
+    controller.update(messages.shift() as PlayMsg);
+
+    expect(audio.calls).toEqual(["score:48:60", "note:55"]);
+    expect(controller.getState()).toMatchObject({
+      status: "playing",
+      buttonId: "options:tonic",
+      queueLength: 0,
+    });
+    controller.update({
+      type: "STEP_ENDED",
+      generation: 0,
+      playbackId: 0,
+      end: "completed",
+    });
+    expect(audio.calls).toEqual(["score:48:60", "note:55"]);
   });
 
   test("toggles the active button off and discards queued autoplay", async () => {
@@ -192,6 +255,60 @@ test.describe("PlayController", () => {
       status: "playing",
       buttonId: "options:tonic",
     });
+  });
+
+  test("publishes score cues and clears them during gaps", async () => {
+    const timers = fakeTimers();
+    try {
+      const audio = new FakeAudio();
+      audio.enqueue(
+        new ControlledHandle(1050, true, [
+          { eventIndex: 0, onsetMs: 50, endMs: 470 },
+          { eventIndex: 1, onsetMs: 550, endMs: 970 },
+        ]),
+      );
+      const { controller, messages } = setup(audio);
+      controller.toggle("tonic:melody", scoreStep);
+
+      await timers.advance(50);
+      controller.update(messages.shift() as PlayMsg);
+      expect(controller.getState()).toMatchObject({ eventIndex: 0 });
+
+      await timers.advance(420);
+      controller.update(messages.shift() as PlayMsg);
+      expect(controller.getState()).not.toHaveProperty("eventIndex");
+      controller.stop();
+    } finally {
+      timers.restore();
+    }
+  });
+
+  test("cancels score cue timers and the handle once when replaced", async () => {
+    const timers = fakeTimers();
+    try {
+      const audio = new FakeAudio();
+      const scoreHandle = new ControlledHandle(1000, true, [
+        { eventIndex: 0, onsetMs: 500, endMs: 900 },
+      ]);
+      audio.enqueue(scoreHandle);
+      audio.enqueue(new ControlledHandle(800));
+      const { controller, messages } = setup(audio);
+      controller.toggle("tonic:melody", scoreStep);
+
+      controller.toggle("options:tonic", noteStep);
+      expect(scoreHandle.cancelCount).toBe(1);
+      expect(audio.calls).toEqual(["score:48:60", "note:55"]);
+
+      await timers.advance(550);
+      for (const message of messages) controller.update(message);
+      expect(controller.getState()).toMatchObject({
+        status: "playing",
+        buttonId: "options:tonic",
+      });
+      expect(controller.getState()).not.toHaveProperty("eventIndex");
+    } finally {
+      timers.restore();
+    }
   });
 
   test("makes repeated stops idempotent", async () => {

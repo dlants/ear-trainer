@@ -264,11 +264,14 @@ Make `/` the activity catalog and add `/activities/sing-tonic` and `/activities/
 
 ## Rhythm-aware melody playback
 
-- Goal: Extend `AudioEngine`, `SamplerAudioEngine`, `PlayController`, test fakes, and button IDs with concrete `Score` playback. Add a pure scheduling function that maps the score's event ticks and tempo to onset/duration seconds, schedules chords and independent voices together, and preserves silent gaps and mixed measure lengths. The playback layer accepts a melody or materialized phrase directly and never receives a source range. Keep the current cancellation and completion contract.
+- Status: Completed in Stage 3. Added score scheduling and playback on the shared tick timeline, melody-event cues from that same schedule, and controller-owned cancellable cue timers while preserving the existing one-stream cancellation and queued-completion behavior.
+- Decisions: Score playback uses the complete score duration, including trailing silence, for completion. Sounded notes receive a 30ms articulation gap without moving their onsets. Playback handles expose melody-voice cue times including the engine's scheduling lead; `PlayController` publishes the active event index and clears it during articulation gaps, cancellation, replacement, and completion.
+
+- [x] Goal: Extend `AudioEngine`, `SamplerAudioEngine`, `PlayController`, test fakes, and button IDs with concrete `Score` playback. Add a pure scheduling function that maps the score's event ticks and tempo to onset/duration seconds, schedules chords and independent voices together, and preserves silent gaps and mixed measure lengths. The playback layer accepts a melody or materialized phrase directly and never receives a source range. Keep the current cancellation and completion contract.
 - Tests:
-  - Mixed note lengths, silent gaps, pickup timing, changing measure lengths, simultaneous notes, and two independent voices in a concrete zero-based phrase schedule the expected MIDI notes and playback duration without consulting its source melody.
-  - Starting another stream cancels score playback exactly once; natural completion advances a queued step once.
-  - Existing cadence, pattern, note, drone, unlock, and activation tests remain unchanged and passing.
+  - [x] Mixed note lengths, silent gaps, pickup timing, changing measure lengths, simultaneous notes, and two independent voices in a concrete zero-based phrase schedule the expected MIDI notes and playback duration without consulting its source melody.
+  - [x] Starting another stream cancels score playback exactly once; natural completion advances a queued step once.
+  - [x] Existing cadence, pattern, note, drone, unlock, and activation tests remain unchanged and passing.
 
 ## Generate tonic exercises from complete melodies
 

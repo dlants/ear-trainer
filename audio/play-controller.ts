@@ -1,3 +1,4 @@
+import type { Score } from "../music/melody.ts";
 import type { Context, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import type {
@@ -11,6 +12,7 @@ export type PlayButtonId =
   | "trial:drone"
   | "trial:context"
   | "trial:pattern"
+  | "tonic:melody"
   | "options:tonic"
   | "options:cadence:slow"
   | "options:cadence:medium"
@@ -32,6 +34,12 @@ export type PlayStep =
     }
   | {
       buttonId: PlayButtonId;
+      type: "score";
+      score: Score;
+      tonic: Midi;
+    }
+  | {
+      buttonId: PlayButtonId;
       type: "note";
       note: Midi;
     };
@@ -43,20 +51,30 @@ export type PlayState =
       buttonId: PlayButtonId;
       durationMs: number;
       queueLength: number;
+      eventIndex?: number;
     };
 
-export type PlayMsg = {
-  type: "STEP_ENDED";
-  generation: number;
-  playbackId: number;
-  end: PlaybackEnd;
-};
+export type PlayMsg =
+  | {
+      type: "STEP_ENDED";
+      generation: number;
+      playbackId: number;
+      end: PlaybackEnd;
+    }
+  | {
+      type: "CUE_CHANGED";
+      generation: number;
+      playbackId: number;
+      eventIndex: number | undefined;
+    };
 
 type ActivePlayback = {
   generation: number;
   playbackId: number;
   step: PlayStep;
   handle: PlaybackHandle;
+  cueTimers: ReturnType<typeof setTimeout>[];
+  eventIndex: number | undefined;
 };
 
 export class PlayController {
@@ -78,6 +96,9 @@ export class PlayController {
       buttonId: active.step.buttonId,
       durationMs: active.handle.durationMs,
       queueLength: this.queue.length,
+      ...(active.eventIndex === undefined
+        ? {}
+        : { eventIndex: active.eventIndex }),
     };
   }
 
@@ -118,6 +139,12 @@ export class PlayController {
       return;
     }
 
+    if (msg.type === "CUE_CHANGED") {
+      active.eventIndex = msg.eventIndex;
+      return;
+    }
+
+    this.clearCueTimers(active);
     this.active = undefined;
     if (msg.end === "cancelled") {
       this.queue = [];
@@ -131,7 +158,10 @@ export class PlayController {
     this.generation += 1;
     this.active = undefined;
     this.queue = [...steps];
-    active?.handle.cancel();
+    if (active) {
+      this.clearCueTimers(active);
+      active.handle.cancel();
+    }
     this.startNext(this.generation);
   }
 
@@ -149,7 +179,35 @@ export class PlayController {
 
     const playbackId = this.nextPlaybackId;
     this.nextPlaybackId += 1;
-    this.active = { generation, playbackId, step, handle };
+    const active: ActivePlayback = {
+      generation,
+      playbackId,
+      step,
+      handle,
+      cueTimers: [],
+      eventIndex: undefined,
+    };
+    this.active = active;
+    for (const cue of handle.cues) {
+      active.cueTimers.push(
+        setTimeout(() => {
+          this.dispatch({
+            type: "CUE_CHANGED",
+            generation,
+            playbackId,
+            eventIndex: cue.eventIndex,
+          });
+        }, cue.onsetMs),
+        setTimeout(() => {
+          this.dispatch({
+            type: "CUE_CHANGED",
+            generation,
+            playbackId,
+            eventIndex: undefined,
+          });
+        }, cue.endMs),
+      );
+    }
     void handle.ended.then(
       (end) => {
         this.dispatch({ type: "STEP_ENDED", generation, playbackId, end });
@@ -165,12 +223,20 @@ export class PlayController {
     );
   }
 
+  private clearCueTimers(active: ActivePlayback): void {
+    for (const timer of active.cueTimers) clearTimeout(timer);
+    active.cueTimers = [];
+    active.eventIndex = undefined;
+  }
+
   private play(step: PlayStep): PlaybackHandle {
     switch (step.type) {
       case "context":
         return this.audio.playContext(step.context, step.tonic, step.speed);
       case "pattern":
         return this.audio.playPattern(step.pattern, step.tonic);
+      case "score":
+        return this.audio.playScore(step.score, step.tonic);
       case "note":
         return this.audio.playNote(step.note);
     }
