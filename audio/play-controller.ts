@@ -13,6 +13,7 @@ export type PlayButtonId =
   | "trial:context"
   | "trial:pattern"
   | "tonic:melody"
+  | "tonic:answer"
   | "options:tonic"
   | "options:cadence:slow"
   | "options:cadence:medium"

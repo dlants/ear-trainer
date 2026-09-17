@@ -275,13 +275,16 @@ Make `/` the activity catalog and add `/activities/sing-tonic` and `/activities/
 
 ## Generate tonic exercises from complete melodies
 
-- Goal: Add pure random selection functions and separate reducers for the two activity state machines. The top-level activity discriminator selects the reducer; entering an activity and pressing next select an authored phrase of at least two complete measures classified as `"independent"`. `sing-tonic` plays that fragment, while `identify-tonic-notes` also computes its answer indexes and owns answer, selection, reveal, and viewport transitions. Repeat preserves the current exercise's trial. Suitability and length are checked-in corpus metadata, never inferred or truncated at runtime. Avoid the immediately previous melody when alternatives exist, avoid the immediately previous fragment when only same-melody alternatives exist, and return no exercise cleanly when the corpus has no eligible candidate.
+- Status: Completed in Stage 4. Added eligible authored-phrase selection plus separate sing-tonic and identify-tonic-notes state machines with playback, repeat/next, reveal, answers, and bounded viewport transitions.
+- Decisions: Selection chooses a melody and then one of its eligible phrases, excludes the previous melody whenever another eligible melody exists, and otherwise excludes the previous phrase when possible without retry loops. Reducers receive only timed melodies, profile, playback, and randomness; they do not depend on deck persistence. Identification answers index the concrete normalized `"melody"` voice, and replay preserves answers while resetting the viewport to the first measure.
+
+- [x] Goal: Add pure random selection functions and separate reducers for the two activity state machines. The top-level activity discriminator selects the reducer; entering an activity and pressing next select an authored phrase of at least two complete measures classified as `"independent"`. `sing-tonic` plays that fragment, while `identify-tonic-notes` also computes its answer indexes and owns answer, selection, reveal, and viewport transitions. Repeat preserves the current exercise's trial. Suitability and length are checked-in corpus metadata, never inferred or truncated at runtime. Avoid the immediately previous melody when alternatives exist, avoid the immediately previous fragment when only same-melody alternatives exist, and return no exercise cleanly when the corpus has no eligible candidate.
 - Tests:
-  - Deterministic random fixtures select the expected melody and an `"independent"` phrase of at least two measures while ignoring one-measure, `"context-required"`, and `"exclude"` phrases; repeat preserves the trial and next invokes selection again.
-  - The top-level discriminator delegates only to the selected exercise reducer; sing-tonic states cannot receive identification-only transitions or contain answer, slot-selection, or viewport fields.
-  - Immediate repetition is avoided without looping when the corpus contains one melody.
-  - The identification answer is relative to the concrete phrase's `"melody"`-voice events and handles tonic octaves and silent gaps without consulting the source melody or including accompaniment.
-  - Selection does not consult or mutate `DeckStore`.
+  - [x] Deterministic random fixtures select the expected melody and an `"independent"` phrase of at least two measures while ignoring one-measure, `"context-required"`, and `"exclude"` phrases; repeat preserves the trial and next invokes selection again.
+  - [x] The top-level discriminator delegates only to the selected exercise reducer; sing-tonic states cannot receive identification-only transitions or contain answer, slot-selection, or viewport fields.
+  - [x] Immediate repetition is avoided without looping when the corpus contains one melody.
+  - [x] The identification answer is relative to the concrete phrase's `"melody"`-voice events and handles tonic octaves and silent gaps without consulting the source melody or including accompaniment.
+  - [x] Selection does not consult or mutate `DeckStore`.
 
 ## Add the activity catalog and tonic activity pages
 
