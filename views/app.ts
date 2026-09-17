@@ -2,15 +2,7 @@ import type { AudioEngine } from "../audio/engine.ts";
 import type { PlayController, PlayMsg } from "../audio/play-controller.ts";
 import type { Route, RouterController, RouterMsg } from "../router.ts";
 import { Binder, noop, ref, sanitize, show, type View } from "../vamp.ts";
-import {
-  type Msg as AddMsg,
-  type AddPatternsCtx,
-  AddPatternsView,
-  type State as AddState,
-  initialState as addInitialState,
-  rows as addRows,
-  update as addUpdate,
-} from "./add-patterns.ts";
+import { ActivityCatalogView } from "./activity-catalog.ts";
 import type { DismissStack } from "./dropdown.ts";
 import { NavView } from "./nav.ts";
 import {
@@ -22,15 +14,6 @@ import {
   update as optionsUpdate,
 } from "./options.ts";
 import {
-  type SongsCtx,
-  type Msg as SongsMsg,
-  type State as SongsState,
-  SongsView,
-  rows as songRows,
-  initialState as songsInitialState,
-  update as songsUpdate,
-} from "./songs.ts";
-import {
   type Msg as StartMsg,
   type State as StartState,
   StartView,
@@ -38,19 +21,25 @@ import {
   update as startUpdate,
 } from "./start.ts";
 import {
-  type TrialCtx,
-  type Msg as TrialMsg,
-  type State as TrialState,
-  TrialView,
-  initialState as trialInitialState,
-  update as trialUpdate,
-} from "./trial.ts";
+  type IdentifyTonicMsg,
+  type IdentifyTonicState,
+  initialIdentifyTonicState,
+  initialSingTonicState,
+  type SingTonicMsg,
+  type SingTonicState,
+  type TonicPracticeCtx,
+  updateIdentifyTonic,
+  updateSingTonic,
+} from "./tonic-practice.ts";
+import {
+  IdentifyTonicNotesView,
+  SingTonicView,
+} from "./tonic-practice-view.ts";
 
 export type State = {
   route: Route;
-  trial: TrialState;
-  cards: AddState;
-  songs: SongsState;
+  singTonic: SingTonicState;
+  identifyTonic: IdentifyTonicState;
   options: OptionsState;
   start: StartState;
   audioUnlocked: boolean;
@@ -59,9 +48,8 @@ export type State = {
 export type Msg =
   | RouterMsg
   | { type: "PLAY_MSG"; msg: PlayMsg }
-  | { type: "TRIAL_MSG"; msg: TrialMsg }
-  | { type: "CARDS_MSG"; msg: AddMsg }
-  | { type: "SONGS_MSG"; msg: SongsMsg }
+  | { type: "SING_TONIC_MSG"; msg: SingTonicMsg }
+  | { type: "IDENTIFY_TONIC_MSG"; msg: IdentifyTonicMsg }
   | { type: "OPTIONS_MSG"; msg: OptionsMsg }
   | { type: "START_MSG"; msg: StartMsg };
 
@@ -70,22 +58,52 @@ export type AppCtx = {
   play: PlayController;
   router: RouterController;
   dismissStack: DismissStack;
-  trial: TrialCtx;
-  cards: AddPatternsCtx;
-  songs: SongsCtx;
+  tonicPractice: TonicPracticeCtx;
   options: OptionsCtx;
 };
 
 export function initialState(route: Route, ctx: AppCtx): State {
   return {
     route,
-    trial: trialInitialState(ctx.trial),
-    cards: addInitialState(ctx.cards),
-    songs: songsInitialState(ctx.songs),
+    singTonic: initialSingTonicState(),
+    identifyTonic: initialIdentifyTonicState(),
     options: optionsInitialState(ctx.options),
     start: startInitialState(),
     audioUnlocked: ctx.audio.unlocked,
   };
+}
+
+function sameRoute(left: Route, right: Route): boolean {
+  return (
+    left.page === right.page &&
+    (left.page !== "activity" ||
+      (right.page === "activity" && left.activity === right.activity))
+  );
+}
+
+function stopActivityAudio(state: State, ctx: AppCtx): void {
+  ctx.play.stop();
+  ctx.play.setDrone(undefined);
+  state.singTonic.droneOn = false;
+  state.identifyTonic.droneOn = false;
+}
+
+function startActivity(state: State, ctx: AppCtx): void {
+  if (state.route.page !== "activity" || !state.audioUnlocked) return;
+  switch (state.route.activity) {
+    case "sing-tonic":
+      state.singTonic = initialSingTonicState();
+      updateSingTonic(state.singTonic, { type: "START" }, ctx.tonicPractice);
+      break;
+    case "identify-tonic-notes":
+      state.identifyTonic = initialIdentifyTonicState();
+      updateIdentifyTonic(
+        state.identifyTonic,
+        { type: "START" },
+        ctx.tonicPractice,
+      );
+      break;
+  }
 }
 
 export function update(
@@ -98,39 +116,38 @@ export function update(
     case "NAVIGATE": {
       const previousRoute = state.route;
       const route = ctx.router.update(msg);
-      const routeChanged = previousRoute.page !== route.page;
-      if (
-        routeChanged &&
-        (previousRoute.page === "practice" || previousRoute.page === "options")
-      ) {
-        ctx.play.stop();
-        ctx.play.setDrone(undefined);
-        ctx.options.mic.stop();
+      const routeChanged = !sameRoute(previousRoute, route);
+      if (routeChanged) {
+        stopActivityAudio(state, ctx);
+        if (previousRoute.page === "options") ctx.options.mic.stop();
       }
       state.route = route;
-      if (route.page === "practice" && routeChanged && state.audioUnlocked) {
-        trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial);
-      } else if (route.page === "cards") {
-        state.cards.rows = addRows(ctx.cards);
-      } else if (route.page === "songs") {
-        const selected = state.songs.songs.find((song) => song.selected)?.id;
-        state.songs.songs = songRows(ctx.songs, selected);
-      } else if (route.page === "options") {
-        state.options = optionsInitialState(ctx.options);
+      if (routeChanged) {
+        if (route.page === "activity") startActivity(state, ctx);
+        else if (route.page === "options") {
+          state.options = optionsInitialState(ctx.options);
+        }
       }
       break;
     }
     case "PLAY_MSG":
       ctx.play.update(msg.msg);
+      if (
+        state.route.page === "activity" &&
+        state.route.activity === "identify-tonic-notes"
+      ) {
+        updateIdentifyTonic(
+          state.identifyTonic,
+          { type: "SYNC_PLAYBACK" },
+          ctx.tonicPractice,
+        );
+      }
       break;
-    case "TRIAL_MSG":
-      trialUpdate(state.trial, msg.msg, ctx.trial);
+    case "SING_TONIC_MSG":
+      updateSingTonic(state.singTonic, msg.msg, ctx.tonicPractice);
       break;
-    case "CARDS_MSG":
-      addUpdate(state.cards, msg.msg, ctx.cards);
-      break;
-    case "SONGS_MSG":
-      songsUpdate(state.songs, msg.msg, ctx.songs);
+    case "IDENTIFY_TONIC_MSG":
+      updateIdentifyTonic(state.identifyTonic, msg.msg, ctx.tonicPractice);
       break;
     case "OPTIONS_MSG":
       optionsUpdate(state.options, msg.msg, ctx.options);
@@ -141,7 +158,7 @@ export function update(
       );
       if (msg.msg.type === "UNLOCKED") {
         state.audioUnlocked = true;
-        trialUpdate(state.trial, { type: "NEXT_TRIAL" }, ctx.trial);
+        startActivity(state, ctx);
       }
       break;
   }
@@ -177,22 +194,27 @@ export class AppView implements View<State, Msg, AppCtx> {
     );
     this.b.bindSlot(pageRef, (state) => {
       switch (state.route.page) {
-        case "practice":
+        case "catalog":
+          return show(ActivityCatalogView, {}, {}, noop);
+        case "activity":
           if (!state.audioUnlocked) {
             return show(StartView, state.start, { audio: ctx.audio }, (msg) =>
               dispatch({ type: "START_MSG", msg }),
             );
           }
-          return show(TrialView, state.trial, ctx.trial, (msg) =>
-            dispatch({ type: "TRIAL_MSG", msg }),
-          );
-        case "cards":
-          return show(AddPatternsView, state.cards, {}, (msg) =>
-            dispatch({ type: "CARDS_MSG", msg }),
-          );
-        case "songs":
-          return show(SongsView, state.songs, {}, (msg) =>
-            dispatch({ type: "SONGS_MSG", msg }),
+          if (state.route.activity === "sing-tonic") {
+            return show(
+              SingTonicView,
+              state.singTonic,
+              ctx.tonicPractice,
+              (msg) => dispatch({ type: "SING_TONIC_MSG", msg }),
+            );
+          }
+          return show(
+            IdentifyTonicNotesView,
+            state.identifyTonic,
+            ctx.tonicPractice,
+            (msg) => dispatch({ type: "IDENTIFY_TONIC_MSG", msg }),
           );
         case "options":
           return show(OptionsView, state.options, ctx.options, (msg) =>

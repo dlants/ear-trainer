@@ -83,9 +83,7 @@ export class NavView implements View<State, never, NavCtx> {
     ctx: NavCtx,
   ) {
     const detailsRef = ref("menu");
-    const practiceRef = ref("practice");
-    const cardsRef = ref("cards");
-    const songsRef = ref("songs");
+    const homeRef = ref("home");
     const optionsRef = ref("options");
     const aboutRef = ref("about");
 
@@ -95,23 +93,15 @@ export class NavView implements View<State, never, NavCtx> {
         <summary aria-label="open navigation menu">☰</summary>
         <nav class="menu-items" aria-label="main navigation">
           <span class="menu-version">the ecological ear trainer v${APP_VERSION}</span>
-          <a href="${routeToPath({ page: "practice" })}" data-ref="${practiceRef}">practice</a>
-          <a href="${routeToPath({ page: "cards" })}" data-ref="${cardsRef}">cards</a>
-          <a href="${routeToPath({ page: "songs" })}" data-ref="${songsRef}">songs</a>
+          <a href="${routeToPath({ page: "catalog" })}" data-ref="${homeRef}">home</a>
           <a href="${routeToPath({ page: "options" })}" data-ref="${optionsRef}">options</a>
           <a href="/about" data-router-ignore data-ref="${aboutRef}">about</a>
         </nav>
       </details>
     `;
     this.b = new Binder(container, initial);
-    this.b.bindAttr(practiceRef, "aria-current", (s) =>
-      s.page === "practice" ? "page" : undefined,
-    );
-    this.b.bindAttr(cardsRef, "aria-current", (s) =>
-      s.page === "cards" ? "page" : undefined,
-    );
-    this.b.bindAttr(songsRef, "aria-current", (s) =>
-      s.page === "songs" ? "page" : undefined,
+    this.b.bindAttr(homeRef, "aria-current", (s) =>
+      s.page === "catalog" ? "page" : undefined,
     );
     this.b.bindAttr(optionsRef, "aria-current", (s) =>
       s.page === "options" ? "page" : undefined,

@@ -11,13 +11,18 @@ import type {
 import type { PlayController } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
 import { ProfileStore } from "../deck/profiles.ts";
-import { DeckStore, type KeyValueStore } from "../deck/store.ts";
-import { parsePattern } from "../music/format.ts";
+import type { KeyValueStore } from "../deck/store.ts";
+import { MELODIES } from "../inventory/melodies.ts";
 import type { Score } from "../music/melody.ts";
 import type { Context, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import { RouterController } from "../router.ts";
 import type { AppCtx, State } from "../views/app.ts";
+import { DismissStack } from "../views/dropdown.ts";
+import {
+  initialIdentifyTonicState,
+  initialSingTonicState,
+} from "../views/tonic-practice.ts";
 
 export class ControlledHandle implements PlaybackHandle {
   readonly durationMs = 100;
@@ -79,12 +84,15 @@ export class RecordingPlay {
   readonly stop: unknown[][] = [];
   readonly autoplay: unknown[][] = [];
   readonly setDrone: unknown[][] = [];
+  readonly toggle: unknown[][] = [];
 
   asController(): PlayController {
     return {
       stop: (...args: unknown[]) => this.stop.push(args),
       autoplay: (...args: unknown[]) => this.autoplay.push(args),
+      toggle: (...args: unknown[]) => this.toggle.push(args),
       update: () => {},
+      getState: () => ({ status: "idle" }),
       setDrone: (...args: unknown[]) => this.setDrone.push(args),
     } as unknown as PlayController;
   }
@@ -98,12 +106,11 @@ function memoryStorage(): KeyValueStore {
   };
 }
 
-export function emptyState(page: State["route"]["page"]): State {
+export function emptyState(route: State["route"]): State {
   return {
-    route: { page },
-    trial: { trial: undefined, error: undefined },
-    cards: { rows: [], showKnown: false, showDeck: true },
-    songs: { songs: [] },
+    route,
+    singTonic: initialSingTonicState(),
+    identifyTonic: initialIdentifyTonicState(),
     options: {
       tonic: 60,
       cadenceSpeed: "medium",
@@ -115,7 +122,13 @@ export function emptyState(page: State["route"]["page"]): State {
   };
 }
 
-function trialContext(play: PlayController): AppCtx["trial"] {
+export function appContext(
+  play: PlayController,
+  route: State["route"],
+  audio?: AudioEngine,
+): AppCtx {
+  const storage = memoryStorage();
+  const profiles = new ProfileStore(storage);
   const profile: Profile = {
     id: "p1",
     name: "me",
@@ -124,31 +137,23 @@ function trialContext(play: PlayController): AppCtx["trial"] {
     cadenceSpeed: "medium",
     drone: true,
   };
-  const deck = new DeckStore(profile.id, memoryStorage());
-  const parsed = parsePattern("1-3-5", "major-cadence");
-  if (!parsed.ok) throw new Error(parsed.error);
-  deck.addPattern(parsed.value.id, new Date("2026-09-11T00:00:00Z"));
-  return {
-    play,
-    deck,
-    profile,
-    now: () => new Date("2026-09-12T00:00:00Z"),
-    profiles: new ProfileStore(memoryStorage()),
-  };
-}
-
-export function appContext(
-  play: PlayController,
-  route: State["route"],
-  audio?: AudioEngine,
-): AppCtx {
-  const trial = trialContext(play);
+  profiles.save(profile);
   return {
     audio: audio ?? new FakeAudio(),
     play,
     router: new RouterController(route),
-    trial,
-    cards: { deck: trial.deck, now: trial.now, inventory: [] },
-    options: { mic: { stop: () => {} } },
+    dismissStack: new DismissStack(),
+    tonicPractice: {
+      play,
+      profile,
+      melodies: MELODIES,
+      random: () => 0,
+    },
+    options: {
+      play,
+      profile,
+      profiles,
+      mic: { stop: () => {} },
+    },
   } as unknown as AppCtx;
 }

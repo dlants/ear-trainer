@@ -5,12 +5,9 @@ import { MicPitchDetector } from "./audio/mic-pitch.ts";
 import { PlayController } from "./audio/play-controller.ts";
 
 import { type Profile, ProfileStore } from "./deck/profiles.ts";
-import { DeckStore } from "./deck/store.ts";
-import { INVENTORY } from "./inventory/patterns.ts";
-import { SONGS } from "./inventory/songs.ts";
+import { MELODIES } from "./inventory/melodies.ts";
 import { currentRoute, RouterController, RouterView } from "./router.ts";
 import { startStartup } from "./startup.ts";
-import type { AddPatternsCtx } from "./views/add-patterns.ts";
 import {
   type AppCtx,
   type Msg as AppMsg,
@@ -19,8 +16,6 @@ import {
   update as appUpdate,
 } from "./views/app.ts";
 import { DismissStack } from "./views/dropdown.ts";
-import type { SongsCtx } from "./views/songs.ts";
-import type { TrialCtx } from "./views/trial.ts";
 
 function requireElement(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -52,23 +47,6 @@ function startApp(audio: AudioEngine): void {
   const play = new PlayController(audio, (msg) =>
     dispatch({ type: "PLAY_MSG", msg }),
   );
-  const trialCtx: TrialCtx = {
-    play,
-    deck: new DeckStore(activeProfile.id, localStorage),
-    profile: activeProfile,
-    profiles,
-    now: () => new Date(),
-  };
-  const cardsCtx: AddPatternsCtx = {
-    deck: trialCtx.deck,
-    now: trialCtx.now,
-    inventory: INVENTORY,
-  };
-  const songsCtx: SongsCtx = {
-    deck: trialCtx.deck,
-    now: trialCtx.now,
-    songs: SONGS,
-  };
   const initialRoute = currentRoute();
   const router = new RouterController(initialRoute);
   const ctx: AppCtx = {
@@ -76,9 +54,12 @@ function startApp(audio: AudioEngine): void {
     play,
     router,
     dismissStack: new DismissStack(),
-    trial: trialCtx,
-    cards: cardsCtx,
-    songs: songsCtx,
+    tonicPractice: {
+      play,
+      profile: activeProfile,
+      melodies: MELODIES,
+      random: () => Math.random(),
+    },
     options: {
       play,
       profile: activeProfile,
@@ -111,8 +92,14 @@ function startApp(audio: AudioEngine): void {
   routerView = new RouterView(router, dispatch);
   routerView.sync();
   routerView.mount();
-  if (initialRoute.page === "practice" && audio.unlocked) {
-    dispatch({ type: "TRIAL_MSG", msg: { type: "NEXT_TRIAL" } });
+  if (initialRoute.page === "activity" && audio.unlocked) {
+    dispatch({
+      type:
+        initialRoute.activity === "sing-tonic"
+          ? "SING_TONIC_MSG"
+          : "IDENTIFY_TONIC_MSG",
+      msg: { type: "START" },
+    });
   }
 }
 

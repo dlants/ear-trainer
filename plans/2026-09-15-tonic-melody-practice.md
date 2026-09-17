@@ -306,11 +306,14 @@ Make `/` the activity catalog and add `/activities/sing-tonic` and `/activities/
 
 ## Route only the activity experience
 
-- Goal: Add catalog and activity routes, remove SRS practice/cards/song-library variants and dependencies from router and app composition, inject the timed corpus from `main.ts`, and stop playback on activity and route changes. Leave the disconnected SRS source files, generated inventory, dependencies, and persisted browser data in place. Update About documentation to describe the activity model, experimental tonic exercises, and the distinction between familiar demonstrations and ordinary corpus material. Bump `APP_VERSION` for each implementation/content change as required.
+- Status: Completed in Stage 6. The catalog is now the home route, both tonic activities have dedicated routes, legacy SRS paths fall back to the catalog, and the runtime composition no longer imports or mounts SRS practice, cards, songs, generated inventory, or deck-store dependencies.
+- Decisions: Routes represent activities as `{ page: "activity", activity }`, allowing navigation between the two activities to count as a route change. Every route change stops queued playback and clears the drone; leaving options also stops the microphone. Activity state is recreated on entry so stale answers, viewport positions, support state, and playback highlights do not cross routes. The existing `StartView` remains the audio gate only for activity routes, while the catalog and options remain available before unlock. Disconnected legacy views may still call `routeToPath` with their former destinations, which now resolve to `/`, keeping those source files type-correct without restoring legacy route variants. Android coverage was not run because the audio-unlock interaction itself was unchanged.
+
+- [x] Goal: Add catalog and activity routes, remove SRS practice/cards/song-library variants and dependencies from router and app composition, inject the timed corpus from `main.ts`, and stop playback on activity and route changes. Leave the disconnected SRS source files, generated inventory, dependencies, and persisted browser data in place. Update About documentation to describe the activity model, experimental tonic exercises, and the distinction between familiar demonstrations and ordinary corpus material. Bump `APP_VERSION` for each implementation/content change as required.
 - Tests:
-  - Router round-trips `/`, `/activities/sing-tonic`, `/activities/identify-tonic-notes`, and `/options`; former `/practice`, `/cards`, and `/songs` paths parse to the catalog, and browser back/forward restores the correct catalog or activity.
-  - The hamburger menu links home, options, and about only and does not duplicate activity links.
-  - App integration mounts the catalog and each tonic activity with injected corpus/profile/play dependencies; locked audio routes through the existing explicit unlock interaction.
-  - Navigating between activities or away from them stops melody playback, clears slot highlighting, and silences any pre-existing drone.
-  - Existing SRS source remains type-correct without being imported by `main.ts` or mounted by `AppView`.
-  - Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`; run Android coverage only if the shared audio-unlock path changes beyond adding the new playback method.
+  - [x] Router round-trips `/`, `/activities/sing-tonic`, `/activities/identify-tonic-notes`, and `/options`; former `/practice`, `/cards`, and `/songs` paths parse to the catalog, and browser back/forward restores the correct catalog or activity.
+  - [x] The hamburger menu links home, options, and about only and does not duplicate activity links.
+  - [x] App integration mounts the catalog and each tonic activity with injected corpus/profile/play dependencies; locked audio routes through the existing explicit unlock interaction.
+  - [x] Navigating between activities or away from them stops melody playback, clears slot highlighting, and silences any pre-existing drone.
+  - [x] Existing SRS source remains type-correct without being imported by `main.ts` or mounted by `AppView`.
+  - [x] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass. Android coverage was not required because the shared audio-unlock path did not change.

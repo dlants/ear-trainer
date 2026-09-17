@@ -1,7 +1,8 @@
+import type { TonicActivity } from "./views/tonic-practice.ts";
+
 export type Route =
-  | { page: "practice" }
-  | { page: "cards" }
-  | { page: "songs" }
+  | { page: "catalog" }
+  | { page: "activity"; activity: TonicActivity }
   | { page: "options" };
 
 export type UrlWriteKind = "push" | "replace";
@@ -14,25 +15,28 @@ export type RouterMsg = {
 
 export function parseRoute(pathname: string): Route {
   switch (pathname.replace(/\/+$/, "") || "/") {
-    case "/cards":
-      return { page: "cards" };
-    case "/songs":
-      return { page: "songs" };
+    case "/activities/sing-tonic":
+      return { page: "activity", activity: "sing-tonic" };
+    case "/activities/identify-tonic-notes":
+      return { page: "activity", activity: "identify-tonic-notes" };
     case "/options":
       return { page: "options" };
     default:
-      return { page: "practice" };
+      return { page: "catalog" };
   }
 }
 
-export function routeToPath(route: Route): string {
+type DisconnectedRoute = { page: "practice" | "cards" | "songs" };
+
+export function routeToPath(route: Route | DisconnectedRoute): string {
   switch (route.page) {
+    case "catalog":
     case "practice":
-      return "/";
     case "cards":
-      return "/cards";
     case "songs":
-      return "/songs";
+      return "/";
+    case "activity":
+      return `/activities/${route.activity}`;
     case "options":
       return "/options";
   }

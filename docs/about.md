@@ -22,37 +22,26 @@ Furthermore, not all note combinations are equally likely to appear in actual mu
 
 # The ecological ear trainer
 
-This application is an experiment in creating a more representative ear practice. Can we simplify the task to scale the difficulty while preserving the necessary perceptual information?
+This application is an experiment in creating more representative ear practice. Can we simplify a listening task while preserving the melodic, rhythmic, registral, and tonal information that gives notes their musical meaning?
 
-The current version focuses mainly on pitch and function. Rhythm is also an important part of how a phrase is perceived, and I think there is more to explore there. I am using the trainer myself and with my toddler, and I plan to keep tinkering with it as our skills and my understanding of the problem develop.
+The current version begins with complete, rhythmically represented melodies and derives short activities from musically meaningful phrases. It does not estimate mastery, schedule reviews, or keep a practice history. The two initial tonic activities are experiments intended to reveal which prompts and melodies make useful practice material.
 
-# how to use it
+# How to use it
 
 Before you begin, go to [options](/options) and set the home note near the middle of your singing range. You should be able to sing comfortably both above and below it; otherwise, register changes can turn into a test of vocal range rather than hearing.
 
-## [Managing cards](/cards) and adding cards
+The [activity catalog](/) currently offers two ways to listen for tonic function:
 
-The cards come from two sources: familiar melodies and music theory. The melody-derived cards prioritize short phrases that occur frequently in the song library. The theory-derived cards follow a progression from stable tonic-triad tones, through nearby stepwise motion, to stronger tendency tones, with two-note patterns preceding three-note patterns. This is not meant to be a definitive theory of musical learning—just a practical starting point shaped by both frequency and tonal function.
+- **Sing the tonic** plays a melody phrase and asks you to sing the note that feels like home before revealing it.
+- **Identify the tonic notes** asks you to mark the notes that sound like home on a pitch-neutral rhythm display.
 
-The [song library](/songs) connects the cards back to music by showing how familiar melodies can be split into phrases from the same shared collection. You can choose a song, see which of its patterns you already know, and add the rest to your practice. I would eventually like to extend this beyond the bundled library so that people can practice hearing patterns drawn from music they actually listen to and care about.
+The melody is the main source of tonal context. The key and drone controls are optional supports and remain off until you choose them.
 
-## Two directions of learning
+## The melody corpus
 
-Each pattern is practiced in two complementary ways.
+The activities draw from a collection of complete public-domain, traditional, and original melodies with authored rhythm, bar structure, phrase boundaries, and source notes. Familiar songs are useful demonstrations because you can compare the task with music you already know, but familiarity is not the point of every exercise. Ordinary corpus material may be less immediately recognizable, and the app does not assume that every melody is new or that recognizing one makes the tonic task trivial.
 
-In **transcription**, your task is to listen to the phrase and identify the tones. Sing or hum the sequence back to yourself using the scale degrees or solfege (five - one - one).
-
-In **audiation**, your task is to sing or hum the notes given just the sequence and the key.
-
-The two skills reinforce one another, but they are not identical. You may recognize a pattern that you cannot yet hear clearly in your head, or imagine one that you struggle to identify in an unfamiliar context. The trainer schedules the two directions separately so that each can develop at its own pace.
-
-## Honest self-grading
-
-The practice is oriented toward perceptual fluency: the goal is to recognize or produce each phrase confidently and immediately, rather than reason it out note by note.
-
-Every trial asks for a commitment before the answer appears: **unsure** or **confident**. After the reveal, you report whether you got it right.
-
-Only “confident” followed by “correct” counts as a successful retrieval. If you were unsure and the answer happened to match your guess, the pattern still needs more work. This is intentional: once you see the answer, hindsight can make a vague impression feel more precise than it really was.
+Only phrases conservatively marked as tonally self-contained are used in these first activities. That classification is editable corpus metadata rather than a claim that there is one authoritative hearing of a tune.
 
 # feedback
 
