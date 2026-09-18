@@ -268,6 +268,14 @@ export function selectIdentifyNotesPhrase(
   - “Change situations” returns to the same toggle selection; “next melody” keeps the current selection and chooses another target/phrase.
   - Existing viewport geometry, keyed slot stability, note tapping, cursor persistence, playback controls, scrolling, and narrow mobile layout continue to work.
 
+### Stage 3 progress (completed 2026-09-18)
+
+- [x] Added the Binder-driven twelve-situation selector with stable keyed controls, pointer and keyboard activation, tonic-only initial state, live answer-vocabulary summary, and eligibility-driven Start state.
+- [x] Generalized the identification practice view and visible copy, preserved note-level playback and viewport behavior, and added Change situations without exposing target-situation provenance in the exercise.
+- [x] Added view coverage for selector accessibility and identity, empty and uncovered selections, autoplay on Start, all-event slot rendering, combined palettes, answer editing, reveal results, Next and Change situations, and narrow mobile layout.
+- Decision: the selector and practice screen remain two Binder-controlled regions of one `IdentifyNotesView`; switching screens hides the inactive region while keyed children preserve identity across selector updates.
+- Decision: compatibility exports and the sing-tonic view remain for the existing routes and app integration until Stage 4 removes those runtime branches.
+
 ## Remove sing-tonic and integrate the sole activity
 
 - Goal: Remove sing-tonic runtime code and tests; expose only Identify the notes at `/activities/identify-notes`; simplify app state, messages, startup, catalog, harnesses, and route handling; and update design documentation to describe situations as the flat practice-selection unit.

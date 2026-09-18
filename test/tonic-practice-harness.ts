@@ -8,15 +8,20 @@ import type { Profile } from "../deck/profiles.ts";
 import type { Phrase, TimedEvent } from "../music/melody.ts";
 import type { Degree, Note } from "../music/note.ts";
 import {
+  type IdentifyNotesMsg,
+  type IdentifyNotesState,
   type IdentifyTonicMsg,
   type IdentifyTonicState,
+  initialIdentifyNotesState,
   type SingTonicMsg,
   type SingTonicState,
   type TonicPracticeCtx,
+  updateIdentifyNotes,
   updateIdentifyTonic,
   updateSingTonic,
 } from "../views/tonic-practice.ts";
 import {
+  IdentifyNotesView,
   IdentifyTonicNotesView,
   SingTonicView,
 } from "../views/tonic-practice-view.ts";
@@ -128,6 +133,28 @@ function ctx(play: FakeTonicPlay, phrases: Phrase[]): TonicPracticeCtx {
     })),
     random: () => 0,
   };
+}
+
+export function mountIdentifySelector(phrases: Phrase[] = [phrase(4)]): {
+  container: HTMLElement;
+  state: IdentifyNotesState;
+  dispatch: (msg: IdentifyNotesMsg) => void;
+  play: FakeTonicPlay;
+  view: IdentifyNotesView;
+} {
+  const play = new FakeTonicPlay();
+  const state = initialIdentifyNotesState();
+  const context = ctx(play, phrases);
+  const container = document.createElement("div");
+  container.style.width = "420px";
+  document.body.appendChild(container);
+  let view: IdentifyNotesView;
+  const dispatch = (msg: IdentifyNotesMsg) => {
+    updateIdentifyNotes(state, msg, context);
+    view.sync(state);
+  };
+  view = new IdentifyNotesView(container, dispatch, state, context);
+  return { container, state, dispatch, play, view };
 }
 
 export function mountIdentify(

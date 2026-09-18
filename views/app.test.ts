@@ -113,11 +113,11 @@ test.describe("activity-only app integration", () => {
       }, activity);
 
       expect(result.text).toContain(
-        activity === "sing-tonic"
-          ? "Sing the tonic"
-          : "Identify the tonic notes",
+        activity === "sing-tonic" ? "Sing the tonic" : "Identify the notes",
       );
-      expect(result.text).toContain("repeat melody");
+      expect(result.text).toContain(
+        activity === "sing-tonic" ? "repeat melody" : "from beginning",
+      );
       expect(result.autoplay).toHaveLength(1);
     });
   }

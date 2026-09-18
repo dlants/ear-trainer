@@ -92,10 +92,8 @@ export type IdentifyNotesMsg =
   | { type: "SYNC_PLAYBACK" }
   | { type: "NEXT" };
 
-/** Compatibility message retained until callers adopt BEGIN. */
-export type IdentifyTonicMsg =
-  | Exclude<IdentifyNotesMsg, { type: "BEGIN" }>
-  | { type: "START" };
+/** Compatibility message retained until callers drop START. */
+export type IdentifyTonicMsg = IdentifyNotesMsg | { type: "START" };
 export type TonicPracticeMsg =
   | { activity: "sing-tonic"; msg: SingTonicMsg }
   | { activity: "identify-tonic-notes"; msg: IdentifyTonicMsg };
