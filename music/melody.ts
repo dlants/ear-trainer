@@ -1,5 +1,11 @@
 import type { Result } from "./format.ts";
-import type { Context, Degree, Event, Note } from "./note.ts";
+import {
+  type Context,
+  type Degree,
+  type Event,
+  type Note,
+  noteOffset,
+} from "./note.ts";
 
 export const TICKS_PER_QUARTER = 24;
 
@@ -328,6 +334,163 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       source: { ...entry.source },
     },
   };
+}
+
+/** `${onsetTicks}:${laneIndex}` — unique because a lane holds one note at a time. */
+export type CellId = string & { readonly __brand: "CellId" };
+
+/** One note: the unit of display, tap, playback, and answer. */
+export type Cell = {
+  id: CellId;
+  note: Note;
+  voiceId: string;
+  onsetTicks: number;
+  durationTicks: number;
+  /** Row in the display grid; see lanes(). */
+  laneIndex: number;
+};
+
+/** Cells attacking at this tick, highest-sounding first. */
+export type Onset = {
+  onsetTicks: number;
+  cellIds: CellId[];
+};
+
+/** One row of the display grid: one slot of one voice. */
+export type Lane = {
+  voiceId: string;
+  slot: number;
+};
+
+function laneKey(lane: Lane): string {
+  return `${lane.voiceId}:${lane.slot}`;
+}
+
+/** Highest first, so slot 0 is the top note of a chord. */
+function notesHighestFirst(notes: Note[]): Note[] {
+  return [...notes].sort(
+    (a, b) => noteOffset(b) - noteOffset(a) || b.degree - a.degree,
+  );
+}
+
+type LaneStats = { lane: Lane; offsetTotal: number; noteCount: number };
+
+function laneStats(score: Score): LaneStats[] {
+  const stats = new Map<string, LaneStats>();
+  for (const scoreVoice of score.voices) {
+    for (const event of scoreVoice.events) {
+      for (const [slot, note] of notesHighestFirst(event.notes).entries()) {
+        const lane: Lane = { voiceId: scoreVoice.id, slot };
+        const key = laneKey(lane);
+        const existing = stats.get(key);
+        if (existing) {
+          existing.offsetTotal += noteOffset(note);
+          existing.noteCount += 1;
+        } else {
+          stats.set(key, {
+            lane,
+            offsetTotal: noteOffset(note),
+            noteCount: 1,
+          });
+        }
+      }
+    }
+  }
+  return [...stats.values()].sort(
+    (a, b) =>
+      b.offsetTotal / b.noteCount - a.offsetTotal / a.noteCount ||
+      a.lane.voiceId.localeCompare(b.lane.voiceId) ||
+      a.lane.slot - b.lane.slot,
+  );
+}
+
+/** Display rows, ordered top to bottom by descending mean pitch. */
+export function lanes(score: Score): Lane[] {
+  return laneStats(score).map((entry) => entry.lane);
+}
+
+/**
+ * Ordered by onset ascending, then pitch descending; drives reading and
+ * auto-advance order.
+ */
+export function cells(score: Score): Cell[] {
+  const laneIndexes = new Map<string, number>();
+  for (const [index, lane] of lanes(score).entries()) {
+    laneIndexes.set(laneKey(lane), index);
+  }
+  const result: Cell[] = [];
+  for (const scoreVoice of score.voices) {
+    for (const event of scoreVoice.events) {
+      for (const [slot, note] of notesHighestFirst(event.notes).entries()) {
+        const laneIndex = laneIndexes.get(
+          laneKey({ voiceId: scoreVoice.id, slot }),
+        );
+        if (laneIndex === undefined) {
+          throw new Error(
+            `melody: no lane for voice "${scoreVoice.id}" slot ${slot}`,
+          );
+        }
+        result.push({
+          id: `${event.onsetTicks}:${laneIndex}` as CellId,
+          note: { ...note },
+          voiceId: scoreVoice.id,
+          onsetTicks: event.onsetTicks,
+          durationTicks: event.durationTicks,
+          laneIndex,
+        });
+      }
+    }
+  }
+  return result.sort(
+    (a, b) =>
+      a.onsetTicks - b.onsetTicks ||
+      noteOffset(b.note) - noteOffset(a.note) ||
+      b.note.degree - a.note.degree ||
+      a.voiceId.localeCompare(b.voiceId),
+  );
+}
+
+export function cellsById(cellList: Cell[]): ReadonlyMap<CellId, Cell> {
+  return new Map(cellList.map((cell) => [cell.id, cell]));
+}
+
+/** Attack map: onsets in time order, each listing the cells that start there. */
+export function onsets(cellList: Cell[]): Onset[] {
+  const result: Onset[] = [];
+  for (const cell of cellList) {
+    const last = result.at(-1);
+    if (last && last.onsetTicks === cell.onsetTicks) {
+      last.cellIds.push(cell.id);
+    } else {
+      result.push({ onsetTicks: cell.onsetTicks, cellIds: [cell.id] });
+    }
+  }
+  return result.sort((a, b) => a.onsetTicks - b.onsetTicks);
+}
+
+export function onsetAt(onsetList: Onset[], ticks: number): Onset | undefined {
+  return onsetList.find((onset) => onset.onsetTicks === ticks);
+}
+
+/**
+ * Cells audible at `ticks`, including ones attacked earlier and still ringing.
+ * Highest first.
+ */
+export function cellsSoundingAt(cellList: Cell[], ticks: number): CellId[] {
+  return cellList
+    .filter(
+      (cell) =>
+        cell.onsetTicks <= ticks &&
+        ticks < cell.onsetTicks + cell.durationTicks,
+    )
+    .sort(
+      (a, b) =>
+        noteOffset(b.note) - noteOffset(a.note) ||
+        b.note.degree - a.note.degree ||
+        a.onsetTicks - b.onsetTicks ||
+        a.voiceId.localeCompare(b.voiceId),
+    )
+    .map((cell) => cell.id);
 }
 
 export function voice(phrase: Phrase, voiceId: string): Voice | undefined {

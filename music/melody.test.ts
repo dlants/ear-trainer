@@ -1,7 +1,17 @@
 import { expect, test } from "@playwright/test";
 import {
+  type Cell,
+  type CellId,
   type CorpusMelody,
+  cells,
+  cellsById,
+  cellsSoundingAt,
+  lanes,
   normalizeMelody,
+  onsetAt,
+  onsets,
+  type Score,
+  type TimedEvent,
   tonicEventIndexes,
   voice,
 } from "./melody.ts";
@@ -388,5 +398,167 @@ test.describe("melody validation", () => {
     expect(errorFor(entry)).toContain(
       "final phrase must end at final measure 1",
     );
+  });
+});
+
+function score(voices: Score["voices"]): Score {
+  const durationTicks = Math.max(
+    ...voices.flatMap((v) =>
+      v.events.map((e) => e.onsetTicks + e.durationTicks),
+    ),
+  );
+  return {
+    context: "major-cadence",
+    tempoBpm: 96,
+    durationTicks,
+    voices,
+    measures: [
+      {
+        startTicks: 0,
+        endTicks: durationTicks,
+        beatDurationsTicks: [durationTicks],
+      },
+    ],
+  };
+}
+
+function ev(
+  notes: Note[],
+  onsetTicks: number,
+  durationTicks: number,
+): TimedEvent {
+  return { notes, onsetTicks, durationTicks };
+}
+
+function cellNotes(cellList: Cell[], ids: readonly CellId[]): string[] {
+  const byId = cellsById(cellList);
+  return ids.map((id) => {
+    const cell = byId.get(id);
+    if (!cell) throw new Error(`missing cell ${id}`);
+    return `${cell.voiceId}:${cell.note.degree}^${cell.note.octave}`;
+  });
+}
+
+test.describe("cells, lanes, and onsets", () => {
+  test("groups simultaneous attacks of two voices into one onset, highest first", () => {
+    const value = score([
+      { id: "melody", events: [ev([note(3)], 0, 24), ev([note(5)], 24, 24)] },
+      { id: "harmony", events: [ev([note(1)], 0, 24), ev([note(2)], 24, 24)] },
+    ]);
+    const cellList = cells(value);
+    const onsetList = onsets(cellList);
+    expect(onsetList.map((onset) => onset.onsetTicks)).toEqual([0, 24]);
+    expect(cellNotes(cellList, onsetList[0]?.cellIds ?? [])).toEqual([
+      "melody:3^0",
+      "harmony:1^0",
+    ]);
+  });
+
+  test("gives a harmony note attacking under a held melody note its own onset", () => {
+    const value = score([
+      { id: "melody", events: [ev([note(5)], 0, 48)] },
+      { id: "harmony", events: [ev([note(1)], 0, 24), ev([note(3)], 24, 24)] },
+    ]);
+    const cellList = cells(value);
+    const onsetList = onsets(cellList);
+    expect(onsetList.map((onset) => onset.onsetTicks)).toEqual([0, 24]);
+    expect(cellNotes(cellList, onsetList[1]?.cellIds ?? [])).toEqual([
+      "harmony:3^0",
+    ]);
+  });
+
+  test("yields one onset per event for a single-voice phrase", () => {
+    const melody = normalize(fixture());
+    for (const phrase of melody.phrases) {
+      const melodyVoice = voice(phrase, "melody");
+      if (!melodyVoice) throw new Error("missing melody voice");
+      const singleVoicePhrase = { ...phrase, voices: [melodyVoice] };
+      const onsetList = onsets(cells(singleVoicePhrase));
+      expect(onsetList.map((onset) => onset.onsetTicks)).toEqual(
+        melodyVoice.events.map((event) => event.onsetTicks),
+      );
+    }
+  });
+
+  test("orders a chord authored in one event by pitch, highest first", () => {
+    const value = score([
+      {
+        id: "melody",
+        events: [ev([note(3), note(1, 0, 1), note(5)], 0, 24)],
+      },
+    ]);
+    const cellList = cells(value);
+    const onsetList = onsets(cellList);
+    expect(onsetList).toHaveLength(1);
+    expect(cellNotes(cellList, onsetList[0]?.cellIds ?? [])).toEqual([
+      "melody:1^1",
+      "melody:5^0",
+      "melody:3^0",
+    ]);
+  });
+
+  test("reports notes still ringing and excludes notes that already ended", () => {
+    const value = score([
+      { id: "melody", events: [ev([note(5)], 0, 48)] },
+      {
+        id: "harmony",
+        events: [
+          ev([note(1)], 0, 12),
+          ev([note(3)], 12, 12),
+          ev([note(4)], 24, 24),
+        ],
+      },
+    ]);
+    const cellList = cells(value);
+    expect(cellNotes(cellList, cellsSoundingAt(cellList, 12))).toEqual([
+      "melody:5^0",
+      "harmony:3^0",
+    ]);
+    expect(cellNotes(cellList, cellsSoundingAt(cellList, 48))).toEqual([]);
+  });
+
+  test("derives one lane per voice slot, ordered by descending mean pitch", () => {
+    const value = score([
+      {
+        id: "harmony",
+        events: [
+          ev([note(1), note(3), note(5)], 0, 24),
+          ev([note(1), note(4), note(6)], 24, 24),
+        ],
+      },
+      { id: "melody", events: [ev([note(1, 0, 1)], 0, 48)] },
+    ]);
+    expect(lanes(value)).toEqual([
+      { voiceId: "melody", slot: 0 },
+      { voiceId: "harmony", slot: 0 },
+      { voiceId: "harmony", slot: 1 },
+      { voiceId: "harmony", slot: 2 },
+    ]);
+    const cellList = cells(value);
+    const sustained = cellList.filter((cell) => cell.voiceId === "melody");
+    expect(sustained).toHaveLength(1);
+    expect(sustained[0]?.laneIndex).toBe(0);
+    for (const tick of [0, 24]) {
+      const top = cellList.find(
+        (cell) =>
+          cell.voiceId === "harmony" &&
+          cell.onsetTicks === tick &&
+          cell.laneIndex === 1,
+      );
+      expect(top?.note.degree).toBe(tick === 0 ? 5 : 6);
+    }
+  });
+
+  test("reproduces the same cell ids when recomputed", () => {
+    const value = score([
+      { id: "melody", events: [ev([note(5)], 0, 48)] },
+      { id: "harmony", events: [ev([note(1)], 0, 24), ev([note(3)], 24, 24)] },
+    ]);
+    expect(cells(value).map((cell) => cell.id)).toEqual(
+      cells(value).map((cell) => cell.id),
+    );
+    const onsetList = onsets(cells(value));
+    expect(onsetAt(onsetList, 24)?.cellIds).toHaveLength(1);
+    expect(onsetAt(onsetList, 30)).toBeUndefined();
   });
 });
