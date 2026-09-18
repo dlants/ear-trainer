@@ -5,9 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto(HARNESS_URL);
 });
 
-test("activity catalog exposes only the two activity links", async ({
-  page,
-}) => {
+test("activity catalog exposes only identify notes", async ({ page }) => {
   const result = await page.evaluate(async () => {
     const { ActivityCatalogView } = await import("/views/activity-catalog.ts");
     const container = document.createElement("div");
@@ -22,65 +20,11 @@ test("activity catalog exposes only the two activity links", async ({
   });
   expect(result.links).toEqual([
     {
-      text: "Sing the tonic Hear a melody, then sing its home note.",
-      href: "/activities/sing-tonic",
-    },
-    {
-      text: "Identify the tonic notes Mark which notes in a melody sound like home.",
-      href: "/activities/identify-tonic-notes",
+      text: "Identify the notes Choose musical situations, then identify every note in a melody.",
+      href: "/activities/identify-notes",
     },
   ]);
   expect(result.text).not.toMatch(/practice|cards|song library/i);
-});
-
-test("sing-tonic support and answer playback require explicit actions", async ({
-  page,
-}) => {
-  const result = await page.evaluate(async () => {
-    const { mountSing } = await import("/test/tonic-practice-harness.ts");
-    const env = mountSing();
-    const buttons = () =>
-      Array.from(env.container.querySelectorAll("button")).filter(
-        (button) => button.style.display !== "none",
-      );
-    const press = (label: string) => {
-      const button = buttons().find((candidate) =>
-        candidate.textContent?.includes(label),
-      );
-      if (!button) throw new Error(`missing ${label}`);
-      button.click();
-    };
-    const initial = {
-      calls: [...env.play.calls],
-      labels: buttons().map((button) => button.textContent?.trim()),
-    };
-    press("key");
-    press("drone off");
-    press("repeat melody");
-    press("reveal tonic");
-    const revealed = buttons().map((button) => button.textContent?.trim());
-    press("tonic");
-    return {
-      initial,
-      revealed,
-      calls: env.play.calls,
-      drones: env.play.drones,
-      phase: env.state.trial?.phase,
-    };
-  });
-  expect(result.initial.calls).toEqual([]);
-  expect(result.initial.labels).toContain("repeat melody");
-  expect(result.initial.labels).not.toContain("tonic");
-  expect(result.calls).toEqual([
-    "toggle:trial:context",
-    "toggle:tonic:melody",
-    "autoplay:tonic:answer",
-    "toggle:tonic:answer",
-  ]);
-  expect(result.drones).toEqual([60]);
-  expect(result.phase).toBe("revealing");
-  expect(result.revealed).toContain("tonic");
-  expect(result.revealed).toContain("next melody");
 });
 
 test("situation selector is keyed, accessible, and derives start eligibility", async ({

@@ -8,25 +8,15 @@ import type { Profile } from "../deck/profiles.ts";
 import type { Phrase, TimedEvent } from "../music/melody.ts";
 import type { Degree, Note } from "../music/note.ts";
 import {
+  type IdentifyNotesCtx,
   type IdentifyNotesMsg,
   type IdentifyNotesState,
-  type IdentifyTonicMsg,
-  type IdentifyTonicState,
   initialIdentifyNotesState,
-  type SingTonicMsg,
-  type SingTonicState,
-  type TonicPracticeCtx,
   updateIdentifyNotes,
-  updateIdentifyTonic,
-  updateSingTonic,
 } from "../views/tonic-practice.ts";
-import {
-  IdentifyNotesView,
-  IdentifyTonicNotesView,
-  SingTonicView,
-} from "../views/tonic-practice-view.ts";
+import { IdentifyNotesView } from "../views/tonic-practice-view.ts";
 
-export class FakeTonicPlay {
+export class FakeIdentifyNotesPlay {
   calls: string[] = [];
   state: PlayState = { status: "idle" };
   drones: (number | undefined)[] = [];
@@ -121,7 +111,7 @@ export function phrase(
   };
 }
 
-function ctx(play: FakeTonicPlay, phrases: Phrase[]): TonicPracticeCtx {
+function ctx(play: FakeIdentifyNotesPlay, phrases: Phrase[]): IdentifyNotesCtx {
   return {
     play: play as unknown as PlayController,
     profile,
@@ -139,10 +129,10 @@ export function mountIdentifySelector(phrases: Phrase[] = [phrase(4)]): {
   container: HTMLElement;
   state: IdentifyNotesState;
   dispatch: (msg: IdentifyNotesMsg) => void;
-  play: FakeTonicPlay;
+  play: FakeIdentifyNotesPlay;
   view: IdentifyNotesView;
 } {
-  const play = new FakeTonicPlay();
+  const play = new FakeIdentifyNotesPlay();
   const state = initialIdentifyNotesState();
   const context = ctx(play, phrases);
   const container = document.createElement("div");
@@ -162,15 +152,14 @@ export function mountIdentify(
   promptDegrees: Degree[] = [1],
 ): {
   container: HTMLElement;
-  state: IdentifyTonicState;
-  dispatch: (msg: IdentifyTonicMsg) => void;
-  play: FakeTonicPlay;
-  view: IdentifyTonicNotesView;
+  state: IdentifyNotesState;
+  dispatch: (msg: IdentifyNotesMsg) => void;
+  play: FakeIdentifyNotesPlay;
+  view: IdentifyNotesView;
 } {
-  const play = new FakeTonicPlay();
+  const play = new FakeIdentifyNotesPlay();
   const selected = phrase(measureCount);
-  const state: IdentifyTonicState = {
-    activity: "identify-tonic-notes",
+  const state: IdentifyNotesState = {
     screen: "practice",
     selectedSituationIds: ["tonic"],
     droneOn: false,
@@ -188,37 +177,11 @@ export function mountIdentify(
   const container = document.createElement("div");
   container.style.width = "420px";
   document.body.appendChild(container);
-  let view: IdentifyTonicNotesView;
-  const dispatch = (msg: IdentifyTonicMsg) => {
-    updateIdentifyTonic(state, msg, context);
+  let view: IdentifyNotesView;
+  const dispatch = (msg: IdentifyNotesMsg) => {
+    updateIdentifyNotes(state, msg, context);
     view.sync(state);
   };
-  view = new IdentifyTonicNotesView(container, dispatch, state, context);
-  return { container, state, dispatch, play, view };
-}
-
-export function mountSing(): {
-  container: HTMLElement;
-  state: SingTonicState;
-  dispatch: (msg: SingTonicMsg) => void;
-  play: FakeTonicPlay;
-  view: SingTonicView;
-} {
-  const play = new FakeTonicPlay();
-  const selected = phrase(2, "sing");
-  const state: SingTonicState = {
-    activity: "sing-tonic",
-    droneOn: false,
-    trial: { phrase: selected, phase: "presenting" },
-  };
-  const context = ctx(play, [selected]);
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  let view: SingTonicView;
-  const dispatch = (msg: SingTonicMsg) => {
-    updateSingTonic(state, msg, context);
-    view.sync(state);
-  };
-  view = new SingTonicView(container, dispatch, state, context);
+  view = new IdentifyNotesView(container, dispatch, state, context);
   return { container, state, dispatch, play, view };
 }

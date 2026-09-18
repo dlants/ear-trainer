@@ -21,14 +21,12 @@ import {
 } from "../vamp.ts";
 import { PlayButtonView } from "./play-button.ts";
 import {
+  type IdentifyNotesCtx,
   type IdentifyNotesMsg,
   type IdentifyNotesState,
   type IdentifyNotesTrial,
   type MelodySlotAnswer,
-  type SingTonicMsg,
-  type SingTonicState,
   selectIdentifyNotesPhrase,
-  type TonicPracticeCtx,
   VISIBLE_MEASURE_COUNT,
 } from "./tonic-practice.ts";
 
@@ -73,7 +71,7 @@ function noteLabel(event: TimedEvent): string {
 }
 
 function playbackFor(
-  ctx: Pick<TonicPracticeCtx, "play">,
+  ctx: Pick<IdentifyNotesCtx, "play">,
   id: string,
 ): PlayState {
   const playback = ctx.play.getState();
@@ -82,7 +80,7 @@ function playbackFor(
     : { status: "idle" };
 }
 
-function melodyPlayback(ctx: Pick<TonicPracticeCtx, "play">): PlayState {
+function melodyPlayback(ctx: Pick<IdentifyNotesCtx, "play">): PlayState {
   const playback = ctx.play.getState();
   return playback.status === "playing" &&
     playback.buttonId.startsWith("tonic:melody")
@@ -449,7 +447,7 @@ class MelodyMeasureView implements View<MeasureState, MeasureMsg> {
 }
 
 function playButtonState(
-  ctx: Pick<TonicPracticeCtx, "play">,
+  ctx: Pick<IdentifyNotesCtx, "play">,
   id:
     | "trial:context"
     | "trial:drone"
@@ -478,141 +476,6 @@ function playButtonState(
     durationMs: playing ? playback.durationMs : undefined,
     animated,
   } as const;
-}
-
-export class SingTonicView
-  implements
-    View<
-      SingTonicState,
-      SingTonicMsg,
-      Pick<TonicPracticeCtx, "play" | "profile">
-    >
-{
-  container: HTMLElement;
-  private readonly b: Binder<SingTonicState>;
-
-  constructor(
-    container: HTMLElement,
-    dispatch: (msg: SingTonicMsg) => void,
-    initial: SingTonicState,
-    ctx: Pick<TonicPracticeCtx, "play" | "profile">,
-  ) {
-    const emptyRef = ref("empty");
-    const activityRef = ref("activity");
-    const contextRef = ref("context");
-    const droneRef = ref("drone");
-    const melodyRef = ref("melody");
-    const answerRef = ref("answer");
-    const revealRef = ref("reveal");
-    const nextRef = ref("next");
-
-    this.container = container;
-    container.innerHTML = sanitize`
-      <section class="${pageClass}">
-        <h1 class="${headingClass}">Sing the tonic</h1>
-        <p class="${instructionClass}">Listen to the melody, then sing the note that feels like home.</p>
-        <p class="${emptyClass}" data-ref="${emptyRef}">No eligible melody fragments are available.</p>
-        <div data-ref="${activityRef}">
-          <div class="${supportClass}">
-            <div data-ref="${contextRef}"></div>
-            <div data-ref="${droneRef}"></div>
-          </div>
-          <div class="${playRowClass}">
-            <div data-ref="${melodyRef}"></div>
-            <div data-ref="${answerRef}"></div>
-          </div>
-          <div class="${actionRowClass}">
-            <button type="button" class="${primaryClass}" data-ref="${revealRef}">reveal tonic</button>
-            <button type="button" class="${primaryClass}" data-ref="${nextRef}">next melody</button>
-          </div>
-        </div>
-      </section>
-    `;
-    this.b = new Binder(container, initial);
-    onPress(this.b.ref(revealRef), () => dispatch({ type: "REVEAL" }));
-    onPress(this.b.ref(nextRef), () => dispatch({ type: "NEXT" }));
-    this.b.bindVisible(emptyRef, (state) => state.trial === undefined);
-    this.b.bindVisible(activityRef, (state) => state.trial !== undefined);
-    this.b.bindVisible(
-      revealRef,
-      (state) => state.trial?.phase === "presenting",
-    );
-    this.b.bindVisible(nextRef, (state) => state.trial?.phase === "revealing");
-    this.b.bindSlot(contextRef, (state) =>
-      show(
-        PlayButtonView,
-        playButtonState(
-          ctx,
-          "trial:context",
-          "key",
-          "play key",
-          "key",
-          "compact",
-          state.trial !== undefined,
-        ),
-        {},
-        () => dispatch({ type: "PLAY_CONTEXT" }),
-      ),
-    );
-    this.b.bindSlot(droneRef, (state) =>
-      show(
-        PlayButtonView,
-        playButtonState(
-          ctx,
-          "trial:drone",
-          state.droneOn ? "drone on" : "drone off",
-          "toggle tonic drone",
-          "drone",
-          "compact",
-          state.trial !== undefined,
-          state.droneOn,
-        ),
-        {},
-        () => dispatch({ type: "TOGGLE_DRONE" }),
-      ),
-    );
-    this.b.bindSlot(melodyRef, (state) =>
-      show(
-        PlayButtonView,
-        playButtonState(
-          ctx,
-          "tonic:melody",
-          "repeat melody",
-          "play melody fragment",
-          "play",
-          "trial",
-          state.trial !== undefined,
-        ),
-        {},
-        () => dispatch({ type: "REPEAT" }),
-      ),
-    );
-    this.b.bindSlot(answerRef, (state) =>
-      show(
-        PlayButtonView,
-        playButtonState(
-          ctx,
-          "tonic:answer",
-          "tonic",
-          "play tonic answer",
-          "play",
-          "trial",
-          state.trial?.phase === "revealing",
-        ),
-        {},
-        () => dispatch({ type: "PLAY_ANSWER" }),
-      ),
-    );
-  }
-
-  sync(state: SingTonicState): void {
-    this.b.sync(state);
-  }
-
-  destroy(): void {
-    this.b.cleanup();
-    this.container.innerHTML = "";
-  }
 }
 
 type SituationChoiceState = {
@@ -679,7 +542,7 @@ class SituationChoiceView
 
 function hasEligibleSelection(
   state: IdentifyNotesState,
-  ctx: Pick<TonicPracticeCtx, "melodies">,
+  ctx: Pick<IdentifyNotesCtx, "melodies">,
 ): boolean {
   return (
     selectIdentifyNotesPhrase(
@@ -761,7 +624,7 @@ function answerChoices(trial: IdentifyNotesTrial): AnswerChoiceState[] {
 }
 
 export class IdentifyNotesView
-  implements View<IdentifyNotesState, IdentifyNotesMsg, TonicPracticeCtx>
+  implements View<IdentifyNotesState, IdentifyNotesMsg, IdentifyNotesCtx>
 {
   container: HTMLElement;
   private readonly b: Binder<IdentifyNotesState>;
@@ -770,7 +633,7 @@ export class IdentifyNotesView
     container: HTMLElement,
     dispatch: (msg: IdentifyNotesMsg) => void,
     initial: IdentifyNotesState,
-    ctx: TonicPracticeCtx,
+    ctx: IdentifyNotesCtx,
   ) {
     const selectorRef = ref("selector");
     const selectorInstructionRef = ref("selectorInstruction");
@@ -1064,5 +927,3 @@ export class IdentifyNotesView
     this.container.innerHTML = "";
   }
 }
-
-export { IdentifyNotesView as IdentifyTonicNotesView };

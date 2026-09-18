@@ -287,3 +287,13 @@ export function selectIdentifyNotesPhrase(
   - Existing options, navigation, startup, corpus playback, and disconnected legacy SRS behavior remain unchanged.
   - Update `docs/v2-design.md` and About copy where they still describe two tonic activities or defer contextual note identification; bump `APP_VERSION` as required.
   - `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.
+
+### Stage 4 progress (completed 2026-09-18)
+
+- [x] Removed the sing-tonic state, reducer, view, compatibility adapters, harness fixture, tests, app branches, route, and catalog entry; the sole activity now uses Identify Notes names throughout app composition.
+- [x] Exposed only `/activities/identify-notes`, with both obsolete tonic activity paths falling back to the catalog and browser navigation coverage updated for the selector route.
+- [x] Integrated selector-first startup behind the explicit audio-unlock gate, with no route-entry autoplay; Begin starts practice, playback cues synchronize through the root update path, and navigation stops playback and clears drone support.
+- [x] Updated the catalog, About copy, and V2 design direction for flat situation-driven note identification, and bumped `APP_VERSION` to `0.33`.
+- [x] Verified the complete project with `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+- Decision: route entry and post-unlock initialization reset Identify Notes to its tonic-only selector state; practice audio begins exclusively from the selector's Begin action.
+- Decision: obsolete tonic URLs remain unrecognized rather than redirecting, so normal route parsing returns the catalog without preserving hidden aliases.

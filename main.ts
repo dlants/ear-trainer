@@ -54,7 +54,7 @@ function startApp(audio: AudioEngine): void {
     play,
     router,
     dismissStack: new DismissStack(),
-    tonicPractice: {
+    identifyNotes: {
       play,
       profile: activeProfile,
       melodies: MELODIES,
@@ -92,15 +92,6 @@ function startApp(audio: AudioEngine): void {
   routerView = new RouterView(router, dispatch);
   routerView.sync();
   routerView.mount();
-  if (initialRoute.page === "activity" && audio.unlocked) {
-    dispatch({
-      type:
-        initialRoute.activity === "sing-tonic"
-          ? "SING_TONIC_MSG"
-          : "IDENTIFY_TONIC_MSG",
-      msg: { type: "START" },
-    });
-  }
 }
 
 // A sung timbre sustains and matches the effector learners answer with.

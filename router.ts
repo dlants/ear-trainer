@@ -1,8 +1,8 @@
-import type { TonicActivity } from "./views/tonic-practice.ts";
+import type { Activity } from "./views/tonic-practice.ts";
 
 export type Route =
   | { page: "catalog" }
-  | { page: "activity"; activity: TonicActivity }
+  | { page: "activity"; activity: Activity }
   | { page: "options" };
 
 export type UrlWriteKind = "push" | "replace";
@@ -15,10 +15,8 @@ export type RouterMsg = {
 
 export function parseRoute(pathname: string): Route {
   switch (pathname.replace(/\/+$/, "") || "/") {
-    case "/activities/sing-tonic":
-      return { page: "activity", activity: "sing-tonic" };
-    case "/activities/identify-tonic-notes":
-      return { page: "activity", activity: "identify-tonic-notes" };
+    case "/activities/identify-notes":
+      return { page: "activity", activity: "identify-notes" };
     case "/options":
       return { page: "options" };
     default:

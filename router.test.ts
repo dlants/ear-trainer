@@ -11,8 +11,7 @@ test.describe("router", () => {
   test("round-trips the catalog, activities, and options", () => {
     const routes = [
       { page: "catalog" },
-      { page: "activity", activity: "sing-tonic" },
-      { page: "activity", activity: "identify-tonic-notes" },
+      { page: "activity", activity: "identify-notes" },
       { page: "options" },
     ] as const;
     for (const route of routes) {
@@ -20,8 +19,14 @@ test.describe("router", () => {
     }
   });
 
-  test("former SRS paths fall back to the catalog", () => {
-    for (const path of ["/practice", "/cards", "/songs"]) {
+  test("obsolete and former SRS paths fall back to the catalog", () => {
+    for (const path of [
+      "/activities/sing-tonic",
+      "/activities/identify-tonic-notes",
+      "/practice",
+      "/cards",
+      "/songs",
+    ]) {
       expect(parseRoute(path)).toEqual({ page: "catalog" });
     }
   });
@@ -34,14 +39,14 @@ test.describe("router", () => {
 
       controller.update({
         type: "NAVIGATE",
-        route: { page: "activity", activity: "sing-tonic" },
+        route: { page: "activity", activity: "identify-notes" },
       });
       view.sync();
 
       return window.location.pathname;
     });
 
-    expect(pathname).toBe("/activities/sing-tonic");
+    expect(pathname).toBe("/activities/identify-notes");
   });
 
   test("leaves router-ignored links to native navigation", async ({ page }) => {
@@ -89,7 +94,7 @@ test.describe("router", () => {
       const routeState = document.createElement("output");
       routeState.id = "route-state";
       const link = document.createElement("a");
-      link.href = "/activities/identify-tonic-notes";
+      link.href = "/activities/identify-notes";
       link.textContent = "identify";
       document.body.append(routeState, link);
       const render = () => {
@@ -105,9 +110,9 @@ test.describe("router", () => {
       link.click();
     });
 
-    await expect(page).toHaveURL(/\/activities\/identify-tonic-notes$/);
+    await expect(page).toHaveURL(/\/activities\/identify-notes$/);
     await expect(page.locator("#route-state")).toHaveText(
-      JSON.stringify({ page: "activity", activity: "identify-tonic-notes" }),
+      JSON.stringify({ page: "activity", activity: "identify-notes" }),
     );
 
     await page.goBack();
@@ -119,9 +124,9 @@ test.describe("router", () => {
 
     await page.goForward();
 
-    await expect(page).toHaveURL(/\/activities\/identify-tonic-notes$/);
+    await expect(page).toHaveURL(/\/activities\/identify-notes$/);
     await expect(page.locator("#route-state")).toHaveText(
-      JSON.stringify({ page: "activity", activity: "identify-tonic-notes" }),
+      JSON.stringify({ page: "activity", activity: "identify-notes" }),
     );
   });
 });

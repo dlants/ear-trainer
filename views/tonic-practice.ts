@@ -1,11 +1,6 @@
 import type { PlayController, PlayStep } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
-import {
-  type Melody,
-  type Phrase,
-  tonicEventIndexes,
-  voice,
-} from "../music/melody.ts";
+import { type Melody, type Phrase, voice } from "../music/melody.ts";
 import type { Degree } from "../music/note.ts";
 import {
   phraseMatchesSituation,
@@ -13,20 +8,13 @@ import {
   type SituationId,
 } from "../music/situations.ts";
 
-export type TonicActivity = "sing-tonic" | "identify-tonic-notes";
 export type Activity = "identify-notes";
 
-export type SingTonicPhase = "presenting" | "revealing";
 export type IdentifyNotesScreen = "situations" | "practice";
 export type IdentifyNotesPhase = "answering" | "revealed";
 export type MelodySlotAnswer = Degree | "other" | undefined;
 
 export const VISIBLE_MEASURE_COUNT = 3;
-
-export type SingTonicTrial = {
-  phrase: Phrase;
-  phase: SingTonicPhase;
-};
 
 export type IdentifyNotesTrial = {
   phrase: Phrase;
@@ -46,35 +34,12 @@ export type IdentifyNotesState = {
   droneOn: boolean;
 };
 
-export type SingTonicState = {
-  activity: "sing-tonic";
-  trial: SingTonicTrial | undefined;
-  droneOn: boolean;
-};
-
-/** Compatibility shape retained until the activity integration is replaced. */
-export type IdentifyTonicState = IdentifyNotesState & {
-  activity: "identify-tonic-notes";
-};
-export type IdentifyTonicTrial = IdentifyNotesTrial;
-export type IdentifyTonicPhase = IdentifyNotesPhase;
-
-export type TonicPracticeState = SingTonicState | IdentifyTonicState;
-export type TonicPracticeCtx = {
+export type IdentifyNotesCtx = {
   play: PlayController;
   profile: Profile;
   melodies: Melody[];
   random(): number;
 };
-
-export type SingTonicMsg =
-  | { type: "START" }
-  | { type: "PLAY_CONTEXT" }
-  | { type: "TOGGLE_DRONE" }
-  | { type: "REPEAT" }
-  | { type: "REVEAL" }
-  | { type: "PLAY_ANSWER" }
-  | { type: "NEXT" };
 
 export type IdentifyNotesMsg =
   | { type: "TOGGLE_SITUATION"; situationId: SituationId }
@@ -92,12 +57,6 @@ export type IdentifyNotesMsg =
   | { type: "SYNC_PLAYBACK" }
   | { type: "NEXT" };
 
-/** Compatibility message retained until callers drop START. */
-export type IdentifyTonicMsg = IdentifyNotesMsg | { type: "START" };
-export type TonicPracticeMsg =
-  | { activity: "sing-tonic"; msg: SingTonicMsg }
-  | { activity: "identify-tonic-notes"; msg: IdentifyTonicMsg };
-
 function randomIndex(length: number, random: () => number): number {
   const value = random();
   if (!Number.isFinite(value)) return 0;
@@ -110,32 +69,6 @@ function eligiblePhrases(melody: Melody): Phrase[] {
       phrase.noteIdentification === "independent" &&
       phrase.measures.length >= 2,
   );
-}
-
-/** Selects only authored eligible phrases and avoids immediate repetition. */
-export function selectTonicPhrase(
-  melodies: Melody[],
-  previous: Phrase | undefined,
-  random: () => number,
-): Phrase | undefined {
-  const eligible = melodies
-    .map((melody) => ({ melody, phrases: eligiblePhrases(melody) }))
-    .filter(({ phrases }) => phrases.length > 0);
-  if (eligible.length === 0) return undefined;
-
-  const otherMelodies = previous
-    ? eligible.filter(({ melody }) => melody.id !== previous.melodyId)
-    : [];
-  const melodyPool = otherMelodies.length > 0 ? otherMelodies : eligible;
-  const selectedMelody = melodyPool[randomIndex(melodyPool.length, random)];
-  if (!selectedMelody) return undefined;
-
-  const otherPhrases = previous
-    ? selectedMelody.phrases.filter((phrase) => phrase.id !== previous.id)
-    : selectedMelody.phrases;
-  const phrasePool =
-    otherPhrases.length > 0 ? otherPhrases : selectedMelody.phrases;
-  return phrasePool[randomIndex(phrasePool.length, random)];
 }
 
 export type PhraseSelection = {
@@ -186,14 +119,6 @@ export function selectIdentifyNotesPhrase(
     : undefined;
 }
 
-export function tonicAnswerIndexes(phrase: Phrase): number[] {
-  return tonicEventIndexes(phrase, "melody");
-}
-
-export function initialSingTonicState(): SingTonicState {
-  return { activity: "sing-tonic", trial: undefined, droneOn: false };
-}
-
 export function initialIdentifyNotesState(): IdentifyNotesState {
   return {
     screen: "situations",
@@ -203,16 +128,9 @@ export function initialIdentifyNotesState(): IdentifyNotesState {
   };
 }
 
-export function initialIdentifyTonicState(): IdentifyTonicState {
-  return {
-    activity: "identify-tonic-notes",
-    ...initialIdentifyNotesState(),
-  };
-}
-
 function melodyStep(
   phrase: Phrase,
-  ctx: TonicPracticeCtx,
+  ctx: IdentifyNotesCtx,
 ): Extract<PlayStep, { type: "score" }> {
   return {
     buttonId: "tonic:melody",
@@ -222,15 +140,11 @@ function melodyStep(
   };
 }
 
-function playMelody(phrase: Phrase, ctx: TonicPracticeCtx): void {
+function playMelody(phrase: Phrase, ctx: IdentifyNotesCtx): void {
   ctx.play.autoplay([melodyStep(phrase, ctx)]);
 }
 
-function toggleMelody(phrase: Phrase, ctx: TonicPracticeCtx): void {
-  ctx.play.toggle("tonic:melody", melodyStep(phrase, ctx));
-}
-
-function playContext(phrase: Phrase, ctx: TonicPracticeCtx): void {
+function playContext(phrase: Phrase, ctx: IdentifyNotesCtx): void {
   ctx.play.toggle("trial:context", {
     buttonId: "trial:context",
     type: "context",
@@ -240,65 +154,9 @@ function playContext(phrase: Phrase, ctx: TonicPracticeCtx): void {
   });
 }
 
-function toggleDrone(
-  state: SingTonicState | IdentifyNotesState,
-  ctx: TonicPracticeCtx,
-): void {
+function toggleDrone(state: IdentifyNotesState, ctx: IdentifyNotesCtx): void {
   state.droneOn = !state.droneOn;
   ctx.play.setDrone(state.droneOn ? ctx.profile.tonic : undefined);
-}
-
-function selectSingTrial(state: SingTonicState, ctx: TonicPracticeCtx): void {
-  const phrase = selectTonicPhrase(
-    ctx.melodies,
-    state.trial?.phrase,
-    ctx.random,
-  );
-  state.trial = phrase ? { phrase, phase: "presenting" } : undefined;
-  if (phrase) playMelody(phrase, ctx);
-  else ctx.play.stop();
-}
-
-export function updateSingTonic(
-  state: SingTonicState,
-  msg: SingTonicMsg,
-  ctx: TonicPracticeCtx,
-): void {
-  switch (msg.type) {
-    case "START":
-    case "NEXT":
-      selectSingTrial(state, ctx);
-      break;
-    case "PLAY_CONTEXT":
-      if (state.trial) playContext(state.trial.phrase, ctx);
-      break;
-    case "TOGGLE_DRONE":
-      toggleDrone(state, ctx);
-      break;
-    case "REPEAT":
-      if (state.trial) toggleMelody(state.trial.phrase, ctx);
-      break;
-    case "REVEAL":
-      if (state.trial?.phase !== "presenting") break;
-      state.trial.phase = "revealing";
-      ctx.play.autoplay([
-        {
-          buttonId: "tonic:answer",
-          type: "note",
-          note: ctx.profile.tonic,
-        },
-      ]);
-      break;
-    case "PLAY_ANSWER":
-      if (state.trial?.phase === "revealing") {
-        ctx.play.toggle("tonic:answer", {
-          buttonId: "tonic:answer",
-          type: "note",
-          note: ctx.profile.tonic,
-        });
-      }
-      break;
-  }
 }
 
 function identifyTrial(
@@ -319,7 +177,7 @@ function identifyTrial(
 
 function selectIdentifyTrial(
   state: IdentifyNotesState,
-  ctx: TonicPracticeCtx,
+  ctx: IdentifyNotesCtx,
 ): boolean {
   const selection = selectIdentifyNotesPhrase(
     ctx.melodies,
@@ -344,7 +202,7 @@ function maxFirstVisibleMeasure(trial: IdentifyNotesTrial): number {
 export function updateIdentifyNotes(
   state: IdentifyNotesState,
   msg: IdentifyNotesMsg,
-  ctx: TonicPracticeCtx,
+  ctx: IdentifyNotesCtx,
 ): void {
   switch (msg.type) {
     case "TOGGLE_SITUATION": {
@@ -500,36 +358,5 @@ export function updateIdentifyNotes(
       }
       break;
     }
-  }
-}
-
-export function updateIdentifyTonic(
-  state: IdentifyTonicState,
-  msg: IdentifyTonicMsg,
-  ctx: TonicPracticeCtx,
-): void {
-  updateIdentifyNotes(
-    state,
-    msg.type === "START" ? { type: "BEGIN" } : msg,
-    ctx,
-  );
-}
-
-export function updateTonicPractice(
-  state: TonicPracticeState,
-  msg: TonicPracticeMsg,
-  ctx: TonicPracticeCtx,
-): void {
-  switch (msg.activity) {
-    case "sing-tonic":
-      if (state.activity === "sing-tonic") {
-        updateSingTonic(state, msg.msg, ctx);
-      }
-      break;
-    case "identify-tonic-notes":
-      if (state.activity === "identify-tonic-notes") {
-        updateIdentifyTonic(state, msg.msg, ctx);
-      }
-      break;
   }
 }

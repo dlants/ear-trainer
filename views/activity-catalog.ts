@@ -67,13 +67,9 @@ export class ActivityCatalogView implements View<ActivityCatalogState, never> {
           <p class="${introClass}">Choose a short listening activity. Use the key or drone only when you want extra support.</p>
         </header>
         <nav class="${listClass}" aria-label="activities">
-          <a class="${cardClass}" href="/activities/sing-tonic">
-            <strong>Sing the tonic</strong>
-            <span>Hear a melody, then sing its home note.</span>
-          </a>
-          <a class="${cardClass}" href="/activities/identify-tonic-notes">
-            <strong>Identify the tonic notes</strong>
-            <span>Mark which notes in a melody sound like home.</span>
+          <a class="${cardClass}" href="/activities/identify-notes">
+            <strong>Identify the notes</strong>
+            <span>Choose musical situations, then identify every note in a melody.</span>
           </a>
         </nav>
       </section>

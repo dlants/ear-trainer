@@ -8,7 +8,7 @@ import type {
   PlaybackEnd,
   PlaybackHandle,
 } from "../audio/engine.ts";
-import type { PlayController } from "../audio/play-controller.ts";
+import type { PlayController, PlayState } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
 import { ProfileStore } from "../deck/profiles.ts";
 import type { KeyValueStore } from "../deck/store.ts";
@@ -19,10 +19,7 @@ import type { Midi } from "../music/pitch.ts";
 import { RouterController } from "../router.ts";
 import type { AppCtx, State } from "../views/app.ts";
 import { DismissStack } from "../views/dropdown.ts";
-import {
-  initialIdentifyTonicState,
-  initialSingTonicState,
-} from "../views/tonic-practice.ts";
+import { initialIdentifyNotesState } from "../views/tonic-practice.ts";
 
 export class ControlledHandle implements PlaybackHandle {
   readonly durationMs = 100;
@@ -81,6 +78,7 @@ export class FakeAudio implements AudioEngine {
 
 /** Records every controller call the way `vi.fn()` used to. */
 export class RecordingPlay {
+  state: PlayState = { status: "idle" };
   readonly stop: unknown[][] = [];
   readonly autoplay: unknown[][] = [];
   readonly setDrone: unknown[][] = [];
@@ -92,7 +90,7 @@ export class RecordingPlay {
       autoplay: (...args: unknown[]) => this.autoplay.push(args),
       toggle: (...args: unknown[]) => this.toggle.push(args),
       update: () => {},
-      getState: () => ({ status: "idle" }),
+      getState: () => this.state,
       setDrone: (...args: unknown[]) => this.setDrone.push(args),
     } as unknown as PlayController;
   }
@@ -109,8 +107,7 @@ function memoryStorage(): KeyValueStore {
 export function emptyState(route: State["route"]): State {
   return {
     route,
-    singTonic: initialSingTonicState(),
-    identifyTonic: initialIdentifyTonicState(),
+    identifyNotes: initialIdentifyNotesState(),
     options: {
       tonic: 60,
       cadenceSpeed: "medium",
@@ -143,7 +140,7 @@ export function appContext(
     play,
     router: new RouterController(route),
     dismissStack: new DismissStack(),
-    tonicPractice: {
+    identifyNotes: {
       play,
       profile,
       melodies: MELODIES,

@@ -67,8 +67,8 @@ test.describe("activity-only app integration", () => {
     });
 
     expect(result.text).toContain("ear training activities");
-    expect(result.text).toContain("Sing the tonic");
-    expect(result.text).toContain("Identify the tonic notes");
+    expect(result.text).toContain("Identify the notes");
+    expect(result.text).not.toContain("Sing the tonic");
     expect(result.menuLinks).toEqual([
       { text: "home", href: "/" },
       { text: "options", href: "/options" },
@@ -76,51 +76,32 @@ test.describe("activity-only app integration", () => {
     ]);
   });
 
-  for (const activity of ["sing-tonic", "identify-tonic-notes"] as const) {
-    test(`mounts ${activity} with injected melodies and playback`, async ({
-      page,
-    }) => {
-      const result = await page.evaluate(async (selectedActivity) => {
-        const { appContext, emptyState, RecordingPlay } = await import(
-          "/test/app-harness.ts"
-        );
-        const { AppView, update } = await import("/views/app.ts");
-        const route = {
-          page: "activity",
-          activity: selectedActivity,
-        } as const;
-        const recorder = new RecordingPlay();
-        const state = emptyState(route);
-        const ctx = appContext(recorder.asController(), route);
-        update(
-          state,
-          {
-            type:
-              selectedActivity === "sing-tonic"
-                ? "SING_TONIC_MSG"
-                : "IDENTIFY_TONIC_MSG",
-            msg: { type: "START" },
-          },
-          ctx,
-          () => {},
-        );
-        const container = document.createElement("div");
-        new AppView(container, () => {}, state, ctx);
-        return {
-          text: container.textContent ?? "",
-          autoplay: recorder.autoplay,
-        };
-      }, activity);
-
-      expect(result.text).toContain(
-        activity === "sing-tonic" ? "Sing the tonic" : "Identify the notes",
+  test("mounts the identify-notes selector without autoplay", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { appContext, emptyState, RecordingPlay } = await import(
+        "/test/app-harness.ts"
       );
-      expect(result.text).toContain(
-        activity === "sing-tonic" ? "repeat melody" : "from beginning",
-      );
-      expect(result.autoplay).toHaveLength(1);
+      const { AppView } = await import("/views/app.ts");
+      const route = { page: "activity", activity: "identify-notes" } as const;
+      const recorder = new RecordingPlay();
+      const state = emptyState(route);
+      const ctx = appContext(recorder.asController(), route);
+      const container = document.createElement("div");
+      new AppView(container, () => {}, state, ctx);
+      return {
+        text: container.textContent ?? "",
+        screen: state.identifyNotes.screen,
+        autoplay: recorder.autoplay,
+      };
     });
-  }
+
+    expect(result.text).toContain("Choose the musical situations");
+    expect(result.text).toContain("Tonic");
+    expect(result.screen).toBe("situations");
+    expect(result.autoplay).toEqual([]);
+  });
 
   test("keeps activity routes behind the explicit audio unlock", async ({
     page,
@@ -132,7 +113,7 @@ test.describe("activity-only app integration", () => {
       const { AppView, update } = await import("/views/app.ts");
       const audio = new FakeAudio();
       audio.unlocked = false;
-      const route = { page: "activity", activity: "sing-tonic" } as const;
+      const route = { page: "activity", activity: "identify-notes" } as const;
       const recorder = new RecordingPlay();
       const state = emptyState(route);
       state.audioUnlocked = false;
@@ -146,17 +127,72 @@ test.describe("activity-only app integration", () => {
       view = new AppView(container, dispatch, state, ctx);
       const before = container.textContent ?? "";
       dispatch({ type: "START_MSG", msg: { type: "UNLOCKED" } });
+      const afterUnlock = container.textContent ?? "";
+      const screenAfterUnlock = state.identifyNotes.screen;
+      const autoplayAfterUnlock = recorder.autoplay.length;
+      dispatch({ type: "IDENTIFY_NOTES_MSG", msg: { type: "BEGIN" } });
       return {
         before,
-        after: container.textContent ?? "",
-        autoplayCount: recorder.autoplay.length,
+        afterUnlock,
+        screenAfterUnlock,
+        screenAfterBegin: state.identifyNotes.screen,
+        autoplayAfterUnlock,
+        autoplayAfterBegin: recorder.autoplay.length,
       };
     });
 
     expect(result.before).toContain("Turn on sound to begin practicing");
-    expect(result.before).not.toContain("Listen to the melody");
-    expect(result.after).toContain("Sing the tonic");
-    expect(result.autoplayCount).toBe(1);
+    expect(result.before).not.toContain("Choose the musical situations");
+    expect(result.afterUnlock).toContain("Choose the musical situations");
+    expect(result.screenAfterUnlock).toBe("situations");
+    expect(result.screenAfterBegin).toBe("practice");
+    expect(result.autoplayAfterUnlock).toBe(0);
+    expect(result.autoplayAfterBegin).toBe(1);
+  });
+
+  test("synchronizes playback cues into the active identify-notes trial", async ({
+    page,
+  }) => {
+    const cursor = await page.evaluate(async () => {
+      const { appContext, emptyState, RecordingPlay } = await import(
+        "/test/app-harness.ts"
+      );
+      const { update } = await import("/views/app.ts");
+      const route = { page: "activity", activity: "identify-notes" } as const;
+      const recorder = new RecordingPlay();
+      const state = emptyState(route);
+      const ctx = appContext(recorder.asController(), route);
+      update(
+        state,
+        { type: "IDENTIFY_NOTES_MSG", msg: { type: "BEGIN" } },
+        ctx,
+        () => {},
+      );
+      recorder.state = {
+        status: "playing",
+        buttonId: "tonic:melody",
+        durationMs: 1000,
+        queueLength: 0,
+        eventIndex: 2,
+      };
+      update(
+        state,
+        {
+          type: "PLAY_MSG",
+          msg: {
+            type: "CUE_CHANGED",
+            generation: 0,
+            playbackId: 0,
+            eventIndex: 2,
+          },
+        },
+        ctx,
+        () => {},
+      );
+      return state.identifyNotes.trial?.cursorEventIndex;
+    });
+
+    expect(cursor).toBe(2);
   });
 
   test("navigation stops playback, clears activity support, and silences the drone", async ({
@@ -167,32 +203,12 @@ test.describe("activity-only app integration", () => {
         "/test/app-harness.ts"
       );
       const { update } = await import("/views/app.ts");
-      const route = { page: "activity", activity: "sing-tonic" } as const;
+      const route = { page: "activity", activity: "identify-notes" } as const;
       const recorder = new RecordingPlay();
       const state = emptyState(route);
-      state.singTonic.droneOn = true;
+      state.identifyNotes.droneOn = true;
       const ctx = appContext(recorder.asController(), route);
 
-      update(
-        state,
-        {
-          type: "NAVIGATE",
-          route: {
-            page: "activity",
-            activity: "identify-tonic-notes",
-          },
-        },
-        ctx,
-        () => {},
-      );
-      const betweenActivities = {
-        stopCount: recorder.stop.length,
-        drones: [...recorder.setDrone],
-        singDroneOn: state.singTonic.droneOn,
-        autoplayCount: recorder.autoplay.length,
-      };
-
-      state.identifyTonic.droneOn = true;
       update(
         state,
         { type: "NAVIGATE", route: { page: "catalog" } },
@@ -200,21 +216,16 @@ test.describe("activity-only app integration", () => {
         () => {},
       );
       return {
-        betweenActivities,
-        finalStopCount: recorder.stop.length,
-        finalDrones: recorder.setDrone,
-        identifyDroneOn: state.identifyTonic.droneOn,
+        stopCount: recorder.stop.length,
+        drones: recorder.setDrone,
+        droneOn: state.identifyNotes.droneOn,
       };
     });
 
-    expect(result.betweenActivities).toEqual({
+    expect(result).toEqual({
       stopCount: 1,
       drones: [[undefined]],
-      singDroneOn: false,
-      autoplayCount: 1,
+      droneOn: false,
     });
-    expect(result.finalStopCount).toBe(2);
-    expect(result.finalDrones).toEqual([[undefined], [undefined]]);
-    expect(result.identifyDroneOn).toBe(false);
   });
 });

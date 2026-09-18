@@ -11,17 +11,10 @@ import type { Context, Note, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import { phraseMatchesSituation } from "../music/situations.ts";
 import {
+  type IdentifyNotesCtx,
   initialIdentifyNotesState,
-  initialIdentifyTonicState,
-  initialSingTonicState,
   selectIdentifyNotesPhrase,
-  selectTonicPhrase,
-  type TonicPracticeCtx,
-  tonicAnswerIndexes,
   updateIdentifyNotes,
-  updateIdentifyTonic,
-  updateSingTonic,
-  updateTonicPractice,
 } from "./tonic-practice.ts";
 
 function note(
@@ -154,7 +147,7 @@ function sequence(...values: number[]): () => number {
 function setup(melodies: Melody[], random: () => number = () => 0) {
   const audio = new FakeAudio();
   const play = new PlayController(audio, () => {});
-  const ctx: TonicPracticeCtx = {
+  const ctx: IdentifyNotesCtx = {
     play,
     profile: {
       id: "profile",
@@ -169,58 +162,6 @@ function setup(melodies: Melody[], random: () => number = () => 0) {
   };
   return { audio, ctx };
 }
-
-test.describe("tonic phrase selection", () => {
-  test("selects deterministic authored eligible phrases only", () => {
-    const eligible = phrase("first", 0);
-    const oneMeasure = phrase("first", 1, "independent", 1);
-    const contextual = phrase("first", 2, "context-required");
-    const excluded = phrase("first", 3, "exclude");
-    const other = phrase("second", 0);
-    const melodies = [
-      melody("first", [eligible, oneMeasure, contextual, excluded]),
-      melody("second", [other]),
-    ];
-
-    expect(selectTonicPhrase(melodies, undefined, sequence(0, 0))).toBe(
-      eligible,
-    );
-    expect(selectTonicPhrase(melodies, eligible, sequence(0.99, 0.99))).toBe(
-      other,
-    );
-  });
-
-  test("avoids the prior phrase without retry loops in a single melody", () => {
-    const first = phrase("only", 0);
-    const second = phrase("only", 1);
-    let calls = 0;
-    const selected = selectTonicPhrase(
-      [melody("only", [first, second])],
-      first,
-      () => {
-        calls += 1;
-        return 0;
-      },
-    );
-
-    expect(selected).toBe(second);
-    expect(calls).toBe(2);
-    expect(selectTonicPhrase([melody("only", [first])], first, () => 0)).toBe(
-      first,
-    );
-  });
-
-  test("returns no exercise for an empty or ineligible corpus", () => {
-    expect(selectTonicPhrase([], undefined, () => 0)).toBeUndefined();
-    expect(
-      selectTonicPhrase(
-        [melody("ineligible", [phrase("ineligible", 0, "exclude")])],
-        undefined,
-        () => 0,
-      ),
-    ).toBeUndefined();
-  });
-});
 
 test.describe("identify-notes phrase selection", () => {
   test("chooses an eligible target situation before choosing its phrase", () => {
@@ -423,6 +364,57 @@ test.describe("identify-notes reducer", () => {
     expect(state.trial?.answers[0]).toBeUndefined();
   });
 
+  test("owns guesses, playback cursor, reveal, next, and bounded viewport state", () => {
+    const first = phrase("only", 0, "independent", 5);
+    const second = phrase("only", 1, "independent", 4);
+    const { audio, ctx } = setup(
+      [melody("only", [first, second])],
+      sequence(0, 0, 0, 0, 0, 0),
+    );
+    const state = initialIdentifyNotesState();
+
+    updateIdentifyNotes(state, { type: "BEGIN" }, ctx);
+    expect(state.trial?.answers).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 2 }, ctx);
+    updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 1 }, ctx);
+    expect(state.trial?.answers).toEqual([undefined, undefined, 1, undefined]);
+
+    if (!state.trial) throw new Error("missing trial");
+    updateIdentifyNotes(state, { type: "SCROLL", delta: 1 }, ctx);
+    updateIdentifyNotes(state, { type: "SCROLL", delta: 1 }, ctx);
+    updateIdentifyNotes(state, { type: "SCROLL", delta: 1 }, ctx);
+    expect(state.trial.firstVisibleMeasureIndex).toBe(2);
+
+    updateIdentifyNotes(state, { type: "PLAY_EVENT", eventIndex: 2 }, ctx);
+    expect(state.trial.cursorEventIndex).toBe(2);
+    updateIdentifyNotes(state, { type: "PLAY_PAUSE" }, ctx);
+    expect(ctx.play.getState()).toEqual({ status: "idle" });
+    updateIdentifyNotes(state, { type: "PLAY_PAUSE" }, ctx);
+    updateIdentifyNotes(state, { type: "PLAY_FROM_BEGINNING" }, ctx);
+    expect(state.trial.cursorEventIndex).toBe(0);
+    expect(state.trial.firstVisibleMeasureIndex).toBe(0);
+
+    updateIdentifyNotes(state, { type: "REVEAL" }, ctx);
+    expect(state.trial.phase).toBe("revealed");
+    updateIdentifyNotes(state, { type: "NEXT" }, ctx);
+    expect(state.trial?.phrase).toBe(second);
+    expect(state.trial?.answers.every((answer) => answer === undefined)).toBe(
+      true,
+    );
+    expect(audio.calls).toEqual([
+      `score:${first.id}:60`,
+      `score:${first.id}:60:48-60`,
+      `score:${first.id}:60:48-240`,
+      `score:${first.id}:60`,
+      `score:${second.id}:60`,
+    ]);
+  });
+
   test("returns to the selector with playback, drone, and trial cleaned up", () => {
     const tonic = phraseWithDegrees("tonic", 0, [1, 4]);
     const { ctx } = setup([melody("tonic", [tonic])]);
@@ -441,127 +433,6 @@ test.describe("identify-notes reducer", () => {
   });
 });
 
-test.describe("sing-tonic reducer", () => {
-  test("starts, repeats, reveals, and selects next without changing trial shape", () => {
-    const first = phrase("first", 0);
-    const second = phrase("second", 0);
-    const { audio, ctx } = setup(
-      [melody("first", [first]), melody("second", [second])],
-      sequence(0, 0, 0, 0),
-    );
-    const state = initialSingTonicState();
-
-    updateSingTonic(state, { type: "START" }, ctx);
-    expect(state.trial).toEqual({ phrase: first, phase: "presenting" });
-    expect(state.trial).not.toHaveProperty("answers");
-    updateSingTonic(state, { type: "REPEAT" }, ctx);
-    expect(state.trial?.phrase).toBe(first);
-    updateSingTonic(state, { type: "REVEAL" }, ctx);
-    expect(state.trial?.phase).toBe("revealing");
-    updateSingTonic(state, { type: "NEXT" }, ctx);
-    expect(state.trial).toEqual({ phrase: second, phase: "presenting" });
-    expect(audio.calls).toEqual([
-      `score:${first.id}:60`,
-      "note:60",
-      `score:${second.id}:60`,
-    ]);
-  });
-
-  test("stops playback and remains empty when no phrase is eligible", () => {
-    const { ctx } = setup([]);
-    const state = initialSingTonicState();
-    updateSingTonic(state, { type: "START" }, ctx);
-    expect(state.trial).toBeUndefined();
-    expect(ctx.play.getState()).toEqual({ status: "idle" });
-  });
-});
-
-test.describe("identify-tonic-notes reducer", () => {
-  test("uses concrete melody events for tonic answers", () => {
-    const concrete = phrase("answers", 0);
-    expect(tonicAnswerIndexes(concrete)).toEqual([0, 2]);
-  });
-
-  test("owns guesses, playback cursor, reveal, next, and bounded viewport state", () => {
-    const first = phrase("only", 0, "independent", 5);
-    const second = phrase("only", 1, "independent", 4);
-    const { audio, ctx } = setup(
-      [melody("only", [first, second])],
-      sequence(0, 0, 0, 0),
-    );
-    const state = initialIdentifyTonicState();
-
-    updateIdentifyTonic(state, { type: "START" }, ctx);
-    expect(state.trial?.answers).toEqual([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-    ]);
-    expect(state.trial?.cursorEventIndex).toBe(0);
-    updateIdentifyTonic(state, { type: "SELECT_SLOT", eventIndex: 2 }, ctx);
-    updateIdentifyTonic(state, { type: "SET_ANSWER", answer: 1 }, ctx);
-    expect(state.trial?.answers).toEqual([undefined, undefined, 1, undefined]);
-    updateIdentifyTonic(state, { type: "SET_ANSWER", answer: undefined }, ctx);
-    expect(state.trial?.answers[2]).toBeUndefined();
-
-    if (!state.trial) throw new Error("missing trial");
-    updateIdentifyTonic(state, { type: "SCROLL", delta: 1 }, ctx);
-    updateIdentifyTonic(state, { type: "SCROLL", delta: 1 }, ctx);
-    updateIdentifyTonic(state, { type: "SCROLL", delta: 1 }, ctx);
-    expect(state.trial.firstVisibleMeasureIndex).toBe(2);
-
-    updateIdentifyTonic(state, { type: "PLAY_EVENT", eventIndex: 2 }, ctx);
-    expect(state.trial.cursorEventIndex).toBe(2);
-    updateIdentifyTonic(state, { type: "PLAY_PAUSE" }, ctx);
-    expect(ctx.play.getState()).toEqual({ status: "idle" });
-    updateIdentifyTonic(state, { type: "PLAY_PAUSE" }, ctx);
-    updateIdentifyTonic(state, { type: "PLAY_FROM_BEGINNING" }, ctx);
-    expect(state.trial.cursorEventIndex).toBe(0);
-    expect(state.trial.firstVisibleMeasureIndex).toBe(0);
-
-    updateIdentifyTonic(state, { type: "REVEAL" }, ctx);
-    expect(state.trial.phase).toBe("revealed");
-    updateIdentifyTonic(state, { type: "SELECT_SLOT", eventIndex: 0 }, ctx);
-    updateIdentifyTonic(state, { type: "SET_ANSWER", answer: 1 }, ctx);
-    expect(state.trial.answers[0]).toBeUndefined();
-
-    updateIdentifyTonic(state, { type: "NEXT" }, ctx);
-    expect(state.trial?.phrase).toBe(second);
-    expect(state.trial?.answers.every((answer) => answer === undefined)).toBe(
-      true,
-    );
-    expect(audio.calls).toEqual([
-      `score:${first.id}:60`,
-      `score:${first.id}:60:48-60`,
-      `score:${first.id}:60:48-240`,
-      `score:${first.id}:60`,
-      `score:${second.id}:60`,
-    ]);
-  });
-});
-
-test("top-level discriminator delegates only to its matching reducer", () => {
-  const selected = phrase("selected", 0);
-  const { audio, ctx } = setup([melody("selected", [selected])]);
-  const state = initialSingTonicState();
-
-  updateTonicPractice(
-    state,
-    { activity: "identify-tonic-notes", msg: { type: "START" } },
-    ctx,
-  );
-  expect(state.trial).toBeUndefined();
-  expect(audio.calls).toEqual([]);
-
-  updateTonicPractice(
-    state,
-    { activity: "sing-tonic", msg: { type: "START" } },
-    ctx,
-  );
-  expect(state.trial?.phrase).toBe(selected);
-});
-
 test("exercise generation is independent from deck persistence", () => {
   const storageWrites: string[] = [];
   const storage: KeyValueStore = {
@@ -572,9 +443,9 @@ test("exercise generation is independent from deck persistence", () => {
   const before = deck.getState();
   const selected = phrase("selected", 0);
   const { ctx } = setup([melody("selected", [selected])]);
-  const state = initialSingTonicState();
+  const state = initialIdentifyNotesState();
 
-  updateSingTonic(state, { type: "START" }, ctx);
+  updateIdentifyNotes(state, { type: "BEGIN" }, ctx);
 
   expect(deck.getState()).toEqual(before);
   expect(storageWrites).toEqual([]);

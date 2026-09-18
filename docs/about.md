@@ -24,24 +24,21 @@ Furthermore, not all note combinations are equally likely to appear in actual mu
 
 This application is an experiment in creating more representative ear practice. Can we simplify a listening task while preserving the melodic, rhythmic, registral, and tonal information that gives notes their musical meaning?
 
-The current version begins with complete, rhythmically represented melodies and derives short activities from musically meaningful phrases. It does not estimate mastery, schedule reviews, or keep a practice history. The two initial tonic activities are experiments intended to reveal which prompts and melodies make useful practice material.
+The current version begins with complete, rhythmically represented melodies and derives note-identification practice from musically meaningful phrases. It does not estimate mastery, schedule reviews, or keep a practice history. The exercise is an experiment intended to reveal which musical situations and melodies make useful practice material.
 
 # How to use it
 
 Before you begin, go to [options](/options) and set the home note near the middle of your singing range. You should be able to sing comfortably both above and below it; otherwise, register changes can turn into a test of vocal range rather than hearing.
 
-The [activity catalog](/) currently offers two ways to listen for tonic function:
-
-- **Sing the tonic** plays a melody phrase and asks you to sing the note that feels like home before revealing it.
-- **Identify the tonic notes** asks you to mark the notes that sound like home on a pitch-neutral rhythm display.
+The [activity catalog](/) offers **Identify the notes**. Before starting, choose any combination of musical situations, such as tonic, movement within the tonic triad, or stepwise motion around a scale degree. Those situations determine which phrases can be sampled and which scale-degree answers are available. During practice, mark every melody event on a pitch-neutral rhythm display; notes outside the selected answer vocabulary can be marked `other`.
 
 The melody is the main source of tonal context. The key and drone controls are optional supports and remain off until you choose them.
 
 ## The melody corpus
 
-The activities draw from a collection of complete public-domain, traditional, and original melodies with authored rhythm, bar structure, phrase boundaries, and source notes. Familiar songs are useful demonstrations because you can compare the task with music you already know, but familiarity is not the point of every exercise. Ordinary corpus material may be less immediately recognizable, and the app does not assume that every melody is new or that recognizing one makes the tonic task trivial.
+The activity draw from a collection of complete public-domain, traditional, and original melodies with authored rhythm, bar structure, phrase boundaries, and source notes. Familiar songs are useful demonstrations because you can compare the task with music you already know, but familiarity is not the point of every exercise. Ordinary corpus material may be less immediately recognizable, and the app does not assume that every melody is new or that recognizing one makes the tonic task trivial.
 
-Only phrases conservatively marked as tonally self-contained are used in these first activities. That classification is editable corpus metadata rather than a claim that there is one authoritative hearing of a tune.
+Only phrases conservatively marked as tonally self-contained are used in this activity. That classification is editable corpus metadata rather than a claim that there is one authoritative hearing of a tune.
 
 # feedback
 
