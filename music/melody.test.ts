@@ -57,7 +57,7 @@ function fixture(): CorpusMelody {
           },
         ],
         phraseEnd: {
-          tonicPractice: "independent",
+          noteIdentification: "independent",
           rationale: "Natural tonic is emphasized at both ends.",
         },
       },
@@ -101,7 +101,7 @@ function fixture(): CorpusMelody {
           },
         ],
         phraseEnd: {
-          tonicPractice: "context-required",
+          noteIdentification: "context-required",
           rationale: "The altered opening needs the preceding tonal context.",
         },
       },
@@ -133,7 +133,7 @@ function validSingleMeasure(): CorpusMelody {
           },
         ],
         phraseEnd: {
-          tonicPractice: "independent",
+          noteIdentification: "independent",
           rationale: "The tonic is explicit.",
         },
       },
@@ -209,7 +209,7 @@ test.describe("melody normalization", () => {
       id: "changing-meter:phrase-1",
       melodyId: "changing-meter",
       phraseIndex: 0,
-      tonicPractice: "independent",
+      noteIdentification: "independent",
       durationTicks: 96,
     });
     expect(first?.measures).toEqual([
@@ -225,7 +225,7 @@ test.describe("melody normalization", () => {
       id: "changing-meter:phrase-2",
       melodyId: "changing-meter",
       phraseIndex: 1,
-      tonicPractice: "context-required",
+      noteIdentification: "context-required",
       durationTicks: 168,
     });
     expect(second?.measures).toEqual([

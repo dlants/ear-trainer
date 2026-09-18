@@ -27,7 +27,7 @@ function note(
 function phrase(
   melodyId: string,
   phraseIndex: number,
-  suitability: Phrase["tonicPractice"] = "independent",
+  suitability: Phrase["noteIdentification"] = "independent",
   measureCount = 2,
 ): Phrase {
   const durationTicks = measureCount * 48;
@@ -35,7 +35,7 @@ function phrase(
     id: `${melodyId}:phrase-${phraseIndex + 1}`,
     melodyId,
     phraseIndex,
-    tonicPractice: suitability,
+    noteIdentification: suitability,
     rationale: "Test rationale.",
     context: "major-cadence",
     tempoBpm: 120,

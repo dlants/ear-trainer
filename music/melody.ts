@@ -27,7 +27,7 @@ export type Score = {
   measures: Measure[];
 };
 
-export type TonicPhraseSuitability =
+export type IdentificationPhraseSuitability =
   | "independent"
   | "context-required"
   | "exclude";
@@ -36,7 +36,7 @@ export type Phrase = Score & {
   id: string;
   melodyId: string;
   phraseIndex: number;
-  tonicPractice: TonicPhraseSuitability;
+  noteIdentification: IdentificationPhraseSuitability;
   rationale: string;
 };
 
@@ -66,7 +66,7 @@ export type CorpusMeasure = {
   beatDurationsTicks: number[];
   voices: CorpusMeasureVoice[];
   phraseEnd?: {
-    tonicPractice: TonicPhraseSuitability;
+    noteIdentification: IdentificationPhraseSuitability;
     rationale: string;
   };
 };
@@ -81,7 +81,7 @@ export type CorpusMelody = Omit<
 type PhraseBoundary = {
   firstMeasureIndex: number;
   lastMeasureIndex: number;
-  tonicPractice: TonicPhraseSuitability;
+  noteIdentification: IdentificationPhraseSuitability;
   rationale: string;
 };
 
@@ -105,7 +105,9 @@ function cloneTimedEvent(event: TimedEvent, onsetTicks: number): TimedEvent {
   };
 }
 
-function isSuitability(value: string): value is TonicPhraseSuitability {
+function isSuitability(
+  value: string,
+): value is IdentificationPhraseSuitability {
   return (
     value === "independent" ||
     value === "context-required" ||
@@ -240,11 +242,11 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
     scoreCursor = measureEnd;
 
     if (authoredMeasure.phraseEnd) {
-      const { tonicPractice, rationale } = authoredMeasure.phraseEnd;
-      if (!isSuitability(tonicPractice)) {
+      const { noteIdentification, rationale } = authoredMeasure.phraseEnd;
+      if (!isSuitability(noteIdentification)) {
         return failure(
           entry.id,
-          `phrase ending at measure ${measureNumber} has unsupported tonicPractice "${String(tonicPractice)}"`,
+          `phrase ending at measure ${measureNumber} has unsupported noteIdentification "${String(noteIdentification)}"`,
         );
       }
       if (!rationale.trim()) {
@@ -256,7 +258,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       boundaries.push({
         firstMeasureIndex: firstPhraseMeasureIndex,
         lastMeasureIndex: measureIndex,
-        tonicPractice,
+        noteIdentification,
         rationale,
       });
       firstPhraseMeasureIndex = measureIndex + 1;
@@ -302,7 +304,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       id: `${entry.id}:phrase-${phraseIndex + 1}`,
       melodyId: entry.id,
       phraseIndex,
-      tonicPractice: boundary.tonicPractice,
+      noteIdentification: boundary.noteIdentification,
       rationale: boundary.rationale,
       context: entry.context,
       tempoBpm: entry.tempoBpm,

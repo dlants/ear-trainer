@@ -21,7 +21,7 @@ type EventSpec = readonly [
 ];
 type PhraseSpec = {
   measures: CorpusMeasure[];
-  tonicPractice: "independent" | "context-required" | "exclude";
+  noteIdentification: "independent" | "context-required" | "exclude";
   rationale: string;
 };
 
@@ -57,10 +57,10 @@ const pickup = (...specs: EventSpec[]) => measure([q], ...specs);
 
 function phrase(
   measures: CorpusMeasure[],
-  tonicPractice: PhraseSpec["tonicPractice"],
+  noteIdentification: PhraseSpec["noteIdentification"],
   rationale: string,
 ): PhraseSpec {
-  return { measures, tonicPractice, rationale };
+  return { measures, noteIdentification, rationale };
 }
 
 function melody(
@@ -81,10 +81,10 @@ function melody(
       description: `${provenance} Independent tonic-relative transcription for this corpus.`,
       status,
     },
-    measures: phrases.flatMap(({ measures, tonicPractice, rationale }) =>
+    measures: phrases.flatMap(({ measures, noteIdentification, rationale }) =>
       measures.map((authoredMeasure, index) =>
         index === measures.length - 1
-          ? { ...authoredMeasure, phraseEnd: { tonicPractice, rationale } }
+          ? { ...authoredMeasure, phraseEnd: { noteIdentification, rationale } }
           : authoredMeasure,
       ),
     ),

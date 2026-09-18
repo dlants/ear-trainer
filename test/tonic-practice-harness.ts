@@ -87,7 +87,7 @@ export function phrase(
     id,
     melodyId: id,
     phraseIndex: 0,
-    tonicPractice: "independent",
+    noteIdentification: "independent",
     rationale: "Test phrase.",
     context: "major-cadence",
     tempoBpm: 120,

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { tonicEventIndexes, voice } from "../music/melody.ts";
+import { phraseMatchesSituation, SITUATIONS } from "../music/situations.ts";
 import { MELODIES, MELODY_CORPUS } from "./melodies.ts";
 
 function melody(id: string) {
@@ -79,9 +80,9 @@ test.describe("timed melody corpus", () => {
     const supported = ["independent", "context-required", "exclude"];
     for (const entry of MELODIES) {
       for (const phrase of entry.phrases) {
-        expect(supported, phrase.id).toContain(phrase.tonicPractice);
+        expect(supported, phrase.id).toContain(phrase.noteIdentification);
         expect(phrase.rationale.trim(), phrase.id).not.toBe("");
-        if (phrase.tonicPractice !== "independent") continue;
+        if (phrase.noteIdentification !== "independent") continue;
 
         const melodyVoice = voice(phrase, "melody");
         expect(phrase.measures.length, phrase.id).toBeGreaterThanOrEqual(2);
@@ -91,6 +92,24 @@ test.describe("timed melody corpus", () => {
           phrase.id,
         ).toBeGreaterThan(0);
       }
+    }
+  });
+
+  test("covers every situation with an eligible independent phrase", () => {
+    const eligiblePhrases = MELODIES.flatMap((entry) => entry.phrases).filter(
+      (phrase) =>
+        phrase.noteIdentification === "independent" &&
+        phrase.measures.length >= 2,
+    );
+
+    for (const situation of SITUATIONS) {
+      const matchingPhraseIds = eligiblePhrases
+        .filter((phrase) => phraseMatchesSituation(phrase, situation.id))
+        .map((phrase) => phrase.id);
+      expect(
+        matchingPhraseIds.length,
+        `${situation.id}: no eligible independent phrase`,
+      ).toBeGreaterThan(0);
     }
   });
 
@@ -106,11 +125,9 @@ test.describe("timed melody corpus", () => {
     expect(twinkle.phrases.map(({ measures }) => measures.length)).toEqual([
       4, 4, 4,
     ]);
-    expect(twinkle.phrases.map(({ tonicPractice }) => tonicPractice)).toEqual([
-      "independent",
-      "context-required",
-      "independent",
-    ]);
+    expect(
+      twinkle.phrases.map(({ noteIdentification }) => noteIdentification),
+    ).toEqual(["independent", "context-required", "independent"]);
   });
 
   test("pins pickup and triple-meter measure lengths for Happy Birthday", () => {

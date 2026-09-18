@@ -85,7 +85,8 @@ function randomIndex(length: number, random: () => number): number {
 function eligiblePhrases(melody: Melody): Phrase[] {
   return melody.phrases.filter(
     (phrase) =>
-      phrase.tonicPractice === "independent" && phrase.measures.length >= 2,
+      phrase.noteIdentification === "independent" &&
+      phrase.measures.length >= 2,
   );
 }
 
