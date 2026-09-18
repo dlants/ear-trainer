@@ -7,11 +7,18 @@ import {
   voice,
 } from "../music/melody.ts";
 import type { Degree } from "../music/note.ts";
+import {
+  phraseMatchesSituation,
+  promptDegreesForSituations,
+  type SituationId,
+} from "../music/situations.ts";
 
 export type TonicActivity = "sing-tonic" | "identify-tonic-notes";
+export type Activity = "identify-notes";
 
 export type SingTonicPhase = "presenting" | "revealing";
-export type IdentifyTonicPhase = "answering" | "revealed";
+export type IdentifyNotesScreen = "situations" | "practice";
+export type IdentifyNotesPhase = "answering" | "revealed";
 export type MelodySlotAnswer = Degree | "other" | undefined;
 
 export const VISIBLE_MEASURE_COUNT = 3;
@@ -21,13 +28,22 @@ export type SingTonicTrial = {
   phase: SingTonicPhase;
 };
 
-export type IdentifyTonicTrial = {
+export type IdentifyNotesTrial = {
   phrase: Phrase;
-  phase: IdentifyTonicPhase;
+  targetSituationId: SituationId;
+  phase: IdentifyNotesPhase;
   promptDegrees: Degree[];
   answers: MelodySlotAnswer[];
   selectedSlotIndex?: number;
+  cursorEventIndex: number;
   firstVisibleMeasureIndex: number;
+};
+
+export type IdentifyNotesState = {
+  screen: IdentifyNotesScreen;
+  selectedSituationIds: SituationId[];
+  trial: IdentifyNotesTrial | undefined;
+  droneOn: boolean;
 };
 
 export type SingTonicState = {
@@ -36,14 +52,14 @@ export type SingTonicState = {
   droneOn: boolean;
 };
 
-export type IdentifyTonicState = {
+/** Compatibility shape retained until the activity integration is replaced. */
+export type IdentifyTonicState = IdentifyNotesState & {
   activity: "identify-tonic-notes";
-  trial: IdentifyTonicTrial | undefined;
-  droneOn: boolean;
 };
+export type IdentifyTonicTrial = IdentifyNotesTrial;
+export type IdentifyTonicPhase = IdentifyNotesPhase;
 
 export type TonicPracticeState = SingTonicState | IdentifyTonicState;
-
 export type TonicPracticeCtx = {
   play: PlayController;
   profile: Profile;
@@ -60,11 +76,15 @@ export type SingTonicMsg =
   | { type: "PLAY_ANSWER" }
   | { type: "NEXT" };
 
-export type IdentifyTonicMsg =
-  | { type: "START" }
+export type IdentifyNotesMsg =
+  | { type: "TOGGLE_SITUATION"; situationId: SituationId }
+  | { type: "BEGIN" }
+  | { type: "CHANGE_SITUATIONS" }
   | { type: "PLAY_CONTEXT" }
   | { type: "TOGGLE_DRONE" }
-  | { type: "REPEAT" }
+  | { type: "PLAY_PAUSE" }
+  | { type: "PLAY_FROM_BEGINNING" }
+  | { type: "PLAY_EVENT"; eventIndex: number }
   | { type: "SELECT_SLOT"; eventIndex: number }
   | { type: "SET_ANSWER"; answer: MelodySlotAnswer }
   | { type: "REVEAL" }
@@ -72,6 +92,10 @@ export type IdentifyTonicMsg =
   | { type: "SYNC_PLAYBACK" }
   | { type: "NEXT" };
 
+/** Compatibility message retained until callers adopt BEGIN. */
+export type IdentifyTonicMsg =
+  | Exclude<IdentifyNotesMsg, { type: "BEGIN" }>
+  | { type: "START" };
 export type TonicPracticeMsg =
   | { activity: "sing-tonic"; msg: SingTonicMsg }
   | { activity: "identify-tonic-notes"; msg: IdentifyTonicMsg };
@@ -116,6 +140,54 @@ export function selectTonicPhrase(
   return phrasePool[randomIndex(phrasePool.length, random)];
 }
 
+export type PhraseSelection = {
+  phrase: Phrase;
+  targetSituationId: SituationId;
+};
+
+export function selectIdentifyNotesPhrase(
+  melodies: Melody[],
+  selectedSituationIds: readonly SituationId[],
+  previous: Phrase | undefined,
+  random: () => number,
+): PhraseSelection | undefined {
+  const situationCandidates = selectedSituationIds.flatMap((situationId) => {
+    const candidates = melodies
+      .map((melody) => ({
+        melody,
+        phrases: eligiblePhrases(melody).filter((phrase) =>
+          phraseMatchesSituation(phrase, situationId),
+        ),
+      }))
+      .filter(({ phrases }) => phrases.length > 0);
+    return candidates.length > 0 ? [{ situationId, candidates }] : [];
+  });
+  if (situationCandidates.length === 0) return undefined;
+  const selectedSituation =
+    situationCandidates[randomIndex(situationCandidates.length, random)];
+  if (!selectedSituation) return undefined;
+
+  const otherMelodies = previous
+    ? selectedSituation.candidates.filter(
+        ({ melody }) => melody.id !== previous.melodyId,
+      )
+    : [];
+  const melodyPool =
+    otherMelodies.length > 0 ? otherMelodies : selectedSituation.candidates;
+  const selectedMelody = melodyPool[randomIndex(melodyPool.length, random)];
+  if (!selectedMelody) return undefined;
+
+  const otherPhrases = previous
+    ? selectedMelody.phrases.filter((phrase) => phrase.id !== previous.id)
+    : selectedMelody.phrases;
+  const phrasePool =
+    otherPhrases.length > 0 ? otherPhrases : selectedMelody.phrases;
+  const phrase = phrasePool[randomIndex(phrasePool.length, random)];
+  return phrase
+    ? { phrase, targetSituationId: selectedSituation.situationId }
+    : undefined;
+}
+
 export function tonicAnswerIndexes(phrase: Phrase): number[] {
   return tonicEventIndexes(phrase, "melody");
 }
@@ -124,15 +196,26 @@ export function initialSingTonicState(): SingTonicState {
   return { activity: "sing-tonic", trial: undefined, droneOn: false };
 }
 
-export function initialIdentifyTonicState(): IdentifyTonicState {
+export function initialIdentifyNotesState(): IdentifyNotesState {
   return {
-    activity: "identify-tonic-notes",
+    screen: "situations",
+    selectedSituationIds: ["tonic"],
     trial: undefined,
     droneOn: false,
   };
 }
 
-function melodyStep(phrase: Phrase, ctx: TonicPracticeCtx): PlayStep {
+export function initialIdentifyTonicState(): IdentifyTonicState {
+  return {
+    activity: "identify-tonic-notes",
+    ...initialIdentifyNotesState(),
+  };
+}
+
+function melodyStep(
+  phrase: Phrase,
+  ctx: TonicPracticeCtx,
+): Extract<PlayStep, { type: "score" }> {
   return {
     buttonId: "tonic:melody",
     type: "score",
@@ -160,7 +243,7 @@ function playContext(phrase: Phrase, ctx: TonicPracticeCtx): void {
 }
 
 function toggleDrone(
-  state: SingTonicState | IdentifyTonicState,
+  state: SingTonicState | IdentifyNotesState,
   ctx: TonicPracticeCtx,
 ): void {
   state.droneOn = !state.droneOn;
@@ -220,42 +303,68 @@ export function updateSingTonic(
   }
 }
 
-function identifyTrial(phrase: Phrase): IdentifyTonicTrial {
-  const eventCount = voice(phrase, "melody")?.events.length ?? 0;
+function identifyTrial(
+  selection: PhraseSelection,
+  selectedSituationIds: readonly SituationId[],
+): IdentifyNotesTrial {
+  const eventCount = voice(selection.phrase, "melody")?.events.length ?? 0;
   return {
-    phrase,
+    phrase: selection.phrase,
+    targetSituationId: selection.targetSituationId,
     phase: "answering",
-    promptDegrees: [1],
+    promptDegrees: promptDegreesForSituations(selectedSituationIds),
     answers: new Array<MelodySlotAnswer>(eventCount).fill(undefined),
+    cursorEventIndex: 0,
     firstVisibleMeasureIndex: 0,
   };
 }
 
 function selectIdentifyTrial(
-  state: IdentifyTonicState,
+  state: IdentifyNotesState,
   ctx: TonicPracticeCtx,
-): void {
-  const phrase = selectTonicPhrase(
+): boolean {
+  const selection = selectIdentifyNotesPhrase(
     ctx.melodies,
+    state.selectedSituationIds,
     state.trial?.phrase,
     ctx.random,
   );
-  state.trial = phrase ? identifyTrial(phrase) : undefined;
-  if (phrase) playMelody(phrase, ctx);
-  else ctx.play.stop();
+  if (!selection) {
+    state.trial = undefined;
+    ctx.play.stop();
+    return false;
+  }
+  state.trial = identifyTrial(selection, state.selectedSituationIds);
+  playMelody(selection.phrase, ctx);
+  return true;
 }
 
-function maxFirstVisibleMeasure(trial: IdentifyTonicTrial): number {
+function maxFirstVisibleMeasure(trial: IdentifyNotesTrial): number {
   return Math.max(0, trial.phrase.measures.length - VISIBLE_MEASURE_COUNT);
 }
 
-export function updateIdentifyTonic(
-  state: IdentifyTonicState,
-  msg: IdentifyTonicMsg,
+export function updateIdentifyNotes(
+  state: IdentifyNotesState,
+  msg: IdentifyNotesMsg,
   ctx: TonicPracticeCtx,
 ): void {
   switch (msg.type) {
-    case "START":
+    case "TOGGLE_SITUATION": {
+      const index = state.selectedSituationIds.indexOf(msg.situationId);
+      if (index >= 0) state.selectedSituationIds.splice(index, 1);
+      else state.selectedSituationIds.push(msg.situationId);
+      break;
+    }
+    case "BEGIN":
+      if (selectIdentifyTrial(state, ctx)) state.screen = "practice";
+      break;
+    case "CHANGE_SITUATIONS":
+      ctx.play.stop();
+      ctx.play.setDrone(undefined);
+      state.screen = "situations";
+      state.trial = undefined;
+      state.droneOn = false;
+      break;
     case "NEXT":
       selectIdentifyTrial(state, ctx);
       break;
@@ -263,14 +372,64 @@ export function updateIdentifyTonic(
       if (state.trial) playContext(state.trial.phrase, ctx);
       break;
     case "TOGGLE_DRONE":
-      toggleDrone(state, ctx);
+      if (state.screen === "practice" && state.trial) toggleDrone(state, ctx);
       break;
-    case "REPEAT":
+    case "PLAY_PAUSE": {
+      const trial = state.trial;
+      if (!trial) break;
+      const playback = ctx.play.getState();
+      if (
+        playback.status === "playing" &&
+        playback.buttonId.startsWith("tonic:melody")
+      ) {
+        ctx.play.stop();
+        break;
+      }
+      const event = voice(trial.phrase, "melody")?.events[
+        trial.cursorEventIndex
+      ];
+      if (!event) break;
+      ctx.play.autoplay([
+        {
+          ...melodyStep(trial.phrase, ctx),
+          range: {
+            startTicks: event.onsetTicks,
+            endTicks: trial.phrase.durationTicks,
+          },
+        },
+      ]);
+      break;
+    }
+    case "PLAY_FROM_BEGINNING":
       if (state.trial) {
+        state.trial.cursorEventIndex = 0;
         state.trial.firstVisibleMeasureIndex = 0;
-        toggleMelody(state.trial.phrase, ctx);
+        ctx.play.autoplay([
+          {
+            ...melodyStep(state.trial.phrase, ctx),
+            buttonId: "tonic:melody-restart",
+          },
+        ]);
       }
       break;
+    case "PLAY_EVENT": {
+      const trial = state.trial;
+      if (!trial) break;
+      const event = voice(trial.phrase, "melody")?.events[msg.eventIndex];
+      if (!event) break;
+      trial.cursorEventIndex = msg.eventIndex;
+      ctx.play.autoplay([
+        {
+          ...melodyStep(trial.phrase, ctx),
+          buttonId: "tonic:melody-note",
+          range: {
+            startTicks: event.onsetTicks,
+            endTicks: event.onsetTicks + event.durationTicks,
+          },
+        },
+      ]);
+      break;
+    }
     case "SELECT_SLOT": {
       const trial = state.trial;
       if (
@@ -317,13 +476,14 @@ export function updateIdentifyTonic(
       if (
         !trial ||
         playback.status !== "playing" ||
-        playback.buttonId !== "tonic:melody" ||
+        !playback.buttonId.startsWith("tonic:melody") ||
         playback.eventIndex === undefined
       ) {
         break;
       }
       const event = voice(trial.phrase, "melody")?.events[playback.eventIndex];
       if (!event) break;
+      trial.cursorEventIndex = playback.eventIndex;
       const measureIndex = trial.phrase.measures.findIndex(
         (measure) =>
           event.onsetTicks >= measure.startTicks &&
@@ -343,6 +503,18 @@ export function updateIdentifyTonic(
       break;
     }
   }
+}
+
+export function updateIdentifyTonic(
+  state: IdentifyTonicState,
+  msg: IdentifyTonicMsg,
+  ctx: TonicPracticeCtx,
+): void {
+  updateIdentifyNotes(
+    state,
+    msg.type === "START" ? { type: "BEGIN" } : msg,
+    ctx,
+  );
 }
 
 export function updateTonicPractice(

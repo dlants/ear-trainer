@@ -32,10 +32,28 @@ export class FakeTonicPlay {
 
   autoplay(steps: PlayStep[]): void {
     this.calls.push(`autoplay:${steps.map((step) => step.buttonId).join(",")}`);
+    const first = steps[0];
+    this.state = first
+      ? {
+          status: "playing",
+          buttonId: first.buttonId,
+          durationMs: 1000,
+          queueLength: Math.max(0, steps.length - 1),
+        }
+      : { status: "idle" };
   }
 
   toggle(buttonId: PlayButtonId, _step: PlayStep): void {
     this.calls.push(`toggle:${buttonId}`);
+    this.state =
+      this.state.status === "playing" && this.state.buttonId === buttonId
+        ? { status: "idle" }
+        : {
+            status: "playing",
+            buttonId,
+            durationMs: 1000,
+            queueLength: 0,
+          };
   }
 
   setDrone(tonic: number | undefined): void {
@@ -44,6 +62,7 @@ export class FakeTonicPlay {
 
   stop(): void {
     this.calls.push("stop");
+    this.state = { status: "idle" };
   }
 }
 
@@ -125,12 +144,16 @@ export function mountIdentify(
   const selected = phrase(measureCount);
   const state: IdentifyTonicState = {
     activity: "identify-tonic-notes",
+    screen: "practice",
+    selectedSituationIds: ["tonic"],
     droneOn: false,
     trial: {
       phrase: selected,
+      targetSituationId: "tonic",
       phase: "answering",
       promptDegrees,
       answers: new Array(selected.voices[0].events.length).fill(undefined),
+      cursorEventIndex: 0,
       firstVisibleMeasureIndex: 0,
     },
   };

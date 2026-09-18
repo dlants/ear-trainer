@@ -247,6 +247,15 @@ export function selectIdentifyNotesPhrase(
   - Note answers outside the derived vocabulary are rejected, while `other`, unanswered, reveal locking, playback cursor synchronization, scrolling, next, and empty-corpus behavior remain correct.
   - Returning to situation selection stops playback and drone support, clears the trial, and preserves toggle choices.
 
+### Stage 2 progress (completed 2026-09-18)
+
+- [x] Added the single Identify Notes selector/practice state, tonic-only initial selection, toggle transitions, situation-derived prompt vocabulary, and clean return-to-selector behavior.
+- [x] Added target-situation-first phrase selection over covered situations, followed by melody-first and phrase-level immediate-repeat avoidance within the chosen target's candidate pool.
+- [x] Preserved note playback, cursor synchronization, answer validation, reveal locking, viewport scrolling, drone, context, and next-trial behavior in the generalized reducer.
+- [x] Added deterministic tests for focused and cumulative practice, equal target opportunity despite unequal corpus frequency, empty and uncovered selections, vocabulary snapshots, repeat avoidance, and playback/drone cleanup.
+- Decision: target sampling excludes selected situations with no eligible phrase, so each selected situation that can currently produce a trial receives one equal slot in the target pool.
+- Decision: the old identify-tonic exports remain thin compatibility adapters for existing Stage 3/4 consumers; all identification behavior delegates to the new Identify Notes state machine, while sing-tonic remains untouched until its planned integration removal.
+
 ## Situation selector and generalized exercise view
 
 - Goal: Replace the sing-tonic and identify-tonic views with one Identify the notes view containing a Binder-driven situation selector and the existing note-level practice screen. Update copy, palette labels, empty states, and controls for multi-degree identification without exposing the target occurrence as a special annotation.
