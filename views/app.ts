@@ -95,6 +95,7 @@ function identifyNotesMsgNeedsAudio(msg: IdentifyNotesMsg): boolean {
     "PLAY_FROM_BEGINNING",
     "PLAY_ONSET",
     "PLAY_CELL",
+    "PLAY_REGION",
     "NEXT",
   ].includes(msg.type);
 }

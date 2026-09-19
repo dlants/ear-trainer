@@ -6,8 +6,14 @@ import type {
 } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
 import type { KeyValueStore } from "../deck/store.ts";
-import type { CellId, Phrase, TimedEvent } from "../music/melody.ts";
-import { cells, lanes, onsets } from "../music/melody.ts";
+import type {
+  CellId,
+  CorpusEvent,
+  IdentificationPhraseSuitability,
+  Phrase,
+  TimedEvent,
+} from "../music/melody.ts";
+import { cells, lanes, normalizeMelody, onsets } from "../music/melody.ts";
 import type { Degree, Note } from "../music/note.ts";
 import {
   type CellAnswer,
@@ -118,6 +124,82 @@ export function phrase(
   };
 }
 
+function corpusEvent(notes: Note[], durationTicks: number): CorpusEvent {
+  return { notes, durationTicks };
+}
+
+/**
+ * A block chord, then a tone sustained over an arpeggio, with an authored
+ * chord track whose second half is a gap.
+ */
+export function harmonyPhrase(
+  chordIdentification: IdentificationPhraseSuitability = "independent",
+): Phrase {
+  const result = normalizeMelody({
+    id: "fixture-harmony",
+    title: "Harmony fixture",
+    context: "major-cadence",
+    tempoBpm: 120,
+    source: { description: "Test", status: "original" },
+    measures: [
+      {
+        durationTicks: 96,
+        beatDurationsTicks: [24, 24, 24, 24],
+        voices: [
+          {
+            voiceId: "melody",
+            events: [
+              corpusEvent([note(5), note(3), note(1)], 48),
+              corpusEvent([note(5)], 48),
+            ],
+          },
+        ],
+        harmony: [
+          {
+            durationTicks: 96,
+            chord: { root: 1, alteration: 0, quality: "major" },
+          },
+        ],
+      },
+      {
+        durationTicks: 96,
+        beatDurationsTicks: [24, 24, 24, 24],
+        voices: [
+          {
+            voiceId: "melody",
+            events: [corpusEvent([note(5)], 96)],
+          },
+          {
+            voiceId: "harmony",
+            events: [
+              corpusEvent([note(1, -1)], 24),
+              corpusEvent([note(3, -1)], 24),
+              corpusEvent([note(5, -1)], 24),
+              corpusEvent([note(7, -1)], 24),
+            ],
+          },
+        ],
+        harmony: [
+          {
+            durationTicks: 48,
+            chord: { root: 5, alteration: 0, quality: "major" },
+          },
+          { durationTicks: 48 },
+        ],
+        phraseEnd: {
+          noteIdentification: "independent",
+          chordIdentification,
+          rationale: "Test phrase.",
+        },
+      },
+    ],
+  });
+  if (!result.ok) throw new Error(result.error);
+  const phrase = result.value.phrases[0];
+  if (!phrase) throw new Error("tonic-practice-harness: no harmony phrase");
+  return phrase;
+}
+
 export function memoryStorage(): KeyValueStore {
   const values = new Map<string, string>();
   return {
@@ -193,7 +275,7 @@ export function answerAt(state: IdentifyNotesState, index: number): CellAnswer {
   return state.trial?.cellAnswers[cellIdAt(state, index)];
 }
 
-export function mountIdentify(measureCount = 4): {
+export function mountIdentifyPhrase(selected: Phrase): {
   container: HTMLElement;
   state: IdentifyNotesState;
   dispatch: (msg: IdentifyNotesMsg) => void;
@@ -201,7 +283,6 @@ export function mountIdentify(measureCount = 4): {
   view: IdentifyNotesView;
 } {
   const play = new FakeIdentifyNotesPlay();
-  const selected = phrase(measureCount);
   const state: IdentifyNotesState = {
     screen: "practice",
     selectedSituationIds: ["tonic"],
@@ -232,4 +313,14 @@ export function mountIdentify(measureCount = 4): {
   };
   view = new IdentifyNotesView(container, dispatch, state, context);
   return { container, state, dispatch, play, view };
+}
+
+export function mountIdentify(measureCount = 4): {
+  container: HTMLElement;
+  state: IdentifyNotesState;
+  dispatch: (msg: IdentifyNotesMsg) => void;
+  play: FakeIdentifyNotesPlay;
+  view: IdentifyNotesView;
+} {
+  return mountIdentifyPhrase(phrase(measureCount));
 }

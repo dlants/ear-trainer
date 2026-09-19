@@ -498,6 +498,7 @@ test.describe("identify-notes reducer", () => {
       chord: { root: 1, alteration: 0, quality: "major" },
     };
     harmonized.harmony = [region];
+    harmonized.chordIdentification = "independent";
     const { ctx } = setup([melody("tonic", [harmonized])]);
     const state = initialIdentifyNotesState(ctx);
     updateIdentifyNotes(state, select(cellIdAt(state, 0)), ctx);

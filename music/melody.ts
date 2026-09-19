@@ -73,6 +73,8 @@ export type Phrase = Score & {
   melodyId: string;
   phraseIndex: number;
   noteIdentification: IdentificationPhraseSuitability;
+  /** Suitability of this phrase's stated harmony for chord identification. */
+  chordIdentification?: IdentificationPhraseSuitability;
   rationale: string;
 };
 
@@ -105,6 +107,7 @@ export type CorpusMeasure = {
   harmony?: CorpusHarmony[];
   phraseEnd?: {
     noteIdentification: IdentificationPhraseSuitability;
+    chordIdentification?: IdentificationPhraseSuitability;
     rationale: string;
   };
 };
@@ -120,6 +123,7 @@ type PhraseBoundary = {
   firstMeasureIndex: number;
   lastMeasureIndex: number;
   noteIdentification: IdentificationPhraseSuitability;
+  chordIdentification?: IdentificationPhraseSuitability;
   rationale: string;
 };
 
@@ -315,11 +319,21 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
     scoreCursor = measureEnd;
 
     if (authoredMeasure.phraseEnd) {
-      const { noteIdentification, rationale } = authoredMeasure.phraseEnd;
+      const { noteIdentification, chordIdentification, rationale } =
+        authoredMeasure.phraseEnd;
       if (!isSuitability(noteIdentification)) {
         return failure(
           entry.id,
           `phrase ending at measure ${measureNumber} has unsupported noteIdentification "${String(noteIdentification)}"`,
+        );
+      }
+      if (
+        chordIdentification !== undefined &&
+        !isSuitability(chordIdentification)
+      ) {
+        return failure(
+          entry.id,
+          `phrase ending at measure ${measureNumber} has unsupported chordIdentification "${String(chordIdentification)}"`,
         );
       }
       if (!rationale.trim()) {
@@ -332,6 +346,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
         firstMeasureIndex: firstPhraseMeasureIndex,
         lastMeasureIndex: measureIndex,
         noteIdentification,
+        chordIdentification,
         rationale,
       });
       firstPhraseMeasureIndex = measureIndex + 1;
@@ -389,6 +404,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       melodyId: entry.id,
       phraseIndex,
       noteIdentification: boundary.noteIdentification,
+      chordIdentification: boundary.chordIdentification,
       rationale: boundary.rationale,
       context: entry.context,
       tempoBpm: entry.tempoBpm,

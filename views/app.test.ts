@@ -132,7 +132,7 @@ test.describe("activity-only app integration", () => {
       };
     });
 
-    expect(result.text).toContain("Tap notes in the top row");
+    expect(result.text).toContain("Tap a note to hear it");
     expect(result.text).toContain("situations (1)");
     expect(result.screen).toBe("practice");
     expect(result.trial).toBe(true);
@@ -174,7 +174,7 @@ test.describe("activity-only app integration", () => {
       };
     });
 
-    expect(result.before).toContain("Tap notes in the top row");
+    expect(result.before).toContain("Tap a note to hear it");
     expect(result.unlockCalls).toBe(1);
     expect(result.audioUnlocked).toBe(true);
     expect(result.screen).toBe("practice");

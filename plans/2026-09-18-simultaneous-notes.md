@@ -496,9 +496,18 @@ export function cellResult(
   - `PLAY_CELL` plays exactly one pitch, the one resolved from that cell's note and the trial tonic.
   - During full-phrase playback, `CUE_CHANGED` advances the cursor one onset at a time on a multi-voice phrase (i.e. two voices do not double-advance it).
 
-## Grid UI
+## Grid UI — DONE
 
 - Goal: notes render as duration-spanning cells on a lane grid, each a single button carrying its own guess and reveal; the separate guess row is gone; onset play affordance; palette gains `_`.
+- Implemented in `views/tonic-practice-view.ts`: `MelodyMeasureView` is now a three-track grid (`StackButtonView` row, `CellView` lane grid, `HarmonyRegionView` track). `BeatSlotView`/`slotResult` are gone; `cellResult` (`"correct" | "incorrect" | "unanswered"`) and `chordResult` replace them. The palette is a pure function of the selection: degrees for a cell, roman numerals for a region, both gaining `_`. `music/melody.ts` gains `Phrase.chordIdentification` (authored on `phraseEnd`), and `views/tonic-practice.ts` gains `chordAnswerable()` plus a `PLAY_REGION` message (audio-gated in `views/app.ts`).
+- Decisions and deviations:
+  - Cells are positioned absolutely inside the cell track: `left`/`width` from ticks as before, `top`/`height` from `laneIndex` at a fixed 34px lane height. The track's height is `lanes.length * 34px`, so a lane with nothing sounding is simply empty space and not a tap target.
+  - A cell reads `?` untouched, its guess once answered, `_` once skipped, and at reveal the note plus a check (correct), the note alone (unanswered/skipped), or `✗ struck-guess note` (incorrect). Spans carry `data-part`/`data-result-icon` so tests assert order rather than concatenated text.
+  - The stack button is a small hand-rolled grid affordance using `playIcon()`, not `PlayButtonView`: it is an in-grid control like a cell, not page chrome, and it exists only where two or more notes sound at that tick.
+  - Tapping a region dispatches `PLAY_REGION` (score-range playback, so an arpeggiated region is heard arpeggiated) then `SELECT_REGION`; the reducer ignores the selection unless `chordAnswerable(phrase)`, which requires `chordIdentification === "independent"`. A read-only track therefore plays and reveals but opens no palette.
+  - Region labels use roman numerals cased by quality; a read-only track shows the chord even while answering, since there is nothing to hide.
+  - `test/tonic-practice-harness.ts` gains `mountIdentifyPhrase()` and `harmonyPhrase()` — a normalized two-bar fixture with a block chord, a tone sustained over a four-note arpeggio in a second voice, and a chord track whose second half is a gap.
+  - Geometry is asserted by comparing the sustained cell's left/right edges against the arpeggio beneath it (and by `elementFromPoint` at its far right) rather than by comparing raw widths, since each cell insets 2px per side.
 - Tests (DOM, `views/tonic-practice-view.test.ts`, per `docs/testing.md`):
   - A three-note chord renders three cells in three lanes, top-to-bottom highest-to-lowest.
   - A sustained tone over four arpeggiated notes renders one cell whose width equals the four cells beneath it combined, and that cell is a single tap target along its whole width. This is the layout claim the user asked for, so assert on geometry, not just on cell count.

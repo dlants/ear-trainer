@@ -93,6 +93,7 @@ export type IdentifyNotesMsg =
   | { type: "PLAY_CELL"; cellId: CellId }
   | { type: "SELECT_CELL"; cellId: CellId }
   | { type: "SELECT_REGION"; regionId: RegionId }
+  | { type: "PLAY_REGION"; regionId: RegionId }
   | { type: "SET_ANSWER"; answer: CellAnswer }
   | { type: "SET_CHORD_ANSWER"; answer: ChordAnswer }
   | { type: "REVEAL" }
@@ -302,6 +303,13 @@ function identifyTrial(selection: PhraseSelection): IdentifyNotesTrial {
   };
 }
 
+/** Harmony is answerable only where the author marked it independent. */
+export function chordAnswerable(phrase: Phrase): boolean {
+  return (
+    phrase.harmony.length > 0 && phrase.chordIdentification === "independent"
+  );
+}
+
 function selectedCellIndex(trial: IdentifyNotesTrial): number | undefined {
   if (trial.selection?.kind !== "cell") return undefined;
   const cellId = trial.selection.cellId;
@@ -472,10 +480,29 @@ export function updateIdentifyNotes(
       }
       break;
     }
+    case "PLAY_REGION": {
+      const trial = state.trial;
+      const region = trial?.phrase.harmony.find(
+        (candidate) => candidate.id === msg.regionId,
+      );
+      if (!trial || !region) break;
+      trial.cursorOnsetIndex = onsetIndexAt(trial, region.startTicks);
+      ctx.play.autoplay([
+        {
+          ...melodyStep(trial.phrase, state.tonic),
+          range: {
+            startTicks: region.startTicks,
+            endTicks: region.endTicks,
+          },
+        },
+      ]);
+      break;
+    }
     case "SELECT_REGION": {
       const trial = state.trial;
       if (
         trial?.phase === "answering" &&
+        chordAnswerable(trial.phrase) &&
         trial.phrase.harmony.some((region) => region.id === msg.regionId)
       ) {
         trial.selection = { kind: "chord", regionId: msg.regionId };

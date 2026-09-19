@@ -1,6 +1,20 @@
 import type { PlayState } from "../audio/play-controller.ts";
-import { arrowDownIcon, arrowUpIcon, checkIcon, xIcon } from "../icons.ts";
-import type { Cell, CellId, Measure } from "../music/melody.ts";
+import {
+  arrowDownIcon,
+  arrowUpIcon,
+  checkIcon,
+  playIcon,
+  xIcon,
+} from "../icons.ts";
+import type {
+  Cell,
+  CellId,
+  Chord,
+  HarmonyRegion,
+  Measure,
+  RegionId,
+} from "../music/melody.ts";
+import { cellsSoundingAt } from "../music/melody.ts";
 import type { Degree, Note } from "../music/note.ts";
 import { SITUATIONS, type SituationDefinition } from "../music/situations.ts";
 import {
@@ -18,6 +32,8 @@ import {
 import { PlayButtonView } from "./play-button.ts";
 import {
   type CellAnswer,
+  type ChordAnswer,
+  chordAnswerable,
   IDENTIFY_NOTE_DEGREES,
   type IdentifyNotesCtx,
   type IdentifyNotesMsg,
@@ -26,7 +42,7 @@ import {
   VISIBLE_MEASURE_COUNT,
 } from "./tonic-practice.ts";
 
-export type SlotResult = "correct" | "incorrect";
+export type CellResult = "correct" | "incorrect" | "unanswered";
 
 function actualAnswer(
   note: Note,
@@ -37,18 +53,71 @@ function actualAnswer(
     : "other";
 }
 
-export function slotResult(
+export function cellResult(
   note: Note,
   promptDegrees: Degree[],
   answer: CellAnswer,
-): SlotResult {
-  return (answer ?? "other") === actualAnswer(note, promptDegrees)
+): CellResult {
+  if (answer === undefined || answer === "skip") return "unanswered";
+  return answer === actualAnswer(note, promptDegrees) ? "correct" : "incorrect";
+}
+
+const ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII"] as const;
+
+/** The diatonic triad built on `degree`, as a roman numeral. */
+function diatonicRoman(degree: Degree): string {
+  const numeral = ROMAN_NUMERALS[degree - 1] ?? String(degree);
+  if (degree === 7) return `${numeral.toLowerCase()}°`;
+  return degree === 2 || degree === 3 || degree === 6
+    ? numeral.toLowerCase()
+    : numeral;
+}
+
+function chordLabel(chord: Chord): string {
+  const accidental =
+    chord.alteration === 1 ? "♯" : chord.alteration === -1 ? "♭" : "";
+  const numeral = ROMAN_NUMERALS[chord.root - 1] ?? String(chord.root);
+  const cased =
+    chord.quality === "minor" || chord.quality === "diminished"
+      ? numeral.toLowerCase()
+      : numeral;
+  const suffix =
+    chord.quality === "diminished"
+      ? "°"
+      : chord.quality === "augmented"
+        ? "+"
+        : "";
+  return `${accidental}${cased}${suffix}${chord.seventh ? "7" : ""}`;
+}
+
+function chordAnswerLabel(answer: ChordAnswer): string {
+  if (answer === undefined) return "?";
+  if (answer === "skip") return "_";
+  return answer === "other" ? "other" : diatonicRoman(answer);
+}
+
+function actualChordAnswer(
+  chord: Chord,
+  promptDegrees: Degree[],
+): Exclude<ChordAnswer, undefined | "skip"> {
+  return chord.alteration === 0 && promptDegrees.includes(chord.root)
+    ? chord.root
+    : "other";
+}
+
+export function chordResult(
+  chord: Chord,
+  promptDegrees: Degree[],
+  answer: ChordAnswer,
+): CellResult {
+  if (answer === undefined || answer === "skip") return "unanswered";
+  return answer === actualChordAnswer(chord, promptDegrees)
     ? "correct"
     : "incorrect";
 }
 
 function guessLabel(answer: CellAnswer): string {
-  if (answer === undefined) return "";
+  if (answer === undefined) return "?";
   if (answer === "skip") return "_";
   return answer === "other" ? "other" : String(answer);
 }
@@ -90,11 +159,14 @@ const viewportClass = cls("tonic-viewport");
 const viewportControlsClass = cls("tonic-viewport-controls");
 const sourceClass = cls("tonic-source");
 const measureClass = cls("tonic-measure");
-const beatLayoutClass = cls("tonic-beat-layout");
-const beatCellClass = cls("tonic-beat-cell");
-const toneButtonClass = cls("tonic-tone-button");
-const guessLabelClass = cls("tonic-guess-label");
-const guessResultIconClass = cls("tonic-guess-result-icon");
+const stackTrackClass = cls("tonic-stack-track");
+const stackButtonClass = cls("tonic-stack-button");
+const cellTrackClass = cls("tonic-cell-track");
+const cellButtonClass = cls("tonic-cell-button");
+const harmonyTrackClass = cls("tonic-harmony-track");
+const harmonySegmentClass = cls("tonic-harmony-segment");
+const struckClass = cls("tonic-struck-guess");
+const resultIconClass = cls("tonic-result-icon");
 const cursorClass = cls("tonic-slot-cursor");
 const selectedClass = cls("tonic-slot-selected");
 const correctClass = cls("tonic-slot-correct");
@@ -169,44 +241,55 @@ mountStyle(`
 .${pageClass} .${activityClass} .${viewportClass} { margin-top: 8px; }
 .${pageClass} .${activityClass} .${actionRowClass} { margin-top: auto; }
 .${pageClass} .${viewportClass} { display: grid; gap: 8px; }
-.${pageClass} .${measureClass} { display: block; }
-.${pageClass} .${beatLayoutClass} {
-  position: relative;
-  height: 76px;
-  overflow: hidden;
-}
-.${pageClass} .${beatCellClass} {
+.${pageClass} .${measureClass} { display: grid; gap: 4px; }
+.${pageClass} .${stackTrackClass} { position: relative; height: 22px; }
+.${pageClass} .${stackButtonClass} {
   position: absolute;
-  top: 2px;
-  height: 72px;
-  min-width: 30px;
+  top: 0;
+  height: 22px;
+  min-width: 26px;
   box-sizing: border-box;
-  display: grid;
-  grid-template-rows: 34px 34px;
-  gap: 4px;
-  align-items: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-control);
+  font-size: 12px;
 }
-.${pageClass} .${toneButtonClass} {
-  min-width: 0;
+.${pageClass} .${cellTrackClass} { position: relative; overflow: hidden; }
+.${pageClass} .${cellButtonClass} {
+  position: absolute;
+  min-width: 26px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   padding: 0 4px;
   border-radius: var(--radius-control);
   font-weight: 750;
   overflow: hidden;
   white-space: nowrap;
 }
-.${pageClass} .${guessLabelClass} {
+.${pageClass} .${harmonyTrackClass} { position: relative; height: 28px; }
+.${pageClass} .${harmonySegmentClass} {
+  position: absolute;
+  top: 0;
+  height: 28px;
+  min-width: 26px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-width: 0;
   padding: 0 4px;
-  box-sizing: border-box;
-  font-weight: 750;
+  border-radius: var(--radius-control);
+  font-weight: 700;
   overflow: hidden;
   white-space: nowrap;
 }
-.${pageClass} .${guessResultIconClass} { display: inline-flex; flex: 0 0 auto; font-size: 0.9em; }
+.${pageClass} .${struckClass} { text-decoration: line-through; }
+.${pageClass} .${resultIconClass} { display: inline-flex; flex: 0 0 auto; font-size: 0.9em; }
 .${pageClass} .${cursorClass} { outline: 3px solid var(--color-unsure-border); outline-offset: -3px; }
 .${pageClass} .${selectedClass} { border: 2px solid var(--color-selected-border); background: var(--color-selected-surface); color: var(--color-text); }
 .${pageClass} .${correctClass} { color: var(--color-correct); }
@@ -224,7 +307,25 @@ mountStyle(`
 }
 `);
 
-type SlotState = {
+/** One display row of the cell track. */
+const LANE_HEIGHT_PX = 34;
+const LANE_GAP_PX = 4;
+
+function spanStyle(
+  measure: Measure,
+  onsetTicks: number,
+  durationTicks: number,
+): Record<string, string> {
+  const duration = measure.endTicks - measure.startTicks;
+  const leftPercent = ((onsetTicks - measure.startTicks) / duration) * 100;
+  const widthPercent = (durationTicks / duration) * 100;
+  return {
+    left: `calc(${leftPercent}% + 2px)`,
+    width: `calc(${widthPercent}% - 4px)`,
+  };
+}
+
+type CellState = {
   cell: Cell;
   cellIndex: number;
   measure: Measure;
@@ -235,27 +336,27 @@ type SlotState = {
   revealed: boolean;
 };
 
-type SlotMsg = { type: "ACTIVATE"; cellIndex: number; cellId: CellId };
+type CellMsg = { type: "CELL"; cellId: CellId };
 
-function slotStyle(state: SlotState): Record<string, string> {
-  const duration = state.measure.endTicks - state.measure.startTicks;
-  const leftPercent =
-    ((state.cell.onsetTicks - state.measure.startTicks) / duration) * 100;
-  const widthPercent = (state.cell.durationTicks / duration) * 100;
+function cellStyle(state: CellState): Record<string, string> {
   return {
-    left: `calc(${leftPercent}% + 2px)`,
-    width: `calc(${widthPercent}% - 4px)`,
+    ...spanStyle(
+      state.measure,
+      state.cell.onsetTicks,
+      state.cell.durationTicks,
+    ),
+    top: `${state.cell.laneIndex * LANE_HEIGHT_PX}px`,
+    height: `${LANE_HEIGHT_PX - LANE_GAP_PX}px`,
   };
 }
 
-function revealedResult(state: SlotState): SlotResult | undefined {
-  if (!state.revealed || state.answer === undefined || state.answer === "skip")
-    return undefined;
-  return slotResult(state.cell.note, state.promptDegrees, state.answer);
+function revealedCellResult(state: CellState): CellResult | undefined {
+  return state.revealed
+    ? cellResult(state.cell.note, state.promptDegrees, state.answer)
+    : undefined;
 }
 
-function resultClass(state: SlotState): string {
-  const result = revealedResult(state);
+function resultClass(result: CellResult | undefined): string {
   return result === "correct"
     ? correctClass
     : result === "incorrect"
@@ -263,77 +364,68 @@ function resultClass(state: SlotState): string {
       : "";
 }
 
-class BeatSlotView implements View<SlotState, SlotMsg> {
+class CellView implements View<CellState, CellMsg> {
   container: HTMLElement;
-  private readonly b: Binder<SlotState>;
+  private readonly b: Binder<CellState>;
 
   constructor(
     container: HTMLElement,
-    dispatch: (msg: SlotMsg) => void,
-    initial: SlotState,
+    dispatch: (msg: CellMsg) => void,
+    initial: CellState,
   ) {
-    const cellRef = ref("beatCell");
-    const buttonRef = ref("toneSlot");
-    const toneTextRef = ref("toneText");
-    const guessRef = ref("guess");
-    const guessTextRef = ref("guessText");
+    const buttonRef = ref("cell");
+    const wrongIconRef = ref("wrongIcon");
+    const wrongGuessRef = ref("wrongGuess");
+    const textRef = ref("cellText");
     const correctIconRef = ref("correctIcon");
-    const incorrectIconRef = ref("incorrectIcon");
     this.container = container;
     container.innerHTML = sanitize`
-      <div data-ref="${cellRef}">
-        <button type="button" data-ref="${buttonRef}"><span data-ref="${toneTextRef}"></span></button>
-        <span data-ref="${guessRef}"><span data-ref="${guessTextRef}"></span><span class="${guessResultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span><span class="${guessResultIconClass}" data-ref="${incorrectIconRef}" data-result-icon="incorrect">${xIcon()}</span></span>
-      </div>
+      <button type="button" data-ref="${buttonRef}"><span class="${resultIconClass}" data-ref="${wrongIconRef}" data-result-icon="incorrect">${xIcon()}</span><span class="${struckClass}" data-ref="${wrongGuessRef}" data-part="guess"></span><span data-ref="${textRef}" data-part="note"></span><span class="${resultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span></button>
     `;
     this.b = new Binder(container, initial);
     onPress(this.b.ref(buttonRef), () =>
-      dispatch({
-        type: "ACTIVATE",
-        cellIndex: initial.cellIndex,
-        cellId: initial.cell.id,
-      }),
+      dispatch({ type: "CELL", cellId: initial.cell.id }),
     );
-    this.b.bindStyle(cellRef, slotStyle);
-    this.b.bindClass(cellRef, () => beatCellClass);
+    this.b.bindStyle(buttonRef, cellStyle);
     this.b.bindClass(buttonRef, (state) =>
       [
-        toneButtonClass,
+        cellButtonClass,
         state.cursor ? cursorClass : "",
         state.selected ? selectedClass : "",
+        resultClass(revealedCellResult(state)),
       ]
         .filter(Boolean)
         .join(" "),
     );
-    this.b.bindClass(guessRef, (state) =>
-      [guessLabelClass, resultClass(state)].filter(Boolean).join(" "),
+    this.b.bindText(textRef, (state) =>
+      state.revealed ? noteLabel(state.cell.note) : guessLabel(state.answer),
     );
-    this.b.bindText(toneTextRef, (state) =>
-      state.revealed ? noteLabel(state.cell.note) : "?",
+    this.b.bindText(wrongGuessRef, (state) =>
+      revealedCellResult(state) === "incorrect" ? guessLabel(state.answer) : "",
     );
-    this.b.bindText(guessTextRef, (state) => guessLabel(state.answer));
+    this.b.bindVisible(
+      wrongGuessRef,
+      (state) => revealedCellResult(state) === "incorrect",
+    );
+    this.b.bindVisible(
+      wrongIconRef,
+      (state) => revealedCellResult(state) === "incorrect",
+    );
     this.b.bindVisible(
       correctIconRef,
-      (state) => revealedResult(state) === "correct",
+      (state) => revealedCellResult(state) === "correct",
     );
-    this.b.bindVisible(
-      incorrectIconRef,
-      (state) => revealedResult(state) === "incorrect",
-    );
-    this.b.bindAttr(buttonRef, "data-event-index", (state) =>
+    this.b.bindAttr(buttonRef, "data-cell-id", (state) => state.cell.id);
+    this.b.bindAttr(buttonRef, "data-cell-index", (state) =>
       String(state.cellIndex),
     );
-    this.b.bindAttr(buttonRef, "data-row", () => "tone");
-    this.b.bindAttr(guessRef, "data-event-index", (state) =>
-      String(state.cellIndex),
+    this.b.bindAttr(buttonRef, "data-lane", (state) =>
+      String(state.cell.laneIndex),
     );
-    this.b.bindAttr(guessRef, "data-row", () => "guess");
-    this.b.bindAttr(cellRef, "data-cell-id", (state) => state.cell.id);
-    this.b.bindAttr(cellRef, "data-beat", (state) => String(state.cellIndex));
-    this.b.bindAttr(cellRef, "data-selected", (state) =>
+    this.b.bindAttr(buttonRef, "data-selected", (state) =>
       state.selected ? "true" : undefined,
     );
-    this.b.bindAttr(guessRef, "data-result", (state) => revealedResult(state));
+    this.b.bindAttr(buttonRef, "data-result", revealedCellResult);
     this.b.bindAttr(buttonRef, "aria-current", (state) =>
       state.cursor ? "true" : undefined,
     );
@@ -344,7 +436,163 @@ class BeatSlotView implements View<SlotState, SlotMsg> {
     );
   }
 
-  sync(state: SlotState): void {
+  sync(state: CellState): void {
+    this.b.sync(state);
+  }
+
+  destroy(): void {
+    this.b.cleanup();
+    this.container.innerHTML = "";
+  }
+}
+
+type StackState = {
+  onsetIndex: number;
+  onsetTicks: number;
+  measure: Measure;
+  soundingCount: number;
+};
+
+type StackMsg = { type: "ONSET"; onsetIndex: number };
+
+class StackButtonView implements View<StackState, StackMsg> {
+  container: HTMLElement;
+  private readonly b: Binder<StackState>;
+
+  constructor(
+    container: HTMLElement,
+    dispatch: (msg: StackMsg) => void,
+    initial: StackState,
+  ) {
+    const buttonRef = ref("stack");
+    this.container = container;
+    container.innerHTML = sanitize`
+      <button type="button" class="${stackButtonClass}" data-ref="${buttonRef}">${playIcon()}</button>
+    `;
+    this.b = new Binder(container, initial);
+    onPress(this.b.ref(buttonRef), () =>
+      dispatch({ type: "ONSET", onsetIndex: initial.onsetIndex }),
+    );
+    this.b.bindStyle(buttonRef, (state) => ({
+      left: spanStyle(state.measure, state.onsetTicks, 0).left ?? "0",
+    }));
+    this.b.bindAttr(buttonRef, "data-onset-index", (state) =>
+      String(state.onsetIndex),
+    );
+    this.b.bindAttr(
+      buttonRef,
+      "aria-label",
+      (state) => `play the ${state.soundingCount} notes sounding together here`,
+    );
+  }
+
+  sync(state: StackState): void {
+    this.b.sync(state);
+  }
+
+  destroy(): void {
+    this.b.cleanup();
+    this.container.innerHTML = "";
+  }
+}
+
+type RegionState = {
+  region: HarmonyRegion;
+  measure: Measure;
+  promptDegrees: Degree[];
+  answer: ChordAnswer;
+  answerable: boolean;
+  selected: boolean;
+  revealed: boolean;
+};
+
+type RegionMsg = { type: "REGION"; regionId: RegionId };
+
+function revealedRegionResult(state: RegionState): CellResult | undefined {
+  return state.revealed
+    ? chordResult(state.region.chord, state.promptDegrees, state.answer)
+    : undefined;
+}
+
+class HarmonyRegionView implements View<RegionState, RegionMsg> {
+  container: HTMLElement;
+  private readonly b: Binder<RegionState>;
+
+  constructor(
+    container: HTMLElement,
+    dispatch: (msg: RegionMsg) => void,
+    initial: RegionState,
+  ) {
+    const buttonRef = ref("region");
+    const wrongIconRef = ref("regionWrongIcon");
+    const wrongGuessRef = ref("regionWrongGuess");
+    const textRef = ref("regionText");
+    const correctIconRef = ref("regionCorrectIcon");
+    this.container = container;
+    container.innerHTML = sanitize`
+      <button type="button" data-ref="${buttonRef}"><span class="${resultIconClass}" data-ref="${wrongIconRef}" data-result-icon="incorrect">${xIcon()}</span><span class="${struckClass}" data-ref="${wrongGuessRef}" data-part="guess"></span><span data-ref="${textRef}" data-part="chord"></span><span class="${resultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span></button>
+    `;
+    this.b = new Binder(container, initial);
+    onPress(this.b.ref(buttonRef), () =>
+      dispatch({ type: "REGION", regionId: initial.region.id }),
+    );
+    this.b.bindStyle(buttonRef, (state) =>
+      spanStyle(
+        state.measure,
+        Math.max(state.region.startTicks, state.measure.startTicks),
+        Math.min(state.region.endTicks, state.measure.endTicks) -
+          Math.max(state.region.startTicks, state.measure.startTicks),
+      ),
+    );
+    this.b.bindClass(buttonRef, (state) =>
+      [
+        harmonySegmentClass,
+        state.selected ? selectedClass : "",
+        resultClass(revealedRegionResult(state)),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
+    this.b.bindText(textRef, (state) =>
+      state.revealed
+        ? chordLabel(state.region.chord)
+        : state.answerable
+          ? chordAnswerLabel(state.answer)
+          : chordLabel(state.region.chord),
+    );
+    this.b.bindText(wrongGuessRef, (state) =>
+      revealedRegionResult(state) === "incorrect"
+        ? chordAnswerLabel(state.answer)
+        : "",
+    );
+    this.b.bindVisible(
+      wrongGuessRef,
+      (state) => revealedRegionResult(state) === "incorrect",
+    );
+    this.b.bindVisible(
+      wrongIconRef,
+      (state) => revealedRegionResult(state) === "incorrect",
+    );
+    this.b.bindVisible(
+      correctIconRef,
+      (state) => revealedRegionResult(state) === "correct",
+    );
+    this.b.bindAttr(buttonRef, "data-region-id", (state) => state.region.id);
+    this.b.bindAttr(buttonRef, "data-answerable", (state) =>
+      state.answerable ? "true" : "false",
+    );
+    this.b.bindAttr(buttonRef, "data-selected", (state) =>
+      state.selected ? "true" : undefined,
+    );
+    this.b.bindAttr(buttonRef, "data-result", revealedRegionResult);
+    this.b.bindAttr(
+      buttonRef,
+      "aria-label",
+      (state) => `harmony from tick ${state.region.startTicks}`,
+    );
+  }
+
+  sync(state: RegionState): void {
     this.b.sync(state);
   }
 
@@ -358,10 +606,14 @@ type MeasureState = {
   measure: Measure;
   measureIndex: number;
   cells: { cell: Cell; cellIndex: number }[];
+  stacks: StackState[];
+  regions: HarmonyRegion[];
+  laneCount: number;
+  harmonyAnswerable: boolean;
   trial: IdentifyNotesTrial;
 };
 
-type MeasureMsg = SlotMsg;
+type MeasureMsg = CellMsg | StackMsg | RegionMsg;
 
 class MelodyMeasureView implements View<MeasureState, MeasureMsg> {
   container: HTMLElement;
@@ -372,22 +624,44 @@ class MelodyMeasureView implements View<MeasureState, MeasureMsg> {
     dispatch: (msg: MeasureMsg) => void,
     initial: MeasureState,
   ) {
-    const beatsRef = ref("beats");
+    const stacksRef = ref("stacks");
+    const cellsRef = ref("cells");
+    const harmonyRef = ref("harmony");
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${measureClass}" aria-label="bar ${initial.measureIndex + 1}">
-        <div class="${beatLayoutClass}" data-ref="${beatsRef}"></div>
+        <div class="${stackTrackClass}" data-ref="${stacksRef}" aria-label="simultaneous notes"></div>
+        <div class="${cellTrackClass}" data-ref="${cellsRef}"></div>
+        <div class="${harmonyTrackClass}" data-ref="${harmonyRef}" aria-label="harmony"></div>
       </section>
     `;
     this.b = new Binder(container, initial);
     this.b.bindContainerAttr("data-measure-index", (state) =>
       String(state.measureIndex),
     );
-    this.b.bindList(beatsRef, "div", (state) =>
+    this.b.bindStyle(cellsRef, (state) => ({
+      height: `${state.laneCount * LANE_HEIGHT_PX}px`,
+    }));
+    this.b.bindVisible(
+      harmonyRef,
+      (state) => state.trial.phrase.harmony.length > 0,
+    );
+    this.b.bindList(stacksRef, "div", (state) =>
+      state.stacks.map((stack) =>
+        showKeyed(
+          String(stack.onsetTicks),
+          StackButtonView,
+          stack,
+          {},
+          dispatch,
+        ),
+      ),
+    );
+    this.b.bindList(cellsRef, "div", (state) =>
       state.cells.map(({ cell, cellIndex }) =>
         showKeyed(
           cell.id,
-          BeatSlotView,
+          CellView,
           {
             cell,
             cellIndex,
@@ -400,6 +674,27 @@ class MelodyMeasureView implements View<MeasureState, MeasureMsg> {
             cursor:
               state.trial.onsets[state.trial.cursorOnsetIndex]?.onsetTicks ===
               cell.onsetTicks,
+            revealed: state.trial.phase === "revealed",
+          },
+          {},
+          dispatch,
+        ),
+      ),
+    );
+    this.b.bindList(harmonyRef, "div", (state) =>
+      state.regions.map((region) =>
+        showKeyed(
+          region.id,
+          HarmonyRegionView,
+          {
+            region,
+            measure: state.measure,
+            promptDegrees: state.trial.promptDegrees,
+            answer: state.trial.chordAnswers[region.id],
+            answerable: state.harmonyAnswerable,
+            selected:
+              state.trial.selection?.kind === "chord" &&
+              state.trial.selection.regionId === region.id,
             revealed: state.trial.phase === "revealed",
           },
           {},
@@ -514,16 +809,16 @@ class SituationChoiceView
 }
 
 function vocabularyLabel(): string {
-  return ["?", ...IDENTIFY_NOTE_DEGREES.map(String), "other"].join(" · ");
+  return ["?", ...IDENTIFY_NOTE_DEGREES.map(String), "other", "_"].join(" · ");
 }
 
 type AnswerChoiceState = {
-  answer: CellAnswer;
+  answer: CellAnswer | ChordAnswer;
   label: string;
   selected: boolean;
 };
 
-type AnswerChoiceMsg = { type: "CHOOSE"; answer: CellAnswer };
+type AnswerChoiceMsg = { type: "CHOOSE"; answer: CellAnswer | ChordAnswer };
 
 class AnswerChoiceView implements View<AnswerChoiceState, AnswerChoiceMsg> {
   container: HTMLElement;
@@ -561,16 +856,19 @@ class AnswerChoiceView implements View<AnswerChoiceState, AnswerChoiceMsg> {
   }
 }
 
+/** The palette is a pure function of what is selected. */
 function answerChoices(trial: IdentifyNotesTrial): AnswerChoiceState[] {
-  const selected =
-    trial.selection?.kind === "cell"
-      ? trial.cellAnswers[trial.selection.cellId]
-      : undefined;
+  const selection = trial.selection;
+  if (selection === undefined) return [];
+  const chord = selection.kind === "chord";
+  const selected = chord
+    ? trial.chordAnswers[selection.regionId]
+    : trial.cellAnswers[selection.cellId];
   return [
     { answer: undefined, label: "?", selected: selected === undefined },
     ...trial.promptDegrees.map((degree) => ({
       answer: degree,
-      label: String(degree),
+      label: chord ? diatonicRoman(degree) : String(degree),
       selected: selected === degree,
     })),
     {
@@ -578,6 +876,7 @@ function answerChoices(trial: IdentifyNotesTrial): AnswerChoiceState[] {
       label: "other",
       selected: selected === "other",
     },
+    { answer: "skip" as const, label: "_", selected: selected === "skip" },
   ];
 }
 
@@ -623,7 +922,7 @@ export class IdentifyNotesView
       <section class="${pageClass}">
         <h1 class="${headingClass}">Identify the notes</h1>
         <p class="${instructionClass}" data-ref="${selectorInstructionRef}">Choose the musical situations you want to practice.</p>
-        <p class="${instructionClass}" data-ref="${practiceInstructionRef}">Tap notes in the top row to hear them. Choose each note’s scale degree below; leave notes blank if you’re unsure.</p>
+        <p class="${instructionClass}" data-ref="${practiceInstructionRef}">Tap a note to hear it, or the play button above a stack to hear those notes together. Choose each note’s scale degree below; use “_” for notes you decide to leave out.</p>
         <div class="${selectorClass}" data-ref="${selectorRef}">
           <h2 class="${situationGroupClass}">Melodic</h2>
           <div class="${situationListClass}" data-ref="${melodicSituationsRef}" aria-label="melodic situations"></div>
@@ -833,40 +1132,85 @@ export class IdentifyNotesView
       const trial = state.trial;
       if (!trial) return [];
       const first = trial.firstVisibleMeasureIndex;
+      const harmonyAnswerable = chordAnswerable(trial.phrase);
       return trial.phrase.measures
         .slice(first, first + VISIBLE_MEASURE_COUNT)
         .map((measure, offset) => {
           const measureIndex = first + offset;
+          const inMeasure = (ticks: number) =>
+            ticks >= measure.startTicks && ticks < measure.endTicks;
           const measureCells = trial.cells.flatMap((cell, cellIndex) =>
-            cell.onsetTicks >= measure.startTicks &&
-            cell.onsetTicks < measure.endTicks
-              ? [{ cell, cellIndex }]
-              : [],
+            inMeasure(cell.onsetTicks) ? [{ cell, cellIndex }] : [],
+          );
+          const stacks = trial.onsets.flatMap((onset, onsetIndex) => {
+            if (!inMeasure(onset.onsetTicks)) return [];
+            const sounding = cellsSoundingAt(trial.cells, onset.onsetTicks);
+            return sounding.length > 1
+              ? [
+                  {
+                    onsetIndex,
+                    onsetTicks: onset.onsetTicks,
+                    measure,
+                    soundingCount: sounding.length,
+                  },
+                ]
+              : [];
+          });
+          const regions = trial.phrase.harmony.filter(
+            (region) =>
+              region.startTicks < measure.endTicks &&
+              region.endTicks > measure.startTicks,
           );
           return showKeyed(
             `${trial.phrase.id}:${measureIndex}`,
             MelodyMeasureView,
-            { measure, measureIndex, cells: measureCells, trial },
+            {
+              measure,
+              measureIndex,
+              cells: measureCells,
+              stacks,
+              regions,
+              laneCount: trial.lanes.length,
+              harmonyAnswerable,
+              trial,
+            },
             {},
             (msg) => {
-              dispatch({ type: "PLAY_CELL", cellId: msg.cellId });
-              dispatch({ type: "SELECT_CELL", cellId: msg.cellId });
+              switch (msg.type) {
+                case "CELL":
+                  dispatch({ type: "PLAY_CELL", cellId: msg.cellId });
+                  dispatch({ type: "SELECT_CELL", cellId: msg.cellId });
+                  break;
+                case "ONSET":
+                  dispatch({ type: "PLAY_ONSET", onsetIndex: msg.onsetIndex });
+                  break;
+                case "REGION":
+                  dispatch({ type: "PLAY_REGION", regionId: msg.regionId });
+                  dispatch({ type: "SELECT_REGION", regionId: msg.regionId });
+                  break;
+              }
             },
           );
         });
     });
     this.b.bindList(paletteRef, "span", (state) => {
       const trial = state.trial;
-      if (trial?.phase !== "answering" || trial.selection?.kind !== "cell") {
+      if (trial?.phase !== "answering" || trial.selection === undefined) {
         return [];
       }
+      const kind = trial.selection.kind;
       return answerChoices(trial).map((choice) =>
         showKeyed(
-          choice.answer === undefined ? "unknown" : String(choice.answer),
+          `${kind}:${choice.answer === undefined ? "unknown" : String(choice.answer)}`,
           AnswerChoiceView,
           choice,
           {},
-          (msg) => dispatch({ type: "SET_ANSWER", answer: msg.answer }),
+          (msg) =>
+            dispatch(
+              kind === "chord"
+                ? { type: "SET_CHORD_ANSWER", answer: msg.answer }
+                : { type: "SET_ANSWER", answer: msg.answer },
+            ),
         ),
       );
     });
