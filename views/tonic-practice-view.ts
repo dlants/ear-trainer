@@ -1,17 +1,14 @@
 import type { PlayState } from "../audio/play-controller.ts";
-import { arrowDownIcon, arrowUpIcon } from "../icons.ts";
+import { arrowDownIcon, arrowUpIcon, checkIcon, xIcon } from "../icons.ts";
 import type { Measure, TimedEvent } from "../music/melody.ts";
 import { voice } from "../music/melody.ts";
 import type { Degree } from "../music/note.ts";
-import {
-  promptDegreesForSituations,
-  SITUATIONS,
-  type SituationDefinition,
-} from "../music/situations.ts";
+import { SITUATIONS, type SituationDefinition } from "../music/situations.ts";
 import {
   Binder,
   cls,
   mountStyle,
+  onActivate,
   onPress,
   ref,
   sanitize,
@@ -21,12 +18,12 @@ import {
 } from "../vamp.ts";
 import { PlayButtonView } from "./play-button.ts";
 import {
+  IDENTIFY_NOTE_DEGREES,
   type IdentifyNotesCtx,
   type IdentifyNotesMsg,
   type IdentifyNotesState,
   type IdentifyNotesTrial,
   type MelodySlotAnswer,
-  selectIdentifyNotesPhrase,
   VISIBLE_MEASURE_COUNT,
 } from "./tonic-practice.ts";
 
@@ -83,7 +80,8 @@ function playbackFor(
 function melodyPlayback(ctx: Pick<IdentifyNotesCtx, "play">): PlayState {
   const playback = ctx.play.getState();
   return playback.status === "playing" &&
-    playback.buttonId.startsWith("tonic:melody")
+    (playback.buttonId === "tonic:melody" ||
+      playback.buttonId === "tonic:melody-restart")
     ? playback
     : { status: "idle" };
 }
@@ -97,25 +95,27 @@ const actionRowClass = cls("tonic-action-row");
 const primaryClass = cls("tonic-primary");
 const viewportClass = cls("tonic-viewport");
 const viewportControlsClass = cls("tonic-viewport-controls");
+const sourceClass = cls("tonic-source");
 const measureClass = cls("tonic-measure");
-const measureRowsClass = cls("tonic-measure-rows");
-const measureGridClass = cls("tonic-measure-grid");
-const slotClass = cls("tonic-slot");
-const guessSlotClass = cls("tonic-guess-slot");
+const beatLayoutClass = cls("tonic-beat-layout");
+const beatCellClass = cls("tonic-beat-cell");
+const toneButtonClass = cls("tonic-tone-button");
+const guessLabelClass = cls("tonic-guess-label");
+const guessResultIconClass = cls("tonic-guess-result-icon");
 const cursorClass = cls("tonic-slot-cursor");
 const selectedClass = cls("tonic-slot-selected");
 const correctClass = cls("tonic-slot-correct");
 const incorrectClass = cls("tonic-slot-incorrect");
 const paletteClass = cls("tonic-palette");
 const emptyClass = cls("tonic-empty");
+const activityClass = cls("tonic-activity");
 const selectorClass = cls("identify-selector");
 const situationListClass = cls("identify-situation-list");
+const situationGroupClass = cls("identify-situation-group");
 const situationButtonClass = cls("identify-situation-button");
 const situationLabelClass = cls("identify-situation-label");
 const situationDescriptionClass = cls("identify-situation-description");
 const vocabularyClass = cls("identify-vocabulary");
-const selectorStatusClass = cls("identify-selector-status");
-
 mountStyle(`
 .${pageClass} {
   display: flex;
@@ -130,18 +130,20 @@ mountStyle(`
 .${pageClass} .${supportClass},
 .${pageClass} .${playRowClass},
 .${pageClass} .${actionRowClass} { display: flex; gap: 10px; }
-.${pageClass} .${supportClass} { justify-content: center; }
-.${pageClass} .${playRowClass} > *, .${pageClass} .${actionRowClass} > * { flex: 1; display: flex; }
-.${pageClass} .${actionRowClass} button {
-  flex: 1;
-  min-height: 52px;
-  border-radius: var(--radius-control);
-  font-weight: 700;
-}
+.${pageClass} .${supportClass} { justify-content: center; gap: 6px; }
+.${pageClass} .${supportClass} > * { min-width: 0; display: flex; }
+.${pageClass} .${supportClass} button { min-width: 0; padding-inline: 10px; font-size: 15px; white-space: nowrap; }
+.${pageClass} .${playRowClass} > * { flex: 1; display: flex; }
+.${pageClass} .${actionRowClass} { justify-content: flex-end; }
+.${pageClass} .${actionRowClass} > * { display: contents; }
+.${pageClass} .${actionRowClass} button { flex: 0 1 auto; width: auto; min-width: calc(50% - 5px); }
 .${pageClass} .${primaryClass} {
-  border: 2px solid var(--color-brand-border);
-  background: var(--color-brand-surface);
-  color: var(--color-brand);
+  flex: 1;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  font-size: 19px;
+  font-weight: 700;
 }
 .${pageClass} .${emptyClass} { color: var(--color-text-muted); text-align: center; padding: 40px 12px; }
 .${pageClass} .${selectorClass} { display: grid; gap: 16px; }
@@ -155,50 +157,67 @@ mountStyle(`
   text-align: left;
 }
 .${pageClass} .${situationButtonClass}.${selectedClass} {
-  border: 2px solid var(--color-brand-border);
-  background: var(--color-brand-surface);
-  color: var(--color-brand);
+  border: 2px solid var(--color-selected-border);
+  background: var(--color-selected-surface);
+  color: var(--color-text);
+}
+.${pageClass} .${situationGroupClass} {
+  margin: 0;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
 }
 .${pageClass} .${situationLabelClass} { font-weight: 750; }
 .${pageClass} .${situationDescriptionClass} { color: var(--color-text-muted); line-height: 1.35; }
 .${pageClass} .${vocabularyClass} { margin: 0; line-height: 1.4; }
-.${pageClass} .${selectorStatusClass} { margin: 0; color: var(--color-text-muted); text-align: center; }
+.${pageClass} .${sourceClass} { margin: 0; text-align: center; color: var(--color-text-muted); font-weight: 700; }
+.${pageClass} .${activityClass} { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.${pageClass} .${activityClass} .${viewportClass} { margin-top: 8px; }
+.${pageClass} .${activityClass} .${actionRowClass} { margin-top: auto; }
 .${pageClass} .${viewportClass} { display: grid; gap: 8px; }
 .${pageClass} .${measureClass} { display: block; }
-.${pageClass} .${measureRowsClass} { display: grid; gap: 0; }
-.${pageClass} .${measureGridClass} {
+.${pageClass} .${beatLayoutClass} {
   position: relative;
-  height: 38px;
+  height: 76px;
   overflow: hidden;
 }
-.${pageClass} .${slotClass} {
+.${pageClass} .${beatCellClass} {
   position: absolute;
   top: 2px;
-  height: 34px;
+  height: 72px;
   min-width: 30px;
-  padding: 0 4px;
   box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 34px 34px;
+  gap: 4px;
+  align-items: stretch;
+}
+.${pageClass} .${toneButtonClass} {
+  min-width: 0;
+  padding: 0 4px;
   border-radius: var(--radius-control);
   font-weight: 750;
   overflow: hidden;
   white-space: nowrap;
 }
-.${pageClass} .${guessSlotClass} {
+.${pageClass} .${guessLabelClass} {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 4px;
+  box-sizing: border-box;
+  font-weight: 750;
+  overflow: hidden;
+  white-space: nowrap;
 }
-.${pageClass} .${guessSlotClass}:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-.${pageClass} .${cursorClass} { outline: 3px solid var(--color-unsure-border); outline-offset: 1px; }
-.${pageClass} .${selectedClass} { border: 2px solid var(--color-brand-border); background: var(--color-brand-surface); color: var(--color-brand); }
-.${pageClass} .${correctClass} { border: 2px solid var(--color-correct-border); background: var(--color-correct-surface); color: var(--color-correct); }
-.${pageClass} .${incorrectClass} { border: 2px solid var(--color-incorrect-border); background: var(--color-incorrect-surface); color: var(--color-incorrect); }
+.${pageClass} .${guessResultIconClass} { display: inline-flex; flex: 0 0 auto; font-size: 0.9em; }
+.${pageClass} .${cursorClass} { outline: 3px solid var(--color-unsure-border); outline-offset: -3px; }
+.${pageClass} .${selectedClass} { border: 2px solid var(--color-selected-border); background: var(--color-selected-surface); color: var(--color-text); }
+.${pageClass} .${correctClass} { color: var(--color-correct); }
+.${pageClass} .${incorrectClass} { color: var(--color-incorrect); }
 .${pageClass} .${paletteClass} { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; min-height: 46px; }
 .${pageClass} .${paletteClass} button { min-width: 72px; padding: 10px 12px; border-radius: var(--radius-control); font-weight: 700; }
 .${pageClass} .${viewportControlsClass} { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
@@ -209,7 +228,6 @@ mountStyle(`
   .${pageClass} { padding-inline: 10px; }
   .${pageClass} .${paletteClass} { gap: 6px; }
   .${pageClass} .${paletteClass} button { min-width: 54px; padding-inline: 8px; }
-  .${pageClass} .${actionRowClass} { flex-direction: column; }
 }
 `);
 
@@ -237,15 +255,21 @@ function slotStyle(state: SlotState): Record<string, string> {
   };
 }
 
-function resultClass(state: SlotState): string {
-  if (!state.revealed) return "";
-  return slotResult(state.event, state.promptDegrees, state.answer) ===
-    "correct"
-    ? correctClass
-    : incorrectClass;
+function revealedResult(state: SlotState): SlotResult | undefined {
+  if (!state.revealed || state.answer === undefined) return undefined;
+  return slotResult(state.event, state.promptDegrees, state.answer);
 }
 
-class ToneSlotView implements View<SlotState, SlotMsg> {
+function resultClass(state: SlotState): string {
+  const result = revealedResult(state);
+  return result === "correct"
+    ? correctClass
+    : result === "incorrect"
+      ? incorrectClass
+      : "";
+}
+
+class BeatSlotView implements View<SlotState, SlotMsg> {
   container: HTMLElement;
   private readonly b: Binder<SlotState>;
 
@@ -254,32 +278,63 @@ class ToneSlotView implements View<SlotState, SlotMsg> {
     dispatch: (msg: SlotMsg) => void,
     initial: SlotState,
   ) {
+    const cellRef = ref("beatCell");
     const buttonRef = ref("toneSlot");
-    const textRef = ref("toneText");
+    const toneTextRef = ref("toneText");
+    const guessRef = ref("guess");
+    const guessTextRef = ref("guessText");
+    const correctIconRef = ref("correctIcon");
+    const incorrectIconRef = ref("incorrectIcon");
     this.container = container;
-    container.innerHTML = sanitize`<button type="button" data-ref="${buttonRef}"><span data-ref="${textRef}"></span></button>`;
+    container.innerHTML = sanitize`
+      <div data-ref="${cellRef}">
+        <button type="button" data-ref="${buttonRef}"><span data-ref="${toneTextRef}"></span></button>
+        <span data-ref="${guessRef}"><span data-ref="${guessTextRef}"></span><span class="${guessResultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span><span class="${guessResultIconClass}" data-ref="${incorrectIconRef}" data-result-icon="incorrect">${xIcon()}</span></span>
+      </div>
+    `;
     this.b = new Binder(container, initial);
     onPress(this.b.ref(buttonRef), () =>
       dispatch({ type: "ACTIVATE", eventIndex: initial.eventIndex }),
     );
-    this.b.bindStyle(buttonRef, slotStyle);
+    this.b.bindStyle(cellRef, slotStyle);
+    this.b.bindClass(cellRef, () => beatCellClass);
     this.b.bindClass(buttonRef, (state) =>
-      [slotClass, state.cursor ? cursorClass : "", resultClass(state)]
+      [
+        toneButtonClass,
+        state.cursor ? cursorClass : "",
+        state.selected ? selectedClass : "",
+      ]
         .filter(Boolean)
         .join(" "),
     );
-    this.b.bindText(textRef, (state) =>
+    this.b.bindClass(guessRef, (state) =>
+      [guessLabelClass, resultClass(state)].filter(Boolean).join(" "),
+    );
+    this.b.bindText(toneTextRef, (state) =>
       state.revealed ? noteLabel(state.event) : "?",
+    );
+    this.b.bindText(guessTextRef, (state) => guessLabel(state.answer));
+    this.b.bindVisible(
+      correctIconRef,
+      (state) => revealedResult(state) === "correct",
+    );
+    this.b.bindVisible(
+      incorrectIconRef,
+      (state) => revealedResult(state) === "incorrect",
     );
     this.b.bindAttr(buttonRef, "data-event-index", (state) =>
       String(state.eventIndex),
     );
     this.b.bindAttr(buttonRef, "data-row", () => "tone");
-    this.b.bindAttr(buttonRef, "data-result", (state) =>
-      state.revealed
-        ? slotResult(state.event, state.promptDegrees, state.answer)
-        : undefined,
+    this.b.bindAttr(guessRef, "data-event-index", (state) =>
+      String(state.eventIndex),
     );
+    this.b.bindAttr(guessRef, "data-row", () => "guess");
+    this.b.bindAttr(cellRef, "data-beat", (state) => String(state.eventIndex));
+    this.b.bindAttr(cellRef, "data-selected", (state) =>
+      state.selected ? "true" : undefined,
+    );
+    this.b.bindAttr(guessRef, "data-result", (state) => revealedResult(state));
     this.b.bindAttr(buttonRef, "aria-current", (state) =>
       state.cursor ? "true" : undefined,
     );
@@ -288,71 +343,6 @@ class ToneSlotView implements View<SlotState, SlotMsg> {
         ? `melody note ${state.eventIndex + 1}: ${noteLabel(state.event)}`
         : `masked melody note ${state.eventIndex + 1}`,
     );
-  }
-
-  sync(state: SlotState): void {
-    this.b.sync(state);
-  }
-
-  destroy(): void {
-    this.b.cleanup();
-    this.container.innerHTML = "";
-  }
-}
-
-class GuessSlotView implements View<SlotState, SlotMsg> {
-  container: HTMLElement;
-  private readonly b: Binder<SlotState>;
-
-  constructor(
-    container: HTMLElement,
-    dispatch: (msg: SlotMsg) => void,
-    initial: SlotState,
-  ) {
-    const slotRef = ref("guessSlot");
-    const textRef = ref("guessText");
-    this.container = container;
-    container.innerHTML = sanitize`<span role="button" tabindex="0" data-ref="${slotRef}"><span data-ref="${textRef}"></span></span>`;
-    this.b = new Binder(container, initial);
-    const slot = this.b.ref(slotRef);
-    const activate = () =>
-      dispatch({ type: "ACTIVATE", eventIndex: initial.eventIndex });
-    onPress(slot, activate);
-    slot.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      activate();
-    });
-    this.b.bindStyle(slotRef, slotStyle);
-    this.b.bindClass(slotRef, (state) =>
-      [
-        slotClass,
-        guessSlotClass,
-        state.selected ? selectedClass : "",
-        resultClass(state),
-      ]
-        .filter(Boolean)
-        .join(" "),
-    );
-    this.b.bindText(textRef, (state) => guessLabel(state.answer));
-    this.b.bindAttr(slotRef, "data-event-index", (state) =>
-      String(state.eventIndex),
-    );
-    this.b.bindAttr(slotRef, "data-row", () => "guess");
-    this.b.bindAttr(slotRef, "data-result", (state) =>
-      state.revealed
-        ? slotResult(state.event, state.promptDegrees, state.answer)
-        : undefined,
-    );
-    this.b.bindAttr(slotRef, "aria-pressed", (state) =>
-      String(state.answer !== undefined && state.answer !== "other"),
-    );
-    this.b.bindAttr(slotRef, "aria-label", (state) => {
-      const label = guessLabel(state.answer);
-      return label
-        ? `guess for melody note ${state.eventIndex + 1}: ${label}`
-        : `choose a guess for melody note ${state.eventIndex + 1}`;
-    });
   }
 
   sync(state: SlotState): void {
@@ -383,52 +373,32 @@ class MelodyMeasureView implements View<MeasureState, MeasureMsg> {
     dispatch: (msg: MeasureMsg) => void,
     initial: MeasureState,
   ) {
-    const toneSlotsRef = ref("toneSlots");
-    const guessSlotsRef = ref("guessSlots");
+    const beatsRef = ref("beats");
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${measureClass}" aria-label="bar ${initial.measureIndex + 1}">
-        <div class="${measureRowsClass}">
-          <div class="${measureGridClass}" data-row="tone"><div data-ref="${toneSlotsRef}"></div></div>
-          <div class="${measureGridClass}" data-row="guess"><div data-ref="${guessSlotsRef}"></div></div>
-        </div>
+        <div class="${beatLayoutClass}" data-ref="${beatsRef}"></div>
       </section>
     `;
     this.b = new Binder(container, initial);
     this.b.bindContainerAttr("data-measure-index", (state) =>
       String(state.measureIndex),
     );
-    const slotState = (
-      state: MeasureState,
-      event: TimedEvent,
-      eventIndex: number,
-    ): SlotState => ({
-      event,
-      eventIndex,
-      measure: state.measure,
-      promptDegrees: state.trial.promptDegrees,
-      answer: state.trial.answers[eventIndex],
-      selected: state.trial.selectedSlotIndex === eventIndex,
-      cursor: state.trial.cursorEventIndex === eventIndex,
-      revealed: state.trial.phase === "revealed",
-    });
-    this.b.bindList(toneSlotsRef, "span", (state) =>
+    this.b.bindList(beatsRef, "div", (state) =>
       state.events.map(({ event, eventIndex }) =>
         showKeyed(
           String(eventIndex),
-          ToneSlotView,
-          slotState(state, event, eventIndex),
-          {},
-          dispatch,
-        ),
-      ),
-    );
-    this.b.bindList(guessSlotsRef, "span", (state) =>
-      state.events.map(({ event, eventIndex }) =>
-        showKeyed(
-          String(eventIndex),
-          GuessSlotView,
-          slotState(state, event, eventIndex),
+          BeatSlotView,
+          {
+            event,
+            eventIndex,
+            measure: state.measure,
+            promptDegrees: state.trial.promptDegrees,
+            answer: state.trial.answers[eventIndex],
+            selected: state.trial.selectedSlotIndex === eventIndex,
+            cursor: state.trial.cursorEventIndex === eventIndex,
+            revealed: state.trial.phase === "revealed",
+          },
           {},
           dispatch,
         ),
@@ -540,23 +510,8 @@ class SituationChoiceView
   }
 }
 
-function hasEligibleSelection(
-  state: IdentifyNotesState,
-  ctx: Pick<IdentifyNotesCtx, "melodies">,
-): boolean {
-  return (
-    selectIdentifyNotesPhrase(
-      ctx.melodies,
-      state.selectedSituationIds,
-      undefined,
-      () => 0,
-    ) !== undefined
-  );
-}
-
-function vocabularyLabel(state: IdentifyNotesState): string {
-  const degrees = promptDegreesForSituations(state.selectedSituationIds);
-  return ["?", ...degrees.map(String), "other"].join(" · ");
+function vocabularyLabel(): string {
+  return ["?", ...IDENTIFY_NOTE_DEGREES.map(String), "other"].join(" · ");
 }
 
 type AnswerChoiceState = {
@@ -638,13 +593,15 @@ export class IdentifyNotesView
     const selectorRef = ref("selector");
     const selectorInstructionRef = ref("selectorInstruction");
     const practiceInstructionRef = ref("practiceInstruction");
-    const situationsRef = ref("situations");
+    const melodicSituationsRef = ref("melodicSituations");
+    const harmonySituationsRef = ref("harmonySituations");
     const vocabularyRef = ref("vocabulary");
-    const selectorStatusRef = ref("selectorStatus");
     const beginRef = ref("begin");
     const emptyRef = ref("empty");
     const activityRef = ref("activity");
+    const sourceRef = ref("source");
     const contextRef = ref("context");
+    const changeKeyRef = ref("changeKey");
     const droneRef = ref("drone");
     const playPauseRef = ref("playPause");
     const restartRef = ref("restart");
@@ -662,24 +619,29 @@ export class IdentifyNotesView
       <section class="${pageClass}">
         <h1 class="${headingClass}">Identify the notes</h1>
         <p class="${instructionClass}" data-ref="${selectorInstructionRef}">Choose the musical situations you want to practice.</p>
-        <p class="${instructionClass}" data-ref="${practiceInstructionRef}">Tap notes in the top row to hear them. Choose each note’s scale degree below; unmarked notes count as other.</p>
+        <p class="${instructionClass}" data-ref="${practiceInstructionRef}">Tap notes in the top row to hear them. Choose each note’s scale degree below; leave notes blank if you’re unsure.</p>
         <div class="${selectorClass}" data-ref="${selectorRef}">
-          <div class="${situationListClass}" data-ref="${situationsRef}" aria-label="musical situations"></div>
+          <h2 class="${situationGroupClass}">Melodic</h2>
+          <div class="${situationListClass}" data-ref="${melodicSituationsRef}" aria-label="melodic situations"></div>
+          <h2 class="${situationGroupClass}">Harmony</h2>
+          <div class="${situationListClass}" data-ref="${harmonySituationsRef}" aria-label="harmony situations"></div>
           <p class="${vocabularyClass}"><strong>Answer choices:</strong> <span data-ref="${vocabularyRef}"></span></p>
-          <p class="${selectorStatusClass}" data-ref="${selectorStatusRef}"></p>
           <div class="${actionRowClass}">
-            <button type="button" class="${primaryClass}" data-ref="${beginRef}">start</button>
+            <button type="button" class="${primaryClass}" data-ref="${beginRef}">back to practice</button>
           </div>
         </div>
         <p class="${emptyClass}" data-ref="${emptyRef}">No eligible melody fragments are available.</p>
-        <div data-ref="${activityRef}">
+        <div class="${activityClass}" data-ref="${activityRef}">
           <div class="${supportClass}">
             <div data-ref="${contextRef}"></div>
+            <div data-ref="${changeKeyRef}"></div>
             <div data-ref="${droneRef}"></div>
+            <div data-ref="${changeSituationsRef}"></div>
           </div>
+          <p class="${sourceClass}" data-ref="${sourceRef}"></p>
           <div class="${playRowClass}">
-            <div data-ref="${playPauseRef}"></div>
             <div data-ref="${restartRef}"></div>
+            <div data-ref="${playPauseRef}"></div>
           </div>
           <div class="${viewportClass}" data-ref="${measuresRef}"></div>
           <div class="${viewportControlsClass}">
@@ -689,56 +651,46 @@ export class IdentifyNotesView
           </div>
           <div class="${paletteClass}" data-ref="${paletteRef}" aria-label="answer choices"></div>
           <div class="${actionRowClass}">
-            <button type="button" data-ref="${changeSituationsRef}">change situations</button>
-            <button type="button" class="${primaryClass}" data-ref="${revealRef}">reveal answers</button>
-            <button type="button" class="${primaryClass}" data-ref="${nextRef}">next melody</button>
+            <div data-ref="${revealRef}"></div>
+            <div data-ref="${nextRef}"></div>
           </div>
         </div>
       </section>
     `;
     this.b = new Binder(container, initial);
-    onPress(this.b.ref(beginRef), () => dispatch({ type: "BEGIN" }));
-    onPress(this.b.ref(changeSituationsRef), () =>
-      dispatch({ type: "CHANGE_SITUATIONS" }),
-    );
+    onActivate(this.b.ref(beginRef), () => dispatch({ type: "BEGIN" }));
     onPress(this.b.ref(previousRef), () =>
       dispatch({ type: "SCROLL", delta: -1 }),
     );
     onPress(this.b.ref(nextBarsRef), () =>
       dispatch({ type: "SCROLL", delta: 1 }),
     );
-    onPress(this.b.ref(revealRef), () => dispatch({ type: "REVEAL" }));
-    onPress(this.b.ref(nextRef), () => dispatch({ type: "NEXT" }));
 
-    this.b.bindList(situationsRef, "div", (state) =>
-      SITUATIONS.map((situation) =>
-        showKeyed(
-          situation.id,
-          SituationChoiceView,
-          {
-            situation,
-            selected: state.selectedSituationIds.includes(situation.id),
-          },
-          {},
-          (msg) =>
-            dispatch({
-              type: "TOGGLE_SITUATION",
-              situationId: msg.situationId,
-            }),
+    for (const [listRef, group] of [
+      [melodicSituationsRef, "melodic"],
+      [harmonySituationsRef, "harmony"],
+    ] as const) {
+      this.b.bindList(listRef, "div", (state) =>
+        SITUATIONS.filter((situation) => situation.group === group).map(
+          (situation) =>
+            showKeyed(
+              situation.id,
+              SituationChoiceView,
+              {
+                situation,
+                selected: state.selectedSituationIds.includes(situation.id),
+              },
+              {},
+              (msg) =>
+                dispatch({
+                  type: "TOGGLE_SITUATION",
+                  situationId: msg.situationId,
+                }),
+            ),
         ),
-      ),
-    );
+      );
+    }
     this.b.bindText(vocabularyRef, vocabularyLabel);
-    this.b.bindText(selectorStatusRef, (state) =>
-      state.selectedSituationIds.length === 0
-        ? "Select at least one situation to start."
-        : "No eligible melody fragments match this selection.",
-    );
-    this.b.bindVisible(
-      selectorStatusRef,
-      (state) => !hasEligibleSelection(state, ctx),
-    );
-    this.b.bindDisabled(beginRef, (state) => !hasEligibleSelection(state, ctx));
     this.b.bindVisible(selectorRef, (state) => state.screen === "situations");
     this.b.bindVisible(
       selectorInstructionRef,
@@ -756,6 +708,49 @@ export class IdentifyNotesView
       activityRef,
       (state) => state.screen === "practice" && state.trial !== undefined,
     );
+    this.b.bindSlot(changeKeyRef, (state) =>
+      show(
+        PlayButtonView,
+        {
+          id: "identify:change-key",
+          label: "change key",
+          ariaLabel: "change key",
+          icon: "shuffle",
+          variant: "compact",
+          visible: true,
+          disabled: state.trial === undefined,
+          playing: false,
+          durationMs: undefined,
+          animated: false,
+        },
+        {},
+        () => dispatch({ type: "CHANGE_KEY" }),
+      ),
+    );
+    this.b.bindSlot(changeSituationsRef, (state) =>
+      show(
+        PlayButtonView,
+        {
+          id: "identify:situations",
+          label: `situations (${state.selectedSituationIds.length})`,
+          ariaLabel: "change practiced situations",
+          icon: "gear",
+          variant: "compact",
+          visible: true,
+          playing: false,
+          durationMs: undefined,
+          animated: false,
+        },
+        {},
+        () => dispatch({ type: "CHANGE_SITUATIONS" }),
+      ),
+    );
+    this.b.bindText(sourceRef, (state) => {
+      const melody = ctx.melodies.find(
+        (candidate) => candidate.id === state.trial?.phrase.melodyId,
+      );
+      return melody ? `from ${melody.title}` : "";
+    });
     this.b.bindSlot(contextRef, (state) =>
       show(
         PlayButtonView,
@@ -911,11 +906,42 @@ export class IdentifyNotesView
       (state) =>
         (state.trial?.phrase.measures.length ?? 0) > VISIBLE_MEASURE_COUNT,
     );
-    this.b.bindVisible(
-      revealRef,
-      (state) => state.trial?.phase === "answering",
+    this.b.bindSlot(revealRef, (state) =>
+      show(
+        PlayButtonView,
+        {
+          id: "identify:reveal",
+          label: "reveal answers",
+          ariaLabel: "reveal answers",
+          icon: "eye",
+          variant: "trial",
+          visible: state.trial?.phase === "answering",
+          playing: false,
+          durationMs: undefined,
+          animated: false,
+        },
+        {},
+        () => dispatch({ type: "REVEAL" }),
+      ),
     );
-    this.b.bindVisible(nextRef, (state) => state.trial?.phase === "revealed");
+    this.b.bindSlot(nextRef, (state) =>
+      show(
+        PlayButtonView,
+        {
+          id: "identify:next",
+          label: "next melody",
+          ariaLabel: "next melody",
+          icon: "next",
+          variant: "trial",
+          visible: state.trial?.phase === "revealed",
+          playing: false,
+          durationMs: undefined,
+          animated: false,
+        },
+        {},
+        () => dispatch({ type: "NEXT" }),
+      ),
+    );
   }
 
   sync(state: IdentifyNotesState): void {

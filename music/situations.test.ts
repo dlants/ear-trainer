@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { Phrase, TimedEvent } from "./melody.ts";
+import { cells, type Phrase, type TimedEvent, type Voice } from "./melody.ts";
 import type { Degree, Note } from "./note.ts";
 import {
   findSituationOccurrences,
@@ -43,15 +43,67 @@ function phrase(events: readonly (Note | Note[])[]): Phrase {
   };
 }
 
+function voicedPhrase(voices: Voice[], durationTicks: number): Phrase {
+  return {
+    id: "fixture:phrase-1",
+    melodyId: "fixture",
+    phraseIndex: 0,
+    noteIdentification: "independent",
+    rationale: "Test fixture.",
+    context: "major-cadence",
+    tempoBpm: 96,
+    durationTicks,
+    voices,
+    measures: [
+      {
+        startTicks: 0,
+        endTicks: durationTicks,
+        beatDurationsTicks: [durationTicks],
+      },
+    ],
+  };
+}
+
+function occurrences(
+  phraseFixture: Phrase,
+  situationId: SituationId,
+): string[][] {
+  return findSituationOccurrences(
+    phraseFixture,
+    cells(phraseFixture),
+    situationId,
+  ).map((found) => [...found.cellIds]);
+}
+
+/** Cell ids reported as the slot index they attack on, for single-lane fixtures. */
 function indexes(phraseFixture: Phrase, situationId: SituationId): number[][] {
-  return findSituationOccurrences(phraseFixture, situationId).map((found) => [
-    ...found.eventIndexes,
-  ]);
+  return occurrences(phraseFixture, situationId).map((cellIds) =>
+    cellIds.map((cellId) => Number(cellId.split(":")[0]) / 24),
+  );
 }
 
 test.describe("musical situations", () => {
   test("checks in the complete catalog and degree sets", () => {
-    expect(SITUATIONS.map(({ id, degrees }) => [id, degrees])).toEqual([
+    expect(SITUATIONS.every((situation) => situation.kind === "cells")).toBe(
+      true,
+    );
+    expect(
+      SITUATIONS.filter((situation) => situation.group === "harmony").map(
+        (situation) => situation.id,
+      ),
+    ).toEqual([
+      "harmonic-third",
+      "harmonic-fifth",
+      "harmonic-octave",
+      "triad-together",
+      "arpeggiated-triad",
+      "pedal-tone",
+    ]);
+    expect(
+      SITUATIONS.filter((situation) => situation.group === "melodic").map(
+        ({ id, degrees }) => [id, degrees],
+      ),
+    ).toEqual([
       ["tonic", [1]],
       ["dominant-adjacent-tonic", [1, 5]],
       ["third-adjacent-tonic", [1, 3]],
@@ -64,6 +116,8 @@ test.describe("musical situations", () => {
       ["stepwise-1", [1, 2, 7]],
       ["stepwise-3", [2, 3, 4]],
       ["stepwise-5", [4, 5, 6]],
+      ["ascending-run", [1, 2, 3, 4, 5, 6, 7]],
+      ["descending-run", [1, 2, 3, 4, 5, 6, 7]],
     ]);
   });
 
@@ -158,11 +212,95 @@ test.describe("musical situations", () => {
   test("invalid notes break pair candidates and tonic occurrences", () => {
     expect(
       indexes(
-        phrase([note(1), note(5, 0, 1), note(1), [note(5), note(3)]]),
+        phrase([note(1), note(5, 0, 1), note(3)]),
         "dominant-adjacent-tonic",
       ),
     ).toEqual([]);
     expect(indexes(phrase([note(1, 0, -1)]), "tonic")).toEqual([]);
+  });
+
+  test("reads melodic situations off the top cell of a harmonized phrase", () => {
+    const harmonized = voicedPhrase(
+      [
+        {
+          id: "melody",
+          events: [
+            { notes: [note(1)], onsetTicks: 0, durationTicks: 24 },
+            { notes: [note(5)], onsetTicks: 24, durationTicks: 24 },
+          ],
+        },
+        {
+          id: "harmony",
+          events: [
+            { notes: [note(3, -1)], onsetTicks: 0, durationTicks: 24 },
+            { notes: [note(1, -1)], onsetTicks: 24, durationTicks: 24 },
+          ],
+        },
+      ],
+      48,
+    );
+    expect(indexes(harmonized, "dominant-adjacent-tonic")).toEqual([[0, 1]]);
+    expect(occurrences(harmonized, "dominant-adjacent-tonic")).toEqual([
+      ["0:0", "24:0"],
+    ]);
+  });
+
+  test("hears harmonic intervals only when the notes overlap in time", () => {
+    expect(
+      occurrences(phrase([[note(1), note(5)]]), "harmonic-fifth"),
+    ).toHaveLength(1);
+    expect(
+      occurrences(phrase([note(1), note(5)]), "harmonic-fifth"),
+    ).toHaveLength(0);
+  });
+
+  test("hears an interval between a held tone and a note arpeggiated over it", () => {
+    const sustained = voicedPhrase(
+      [
+        {
+          id: "melody",
+          events: [note(3), note(5), note(7), note(1, 1)].map(
+            (single, index) => ({
+              notes: [single],
+              onsetTicks: index * 24,
+              durationTicks: 24,
+            }),
+          ),
+        },
+        {
+          id: "bass",
+          events: [{ notes: [note(1)], onsetTicks: 0, durationTicks: 96 }],
+        },
+      ],
+      96,
+    );
+    expect(occurrences(sustained, "harmonic-fifth")).toEqual([["24:0", "0:1"]]);
+    expect(occurrences(sustained, "harmonic-third")).toHaveLength(1);
+    expect(occurrences(sustained, "harmonic-octave")).toHaveLength(1);
+    expect(occurrences(sustained, "pedal-tone")).toEqual([
+      ["0:1", "24:0", "48:0", "72:0"],
+    ]);
+  });
+
+  test("separates a blocked triad from an arpeggiated one", () => {
+    const block = phrase([[note(1), note(3), note(5, -1)], note(1)]);
+    expect(occurrences(block, "triad-together")).toHaveLength(1);
+    expect(occurrences(block, "arpeggiated-triad")).toHaveLength(0);
+
+    const arpeggio = phrase([note(1), note(3), note(5)]);
+    expect(indexes(arpeggio, "arpeggiated-triad")).toEqual([[0, 1, 2]]);
+    expect(occurrences(arpeggio, "triad-together")).toHaveLength(0);
+  });
+
+  test("finds maximal stepwise runs in each direction", () => {
+    const rising = phrase([note(1), note(2), note(3), note(4), note(1)]);
+    expect(indexes(rising, "ascending-run")).toEqual([[0, 1, 2, 3]]);
+    expect(indexes(rising, "descending-run")).toEqual([]);
+    const falling = phrase([note(5), note(4), note(3)]);
+    expect(indexes(falling, "descending-run")).toEqual([[0, 1, 2]]);
+    expect(
+      indexes(phrase([note(1), note(2), note(1)]), "ascending-run"),
+    ).toEqual([]);
   });
 
   test("derives a sorted unique prompt vocabulary independent of toggle order", () => {

@@ -86,7 +86,9 @@ test.describe("timed melody corpus", () => {
 
         const melodyVoice = voice(phrase, "melody");
         expect(phrase.measures.length, phrase.id).toBeGreaterThanOrEqual(2);
+        expect(phrase.measures.length, phrase.id).toBeLessThanOrEqual(3);
         expect(melodyVoice?.events.length, phrase.id).toBeGreaterThanOrEqual(4);
+        expect(melodyVoice?.events.length, phrase.id).toBeLessThanOrEqual(8);
         expect(
           tonicEventIndexes(phrase, "melody").length,
           phrase.id,
@@ -102,7 +104,11 @@ test.describe("timed melody corpus", () => {
         phrase.measures.length >= 2,
     );
 
-    for (const situation of SITUATIONS) {
+    // Harmony situations need multi-voice entries, which arrive with the
+    // corpus stage of the simultaneous-notes plan.
+    for (const situation of SITUATIONS.filter(
+      (candidate) => candidate.group === "melodic",
+    )) {
       const matchingPhraseIds = eligiblePhrases
         .filter((phrase) => phraseMatchesSituation(phrase, situation.id))
         .map((phrase) => phrase.id);
@@ -123,11 +129,18 @@ test.describe("timed melody corpus", () => {
       { startTicks: 288, endTicks: 384, beatDurationsTicks: [24, 24, 24, 24] },
     ]);
     expect(twinkle.phrases.map(({ measures }) => measures.length)).toEqual([
-      4, 4, 4,
+      2, 2, 2, 2, 2, 2,
     ]);
     expect(
       twinkle.phrases.map(({ noteIdentification }) => noteIdentification),
-    ).toEqual(["independent", "context-required", "independent"]);
+    ).toEqual([
+      "independent",
+      "independent",
+      "context-required",
+      "context-required",
+      "independent",
+      "independent",
+    ]);
   });
 
   test("pins pickup and triple-meter measure lengths for Happy Birthday", () => {
@@ -141,7 +154,7 @@ test.describe("timed melody corpus", () => {
     expect(happyBirthday.measures[1]?.beatDurationsTicks).toEqual([24, 24, 24]);
     expect(
       happyBirthday.phrases.map(({ measures }) => measures.length),
-    ).toEqual([5, 5]);
+    ).toEqual([3, 2, 3, 2]);
   });
 
   test("pins compound beat grouping and an authored rest gap", () => {

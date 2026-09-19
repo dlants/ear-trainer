@@ -421,9 +421,17 @@ export function cellResult(
   - `cellsSoundingAt()` at an arpeggio note's tick includes the tone held over it from an earlier onset, and excludes a note that ended on the preceding tick.
   - `lanes()` gives a sustained voice one lane and a three-note-chord voice three, ordered highest mean pitch first; a note's `laneIndex` is the same at every onset of the phrase.
 
-## Cell-pattern situations
+## Cell-pattern situations — DONE
 
 - Goal: `findSituationOccurrences()` consumes cells; the `"cells"` family is complete (melodic, intervals, triads, pedal tone, runs); the selector groups by kind.
+- Implemented in `music/situations.ts`: `SituationKind` (`"cells"` only so far) and `SituationGroup` (`"melodic" | "harmony"`) on `SituationDefinition`; `SituationOccurrence.cellIds` replaces `eventIndexes`; `findSituationOccurrences(phrase, cells, situationId)`. `phraseMatchesSituation()` keeps its two-argument shape and computes `cells(phrase)` itself, so no caller changed. New situations: `ascending-run`, `descending-run` (melodic group), `harmonic-third`/`-fifth`/`-octave`, `triad-together`, `arpeggiated-triad`, `pedal-tone` (harmony group). Selector in `views/tonic-practice-view.ts` renders one list per group under a "Melodic"/"Harmony" heading.
+- Decisions and deviations:
+  - The triad-together situation is named `triad-together` (per the Interfaces section), not `tonic-triad-harmony`.
+  - `arpeggiated-triad` is scoped to three consecutive single-note onsets spelling 1/3/5 rather than to a chord region, since harmony regions arrive in the next stage; re-scope it to the region then.
+  - Intervals are measured in scale steps between natural notes over `cellsSoundingAt()` at every attack tick, so held-against-arpeggiated pairs match; `triad-together` likewise requires simultaneity, which keeps it disjoint from `arpeggiated-triad`.
+  - Melodic situations now reduce a chord to its top note instead of treating any polyphonic event as opaque. One assertion in `music/situations.test.ts` ("invalid notes break pair candidates") relied on the old opacity and was rewritten.
+  - Runs are emitted maximal (one occurrence per maximal stepwise run of three or more), and their degree vocabulary is all seven degrees.
+  - `inventory/melodies.test.ts` coverage now requires an eligible phrase only for melodic-group situations; harmony coverage lands with the corpus stage.
 - Tests (`music/situations.test.ts`):
   - Every existing melodic situation test passes unchanged after being fed `cells(phrase)`.
   - A melodic situation still matches on a harmonized phrase, driven by the top cell — i.e. adding an inner harmony voice does not destroy or create melodic occurrences.

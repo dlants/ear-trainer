@@ -1,4 +1,12 @@
-import { type Phrase, voice } from "./melody.ts";
+import {
+  type Cell,
+  type CellId,
+  cells,
+  cellsById,
+  cellsSoundingAt,
+  onsets,
+  type Phrase,
+} from "./melody.ts";
 import { type Degree, type Note, noteOffset } from "./note.ts";
 
 export type SituationId =
@@ -13,10 +21,26 @@ export type SituationId =
   | "stepwise-7"
   | "stepwise-1"
   | "stepwise-3"
-  | "stepwise-5";
+  | "stepwise-5"
+  | "harmonic-third"
+  | "harmonic-fifth"
+  | "harmonic-octave"
+  | "triad-together"
+  | "arpeggiated-triad"
+  | "pedal-tone"
+  | "ascending-run"
+  | "descending-run";
+
+/** Detection family: what a situation is defined over. */
+export type SituationKind = "cells";
+
+/** Selector grouping; independent of how the situation is detected. */
+export type SituationGroup = "melodic" | "harmony";
 
 export type SituationDefinition = {
   id: SituationId;
+  kind: SituationKind;
+  group: SituationGroup;
   label: string;
   description: string;
   degrees: readonly Degree[];
@@ -24,10 +48,12 @@ export type SituationDefinition = {
 
 export type SituationOccurrence = {
   situationId: SituationId;
-  eventIndexes: readonly number[];
+  cellIds: readonly CellId[];
 };
 
-export const SITUATIONS: readonly SituationDefinition[] = [
+type SituationEntry = Omit<SituationDefinition, "kind" | "group">;
+
+const MELODIC_SITUATIONS: readonly SituationEntry[] = [
   {
     id: "tonic",
     label: "Tonic",
@@ -100,6 +126,69 @@ export const SITUATIONS: readonly SituationDefinition[] = [
     description: "4 or 6 moving through 5",
     degrees: [4, 5, 6],
   },
+  {
+    id: "ascending-run",
+    label: "Ascending run",
+    description: "Three or more stepwise notes rising",
+    degrees: [1, 2, 3, 4, 5, 6, 7],
+  },
+  {
+    id: "descending-run",
+    label: "Descending run",
+    description: "Three or more stepwise notes falling",
+    degrees: [1, 2, 3, 4, 5, 6, 7],
+  },
+];
+
+const HARMONY_SITUATIONS: readonly SituationEntry[] = [
+  {
+    id: "harmonic-third",
+    label: "Third together",
+    description: "Two notes a third apart sounding at once",
+    degrees: [1, 3],
+  },
+  {
+    id: "harmonic-fifth",
+    label: "Fifth together",
+    description: "Two notes a fifth apart sounding at once",
+    degrees: [1, 5],
+  },
+  {
+    id: "harmonic-octave",
+    label: "Octave together",
+    description: "The same degree sounding in two registers",
+    degrees: [1],
+  },
+  {
+    id: "triad-together",
+    label: "Triad together",
+    description: "1, 3, and 5 struck as a block",
+    degrees: [1, 3, 5],
+  },
+  {
+    id: "arpeggiated-triad",
+    label: "Arpeggiated triad",
+    description: "1, 3, and 5 stated one after another",
+    degrees: [1, 3, 5],
+  },
+  {
+    id: "pedal-tone",
+    label: "Pedal tone",
+    description: "One note held while others move under or over it",
+    degrees: [1, 3, 5],
+  },
+];
+
+function catalog(
+  entries: readonly SituationEntry[],
+  group: SituationGroup,
+): SituationDefinition[] {
+  return entries.map((entry) => ({ ...entry, kind: "cells", group }));
+}
+
+export const SITUATIONS: readonly SituationDefinition[] = [
+  ...catalog(MELODIC_SITUATIONS, "melodic"),
+  ...catalog(HARMONY_SITUATIONS, "harmony"),
 ];
 
 const DEFINITIONS = new Map(
@@ -124,19 +213,28 @@ const STEPWISE_DEGREES: Partial<
   "stepwise-5": { center: 5, neighbors: [4, 6] },
 };
 
-function naturalNote(notes: readonly Note[]): Note | undefined {
-  const note = notes.length === 1 ? notes[0] : undefined;
-  return note?.alteration === 0 ? note : undefined;
+/** The highest note attacking at each onset, in time order. */
+function topCells(cellList: Cell[]): Cell[] {
+  const byId = cellsById(cellList);
+  return onsets(cellList).flatMap((onset) => {
+    const cell = byId.get(onset.cellIds[0]);
+    return cell ? [cell] : [];
+  });
+}
+
+function naturalNote(cell: Cell | undefined): Note | undefined {
+  return cell?.note.alteration === 0 ? cell.note : undefined;
 }
 
 function occurrence(
   situationId: SituationId,
-  eventIndexes: number[],
+  occurrenceCells: readonly Cell[],
 ): SituationOccurrence {
-  return { situationId, eventIndexes };
+  return { situationId, cellIds: occurrenceCells.map((cell) => cell.id) };
 }
 
 function findPairOccurrences(
+  series: Cell[],
   notes: readonly (Note | undefined)[],
   situationId: SituationId,
   degrees: readonly [Degree, Degree],
@@ -150,13 +248,16 @@ function findPairOccurrences(
       (first.degree === degrees[0] && second.degree === degrees[1]) ||
       (first.degree === degrees[1] && second.degree === degrees[0])
     ) {
-      occurrences.push(occurrence(situationId, [index, index + 1]));
+      occurrences.push(
+        occurrence(situationId, [series[index], series[index + 1]]),
+      );
     }
   }
   return occurrences;
 }
 
 function findTriadOccurrences(
+  series: Cell[],
   notes: readonly (Note | undefined)[],
 ): SituationOccurrence[] {
   const occurrences: SituationOccurrence[] = [];
@@ -170,13 +271,7 @@ function findTriadOccurrences(
       seen.add(note.degree);
       if (seen.has(1) && seen.has(3) && seen.has(5)) {
         occurrences.push(
-          occurrence(
-            "tonic-triad-movement",
-            Array.from(
-              { length: end - start + 1 },
-              (_, offset) => start + offset,
-            ),
-          ),
+          occurrence("tonic-triad-movement", series.slice(start, end + 1)),
         );
       }
     }
@@ -196,6 +291,7 @@ function isAdjacentScaleStep(first: Note, second: Note): boolean {
 }
 
 function findStepwiseOccurrences(
+  series: Cell[],
   notes: readonly (Note | undefined)[],
   situationId: SituationId,
   center: Degree,
@@ -215,31 +311,195 @@ function findStepwiseOccurrences(
     ) {
       continue;
     }
-    occurrences.push(occurrence(situationId, [index - 1, index, index + 1]));
+    occurrences.push(
+      occurrence(situationId, series.slice(index - 1, index + 2)),
+    );
+  }
+  return occurrences;
+}
+
+/** Maximal stepwise runs of three or more top cells moving one direction. */
+function findRunOccurrences(
+  series: Cell[],
+  notes: readonly (Note | undefined)[],
+  situationId: SituationId,
+  direction: 1 | -1,
+): SituationOccurrence[] {
+  const occurrences: SituationOccurrence[] = [];
+  let start = 0;
+  for (let index = 1; index <= notes.length; index += 1) {
+    const previous = notes[index - 1];
+    const current = notes[index];
+    const continues =
+      previous !== undefined &&
+      current !== undefined &&
+      isAdjacentScaleStep(previous, current) &&
+      Math.sign(scalePosition(current) - scalePosition(previous)) === direction;
+    if (continues) continue;
+    if (index - start >= 3) {
+      occurrences.push(occurrence(situationId, series.slice(start, index)));
+    }
+    start = index;
+  }
+  return occurrences;
+}
+
+const TRIAD_DEGREES = [1, 3, 5] as const;
+
+function isTriadTone(note: Note): boolean {
+  return (
+    note.alteration === 0 &&
+    (TRIAD_DEGREES as readonly Degree[]).includes(note.degree)
+  );
+}
+
+/** Ticks where something attacks, in time order. */
+function attackTicks(cellList: Cell[]): number[] {
+  return onsets(cellList).map((onset) => onset.onsetTicks);
+}
+
+/** Every set of cells audible together, one per attack tick. */
+function soundingSets(cellList: Cell[]): Cell[][] {
+  const byId = cellsById(cellList);
+  return attackTicks(cellList).map((ticks) =>
+    cellsSoundingAt(cellList, ticks).flatMap((cellId) => {
+      const cell = byId.get(cellId);
+      return cell ? [cell] : [];
+    }),
+  );
+}
+
+function findIntervalOccurrences(
+  cellList: Cell[],
+  situationId: SituationId,
+  scaleSteps: number,
+): SituationOccurrence[] {
+  const occurrences: SituationOccurrence[] = [];
+  const seen = new Set<string>();
+  for (const sounding of soundingSets(cellList)) {
+    for (let a = 0; a < sounding.length; a += 1) {
+      for (let b = a + 1; b < sounding.length; b += 1) {
+        const [first, second] = [sounding[a], sounding[b]];
+        if (first.note.alteration !== 0 || second.note.alteration !== 0) {
+          continue;
+        }
+        const distance = Math.abs(
+          scalePosition(first.note) - scalePosition(second.note),
+        );
+        if (distance !== scaleSteps) continue;
+        const key = `${first.id}|${second.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        occurrences.push(occurrence(situationId, [first, second]));
+      }
+    }
+  }
+  return occurrences;
+}
+
+/** 1, 3, and 5 all sounding at the same instant. */
+function findTriadTogetherOccurrences(cellList: Cell[]): SituationOccurrence[] {
+  const occurrences: SituationOccurrence[] = [];
+  const seen = new Set<string>();
+  for (const sounding of soundingSets(cellList)) {
+    const tones = sounding.filter((cell) => isTriadTone(cell.note));
+    const degrees = new Set(tones.map((cell) => cell.note.degree));
+    if (!TRIAD_DEGREES.every((degree) => degrees.has(degree))) continue;
+    const key = tones.map((cell) => cell.id).join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    occurrences.push(occurrence("triad-together", tones));
+  }
+  return occurrences;
+}
+
+/** 1, 3, and 5 stated one at a time across consecutive single-note onsets. */
+function findArpeggiatedTriadOccurrences(
+  cellList: Cell[],
+): SituationOccurrence[] {
+  const sounding = soundingSets(cellList);
+  const byId = cellsById(cellList);
+  const solo = attackTicks(cellList).map((ticks, index) =>
+    sounding[index].length === 1
+      ? byId.get(cellsSoundingAt(cellList, ticks)[0])
+      : undefined,
+  );
+  const occurrences: SituationOccurrence[] = [];
+  for (let start = 0; start + 2 < solo.length; start += 1) {
+    const window = solo.slice(start, start + 3);
+    if (window.some((cell) => !cell || !isTriadTone(cell.note))) continue;
+    const degrees = new Set(window.map((cell) => cell?.note.degree));
+    if (!TRIAD_DEGREES.every((degree) => degrees.has(degree))) continue;
+    occurrences.push(
+      occurrence("arpeggiated-triad", window.filter(Boolean) as Cell[]),
+    );
+  }
+  return occurrences;
+}
+
+/** A cell held across two or more attacks of other cells. */
+function findPedalToneOccurrences(cellList: Cell[]): SituationOccurrence[] {
+  const occurrences: SituationOccurrence[] = [];
+  for (const pedal of cellList) {
+    const under = cellList.filter(
+      (other) =>
+        other.id !== pedal.id &&
+        other.onsetTicks > pedal.onsetTicks &&
+        other.onsetTicks < pedal.onsetTicks + pedal.durationTicks,
+    );
+    if (under.length < 2) continue;
+    occurrences.push(occurrence("pedal-tone", [pedal, ...under]));
   }
   return occurrences;
 }
 
 export function findSituationOccurrences(
-  phrase: Phrase,
+  _phrase: Phrase,
+  cellList: Cell[],
   situationId: SituationId,
 ): SituationOccurrence[] {
-  const events = voice(phrase, "melody")?.events ?? [];
-  const notes = events.map((event) => naturalNote(event.notes));
+  switch (situationId) {
+    case "harmonic-third":
+      return findIntervalOccurrences(cellList, situationId, 2);
+    case "harmonic-fifth":
+      return findIntervalOccurrences(cellList, situationId, 4);
+    case "harmonic-octave":
+      return findIntervalOccurrences(cellList, situationId, 7);
+    case "triad-together":
+      return findTriadTogetherOccurrences(cellList);
+    case "arpeggiated-triad":
+      return findArpeggiatedTriadOccurrences(cellList);
+    case "pedal-tone":
+      return findPedalToneOccurrences(cellList);
+    default:
+      break;
+  }
+
+  const series = topCells(cellList);
+  const notes = series.map(naturalNote);
 
   if (situationId === "tonic") {
     return notes.flatMap((note, index) =>
-      note?.degree === 1 ? [occurrence(situationId, [index])] : [],
+      note?.degree === 1 ? [occurrence(situationId, [series[index]])] : [],
     );
   }
   if (situationId === "tonic-triad-movement") {
-    return findTriadOccurrences(notes);
+    return findTriadOccurrences(series, notes);
+  }
+  if (situationId === "ascending-run" || situationId === "descending-run") {
+    return findRunOccurrences(
+      series,
+      notes,
+      situationId,
+      situationId === "ascending-run" ? 1 : -1,
+    );
   }
   const pair = PAIR_DEGREES[situationId];
-  if (pair) return findPairOccurrences(notes, situationId, pair);
+  if (pair) return findPairOccurrences(series, notes, situationId, pair);
   const stepwise = STEPWISE_DEGREES[situationId];
   if (stepwise) {
     return findStepwiseOccurrences(
+      series,
       notes,
       situationId,
       stepwise.center,
@@ -253,7 +513,9 @@ export function phraseMatchesSituation(
   phrase: Phrase,
   situationId: SituationId,
 ): boolean {
-  return findSituationOccurrences(phrase, situationId).length > 0;
+  return (
+    findSituationOccurrences(phrase, cells(phrase), situationId).length > 0
+  );
 }
 
 export function promptDegreesForSituations(
