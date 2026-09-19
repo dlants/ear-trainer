@@ -5,6 +5,10 @@
 Use the project-local Vamp skill at `.magenta/skills/vamp/skill.md` whenever changing views, components, state management, or routing. Treat `vamp.ts` as authoritative when the skill and implementation differ.
 Use the project-local design-system skill at `.magenta/skills/design-system/skill.md` whenever changing frontend colors, controls, icons, or other visual styling.
 
+## Corpus melodies
+
+Read `docs/harmonizing.md` before adding or changing harmony on a melody in `inventory/melodies/`.
+
 ## Versioning
 
 Every code or content change must include a minor bump to the displayed `APP_VERSION` in `version.ts` (for example, `0.1` → `0.2`).

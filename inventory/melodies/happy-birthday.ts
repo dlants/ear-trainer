@@ -1,13 +1,16 @@
 import type { CorpusMelody } from "../../music/melody.ts";
 import {
-  bar3,
   dh,
   e,
+  ev,
   h,
   melody,
   phrase,
-  pickup,
+  polyBar3,
+  polyPickup,
   q,
+  region,
+  voiceOf,
 } from "../melody-builders.ts";
 
 export const happyBirthday: CorpusMelody = melody(
@@ -19,25 +22,93 @@ export const happyBirthday: CorpusMelody = melody(
   [
     phrase(
       [
-        pickup([5, e, -1], [5, e, -1]),
-        bar3([6, q, -1], [5, q, -1], [1, q]),
-        bar3([7, h, -1], [5, e, -1], [5, e, -1]),
-        bar3([6, q, -1], [5, q, -1], [2, q]),
-        bar3([1, dh]),
+        polyPickup(
+          [
+            voiceOf("melody", ev(e, [5, -1]), ev(e, [5, -1])),
+            voiceOf("harmony", ev(q, [5, -2])),
+          ],
+          [region(q, 5)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [6, -1]), ev(q, [5, -1]), ev(q, [1])),
+            voiceOf("harmony", ev(dh, [1, -2])),
+          ],
+          [region(dh, 1)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(h, [7, -1]), ev(e, [5, -1]), ev(e, [5, -1])),
+            voiceOf("harmony", ev(dh, [5, -2], [7, -2])),
+          ],
+          [region(dh, 5)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [6, -1]), ev(q, [5, -1]), ev(q, [2])),
+            voiceOf("harmony", ev(dh, [5, -2])),
+          ],
+          [region(dh, 5)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(dh, [1])),
+            voiceOf("harmony", ev(dh, [1, -2], [5, -2])),
+          ],
+          [region(dh, 1)],
+        ),
       ],
       "independent",
       "Both opening sentences rise from lower 5 and the second lands on a sustained natural 1.",
+      "independent",
     ),
     phrase(
       [
-        pickup([5, e, -1], [5, e, -1]),
-        bar3([5, q], [3, q], [1, q]),
-        bar3([7, q, -1], [6, q, -1], [4, e], [4, e]),
-        bar3([3, q], [1, q], [2, q]),
-        bar3([1, dh]),
+        polyPickup(
+          [
+            voiceOf("melody", ev(e, [5, -1]), ev(e, [5, -1])),
+            voiceOf("harmony", ev(q, [5, -2])),
+          ],
+          [region(q, 5)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [5]), ev(q, [3]), ev(q, [1])),
+            voiceOf("harmony", ev(dh, [1, -2])),
+          ],
+          [region(dh, 1)],
+        ),
+        polyBar3(
+          [
+            voiceOf(
+              "melody",
+              ev(q, [7, -1]),
+              ev(q, [6, -1]),
+              ev(e, [4]),
+              ev(e, [4]),
+            ),
+            voiceOf("harmony", ev(q, [5, -2]), ev(h, [4, -2], [6, -2])),
+          ],
+          [region(q, 5), region(h, 4)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [3]), ev(q, [1]), ev(q, [2])),
+            voiceOf("harmony", ev(h, [1, -2]), ev(q, [5, -2], [7, -2])),
+          ],
+          [region(h, 1), region(q, 5)],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(dh, [1])),
+            voiceOf("harmony", ev(dh, [1, -2], [5, -2])),
+          ],
+          [region(dh, 1)],
+        ),
       ],
       "independent",
       "The climactic line includes 1 and the final 3–1–2–1 motion gives an unambiguous tonic arrival.",
+      "independent",
     ),
   ],
 );

@@ -49,46 +49,38 @@ export function region(
 ): CorpusHarmony {
   return { durationTicks, chord: { root, alteration: 0, quality } };
 }
-/** A common-time measure with explicit voices and an authored chord track. */
-export function polyBar(
+/** A measure with explicit voices and an authored chord track. */
+export function polyMeasure(
+  beatDurationsTicks: number[],
   voices: CorpusMeasureVoice[],
   harmony: CorpusHarmony[],
 ): CorpusMeasure {
   return {
-    durationTicks: w,
-    beatDurationsTicks: [q, q, q, q],
+    durationTicks: beatDurationsTicks.reduce(
+      (sum, duration) => sum + duration,
+      0,
+    ),
+    beatDurationsTicks,
     voices,
     harmony,
   };
 }
-/** Root-position triads voiced below a melody written at octave 0. */
-export const triadI: NoteSpec[] = [
-  [1, -1],
-  [3, -1],
-  [5, -1],
-];
-export const triadIV: NoteSpec[] = [
-  [4, -2],
-  [6, -2],
-  [1, -1],
-];
-export const triadV: NoteSpec[] = [
-  [5, -2],
-  [7, -2],
-  [2, -1],
-];
-/** Adds an accompaniment voice and chord track under an already-authored melody bar. */
-export function accompany(
-  authored: CorpusMeasure,
+export const polyBar = (
+  voices: CorpusMeasureVoice[],
   harmony: CorpusHarmony[],
-  ...events: CorpusEvent[]
-): CorpusMeasure {
-  return {
-    ...authored,
-    voices: [...authored.voices, voiceOf("harmony", ...events)],
-    harmony,
-  };
-}
+) => polyMeasure([q, q, q, q], voices, harmony);
+export const polyBar3 = (
+  voices: CorpusMeasureVoice[],
+  harmony: CorpusHarmony[],
+) => polyMeasure([q, q, q], voices, harmony);
+export const polyBar6 = (
+  voices: CorpusMeasureVoice[],
+  harmony: CorpusHarmony[],
+) => polyMeasure([dq, dq], voices, harmony);
+export const polyPickup = (
+  voices: CorpusMeasureVoice[],
+  harmony: CorpusHarmony[],
+) => polyMeasure([q], voices, harmony);
 export function withHarmony(
   authored: CorpusMeasure,
   harmony: CorpusHarmony[],
