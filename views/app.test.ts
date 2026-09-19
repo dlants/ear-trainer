@@ -105,6 +105,7 @@ test.describe("activity-only app integration", () => {
     expect(result.audioUnlocked).toBe(true);
     expect(result.menuLinks).toEqual([
       { text: "home", href: "/" },
+      { text: "melodies", href: "/melodies" },
       { text: "options", href: "/options" },
       { text: "about", href: "/about" },
     ]);

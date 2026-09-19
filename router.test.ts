@@ -19,6 +19,13 @@ test.describe("router", () => {
     }
   });
 
+  test("round-trips a melody page", () => {
+    const route = { page: "melody", melodyId: "twinkle" } as const;
+    expect(routeToPath(route)).toBe("/melodies/twinkle");
+    expect(parseRoute("/melodies/twinkle")).toEqual(route);
+    expect(parseRoute("/melodies")).toEqual({ page: "melodies" });
+  });
+
   test("obsolete and former SRS paths fall back to the catalog", () => {
     for (const path of [
       "/activities/sing-tonic",

@@ -131,9 +131,17 @@ export class MelodyPageView implements View<State, Msg, MelodyPageCtx> {}
   - Mounting the grid with a measure window smaller than the score renders only the windowed measures.
   - Added a third case: harmony segments in reveal mode show the real chord label, are `data-answerable="false"`, and emit `REGION`.
 
-## melody page
+## melody page — DONE
 
 - Goal: `/melodies/{id}` renders the melody title, source, a play button, and the full revealed grid for the whole melody.
+- Done. Notes and deviations:
+  - `views/melody-page.ts` holds `State = { melodyId }`, `Msg = PLAY_MELODY | GRID`, `update`, `melodyPageMsgNeedsAudio` (always true), and `MelodyPageView` (title, source, compact play button, full-score `ScoreGridView` in `reveal` mode).
+  - The page keeps no state of its own beyond the id, so `views/app.ts` derives it straight from the route instead of storing a `melodyPage` slice; only `pendingMelodyPageMsg` was added to app state, wired through the existing unlock/`AUDIO_UNLOCKED` path.
+  - `sameRoute` now also compares `melodyId`, so melody→melody navigation stops playback and rebuilds the page.
+  - Grid playback: `CELL`/`ONSET` autoplay a `notes` step under the shared `melodies:note` button id; `REGION` autoplays the melody score with the region's tick `range` (same mechanism the practice view uses).
+  - The unknown-id fallback lives in the app's page slot (`case "melody"` renders `MelodiesView` when the id is not in the corpus), so `parseRoute` stays corpus-agnostic.
+  - `ctx.melodyPage` added to `AppCtx` in `main.ts` and `test/app-harness.ts`.
+  - Bumped `APP_VERSION` to `0.67` here rather than waiting for stage 3.
 - Tests:
   - Navigating to `/melodies/twinkle` renders every measure of twinkle (count matches `melody.measures.length`) with all notes labeled, no guess/result icons present.
   - Pressing a cell asks the `PlayController` to play that note; pressing a harmony segment plays that chord; the recording play fixture in `test/app-harness.ts` verifies the requests.
@@ -145,4 +153,4 @@ export class MelodyPageView implements View<State, Msg, MelodyPageCtx> {}
 - Tests:
   - Clicking a melody title in the melody browser navigates to that melody's page (the router link interception path, not a direct dispatch).
   - A back link from the melody page returns to `/melodies`.
-- Also: bump `APP_VERSION` in `version.ts`.
+- Also: bump `APP_VERSION` in `version.ts` (already at `0.67` from stage 2; bump again).

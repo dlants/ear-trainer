@@ -3,6 +3,8 @@ import type { Activity } from "./views/tonic-practice.ts";
 export type Route =
   | { page: "catalog" }
   | { page: "activity"; activity: Activity }
+  | { page: "melodies" }
+  | { page: "melody"; melodyId: string }
   | { page: "options" };
 
 export type UrlWriteKind = "push" | "replace";
@@ -14,9 +16,16 @@ export type RouterMsg = {
 };
 
 export function parseRoute(pathname: string): Route {
-  switch (pathname.replace(/\/+$/, "") || "/") {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  const melodyMatch = /^\/melodies\/([^/]+)$/.exec(path);
+  if (melodyMatch) {
+    return { page: "melody", melodyId: decodeURIComponent(melodyMatch[1]) };
+  }
+  switch (path) {
     case "/activities/identify-notes":
       return { page: "activity", activity: "identify-notes" };
+    case "/melodies":
+      return { page: "melodies" };
     case "/options":
       return { page: "options" };
     default:
@@ -35,6 +44,10 @@ export function routeToPath(route: Route | DisconnectedRoute): string {
       return "/";
     case "activity":
       return `/activities/${route.activity}`;
+    case "melodies":
+      return "/melodies";
+    case "melody":
+      return `/melodies/${encodeURIComponent(route.melodyId)}`;
     case "options":
       return "/options";
   }

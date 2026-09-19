@@ -7,6 +7,22 @@ import {
   ActivityCatalogView,
 } from "./activity-catalog.ts";
 import type { DismissStack } from "./dropdown.ts";
+import {
+  type MelodiesCtx,
+  type Msg as MelodiesMsg,
+  type State as MelodiesState,
+  MelodiesView,
+  initialState as melodiesInitialState,
+  melodiesMsgNeedsAudio,
+  update as melodiesUpdate,
+} from "./melodies.ts";
+import {
+  type MelodyPageCtx,
+  type Msg as MelodyPageMsg,
+  MelodyPageView,
+  melodyPageMsgNeedsAudio,
+  update as melodyPageUpdate,
+} from "./melody-page.ts";
 import { NavView } from "./nav.ts";
 import {
   type OptionsCtx,
@@ -29,10 +45,13 @@ export type State = {
   route: Route;
   identifyNotes: IdentifyNotesState;
   options: OptionsState;
+  melodies: MelodiesState;
   audioUnlocked: boolean;
   audioUnlocking: boolean;
   pendingIdentifyMsg: IdentifyNotesMsg | undefined;
   pendingOptionsMsg: OptionsMsg | undefined;
+  pendingMelodiesMsg: MelodiesMsg | undefined;
+  pendingMelodyPageMsg: MelodyPageMsg | undefined;
 };
 
 export type Msg =
@@ -40,6 +59,8 @@ export type Msg =
   | { type: "PLAY_MSG"; msg: PlayMsg }
   | { type: "IDENTIFY_NOTES_MSG"; msg: IdentifyNotesMsg }
   | { type: "OPTIONS_MSG"; msg: OptionsMsg }
+  | { type: "MELODIES_MSG"; msg: MelodiesMsg }
+  | { type: "MELODY_PAGE_MSG"; msg: MelodyPageMsg }
   | { type: "CATALOG_MSG"; msg: ActivityCatalogMsg }
   | { type: "AUDIO_UNLOCKED" }
   | { type: "AUDIO_UNLOCK_ERROR" };
@@ -51,6 +72,8 @@ export type AppCtx = {
   dismissStack: DismissStack;
   identifyNotes: IdentifyNotesCtx;
   options: OptionsCtx;
+  melodies: MelodiesCtx;
+  melodyPage: MelodyPageCtx;
 };
 
 export function initialState(route: Route, ctx: AppCtx): State {
@@ -58,10 +81,13 @@ export function initialState(route: Route, ctx: AppCtx): State {
     route,
     identifyNotes: initialIdentifyNotesState(ctx.identifyNotes),
     options: optionsInitialState(ctx.options),
+    melodies: melodiesInitialState(),
     audioUnlocked: ctx.audio.unlocked,
     audioUnlocking: false,
     pendingIdentifyMsg: undefined,
     pendingOptionsMsg: undefined,
+    pendingMelodiesMsg: undefined,
+    pendingMelodyPageMsg: undefined,
   };
 }
 
@@ -69,7 +95,9 @@ function sameRoute(left: Route, right: Route): boolean {
   return (
     left.page === right.page &&
     (left.page !== "activity" ||
-      (right.page === "activity" && left.activity === right.activity))
+      (right.page === "activity" && left.activity === right.activity)) &&
+    (left.page !== "melody" ||
+      (right.page === "melody" && left.melodyId === right.melodyId))
   );
 }
 
@@ -131,6 +159,8 @@ export function update(
       if (routeChanged) {
         state.pendingIdentifyMsg = undefined;
         state.pendingOptionsMsg = undefined;
+        state.pendingMelodiesMsg = undefined;
+        state.pendingMelodyPageMsg = undefined;
         stopActivityAudio(state, ctx);
         if (previousRoute.page === "options") ctx.options.mic.stop();
       }
@@ -164,6 +194,28 @@ export function update(
       }
       updateIdentifyNotes(state.identifyNotes, msg.msg, ctx.identifyNotes);
       break;
+    case "MELODIES_MSG":
+      if (melodiesMsgNeedsAudio(msg.msg) && !state.audioUnlocked) {
+        state.pendingMelodiesMsg = msg.msg;
+        requestAudioUnlock(state, ctx, dispatch);
+        break;
+      }
+      melodiesUpdate(state.melodies, msg.msg, ctx.melodies);
+      break;
+    case "MELODY_PAGE_MSG": {
+      if (state.route.page !== "melody") break;
+      if (melodyPageMsgNeedsAudio(msg.msg) && !state.audioUnlocked) {
+        state.pendingMelodyPageMsg = msg.msg;
+        requestAudioUnlock(state, ctx, dispatch);
+        break;
+      }
+      melodyPageUpdate(
+        { melodyId: state.route.melodyId },
+        msg.msg,
+        ctx.melodyPage,
+      );
+      break;
+    }
     case "OPTIONS_MSG":
       if (optionsMsgNeedsAudio(msg.msg) && !state.audioUnlocked) {
         state.pendingOptionsMsg = msg.msg;
@@ -187,6 +239,20 @@ export function update(
         state.pendingIdentifyMsg = undefined;
         updateIdentifyNotes(state.identifyNotes, pending, ctx.identifyNotes);
       }
+      if (state.pendingMelodiesMsg && state.route.page === "melodies") {
+        const pending = state.pendingMelodiesMsg;
+        state.pendingMelodiesMsg = undefined;
+        melodiesUpdate(state.melodies, pending, ctx.melodies);
+      }
+      if (state.pendingMelodyPageMsg && state.route.page === "melody") {
+        const pending = state.pendingMelodyPageMsg;
+        state.pendingMelodyPageMsg = undefined;
+        melodyPageUpdate(
+          { melodyId: state.route.melodyId },
+          pending,
+          ctx.melodyPage,
+        );
+      }
       if (state.pendingOptionsMsg && state.route.page === "options") {
         const pending = state.pendingOptionsMsg;
         state.pendingOptionsMsg = undefined;
@@ -197,6 +263,8 @@ export function update(
       state.audioUnlocking = false;
       state.pendingIdentifyMsg = undefined;
       state.pendingOptionsMsg = undefined;
+      state.pendingMelodiesMsg = undefined;
+      state.pendingMelodyPageMsg = undefined;
       break;
   }
 }
@@ -242,6 +310,24 @@ export class AppView implements View<State, Msg, AppCtx> {
             ctx.identifyNotes,
             (msg) => dispatch({ type: "IDENTIFY_NOTES_MSG", msg }),
           );
+        case "melodies":
+          return show(MelodiesView, state.melodies, ctx.melodies, (msg) =>
+            dispatch({ type: "MELODIES_MSG", msg }),
+          );
+        case "melody": {
+          const melodyId = state.route.melodyId;
+          const known = ctx.melodyPage.melodies.some(
+            ({ id }) => id === melodyId,
+          );
+          if (!known) {
+            return show(MelodiesView, state.melodies, ctx.melodies, (msg) =>
+              dispatch({ type: "MELODIES_MSG", msg }),
+            );
+          }
+          return show(MelodyPageView, { melodyId }, ctx.melodyPage, (msg) =>
+            dispatch({ type: "MELODY_PAGE_MSG", msg }),
+          );
+        }
         case "options":
           return show(OptionsView, state.options, ctx.options, (msg) =>
             dispatch({ type: "OPTIONS_MSG", msg }),

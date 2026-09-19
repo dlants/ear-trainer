@@ -22,7 +22,9 @@ export type PlayButtonId =
   | "options:high-note"
   | "options:cadence:slow"
   | "options:cadence:medium"
-  | "options:cadence:fast";
+  | "options:cadence:fast"
+  /** One id per melody or phrase in the browser, so each row tracks its own playback. */
+  | `melodies:${string}`;
 
 export type PlayStep =
   | {

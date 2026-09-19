@@ -117,6 +117,7 @@ export function emptyState(route: State["route"]): State {
       tonic: 60,
       droneOn: false,
     },
+    melodies: { expandedId: undefined },
     options: {
       lowNote: 53,
       highNote: 72,
@@ -128,6 +129,8 @@ export function emptyState(route: State["route"]): State {
     audioUnlocking: false,
     pendingIdentifyMsg: undefined,
     pendingOptionsMsg: undefined,
+    pendingMelodiesMsg: undefined,
+    pendingMelodyPageMsg: undefined,
   };
 }
 
@@ -161,6 +164,8 @@ export function appContext(
       storage,
       random: () => 0,
     },
+    melodies: { play, profile, melodies: MELODIES },
+    melodyPage: { play, profile, melodies: MELODIES },
     options: {
       play,
       profile,

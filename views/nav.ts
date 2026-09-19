@@ -84,6 +84,7 @@ export class NavView implements View<State, never, NavCtx> {
   ) {
     const detailsRef = ref("menu");
     const homeRef = ref("home");
+    const melodiesRef = ref("melodies");
     const optionsRef = ref("options");
     const aboutRef = ref("about");
 
@@ -94,6 +95,7 @@ export class NavView implements View<State, never, NavCtx> {
         <nav class="menu-items" aria-label="main navigation">
           <span class="menu-version">the ecological ear trainer v${APP_VERSION}</span>
           <a href="${routeToPath({ page: "catalog" })}" data-ref="${homeRef}">home</a>
+          <a href="${routeToPath({ page: "melodies" })}" data-ref="${melodiesRef}">melodies</a>
           <a href="${routeToPath({ page: "options" })}" data-ref="${optionsRef}">options</a>
           <a href="/about" data-router-ignore data-ref="${aboutRef}">about</a>
         </nav>
@@ -102,6 +104,9 @@ export class NavView implements View<State, never, NavCtx> {
     this.b = new Binder(container, initial);
     this.b.bindAttr(homeRef, "aria-current", (s) =>
       s.page === "catalog" ? "page" : undefined,
+    );
+    this.b.bindAttr(melodiesRef, "aria-current", (s) =>
+      s.page === "melodies" ? "page" : undefined,
     );
     this.b.bindAttr(optionsRef, "aria-current", (s) =>
       s.page === "options" ? "page" : undefined,

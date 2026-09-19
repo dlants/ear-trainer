@@ -63,6 +63,16 @@ function startApp(audio: AudioEngine): void {
       storage: localStorage,
       random: () => Math.random(),
     },
+    melodies: {
+      play,
+      profile: activeProfile,
+      melodies: MELODIES,
+    },
+    melodyPage: {
+      play,
+      profile: activeProfile,
+      melodies: MELODIES,
+    },
     options: {
       play,
       profile: activeProfile,
