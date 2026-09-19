@@ -1,5 +1,9 @@
 import {
+  type ChordQuality,
+  type CorpusEvent,
+  type CorpusHarmony,
   type CorpusMeasure,
+  type CorpusMeasureVoice,
   type CorpusMelody,
   type Melody,
   normalizeMelody,
@@ -22,8 +26,49 @@ type EventSpec = readonly [
 type PhraseSpec = {
   measures: CorpusMeasure[];
   noteIdentification: "independent" | "context-required" | "exclude";
+  chordIdentification?: "independent" | "context-required" | "exclude";
   rationale: string;
 };
+type NoteSpec = readonly [degree: Degree, octave?: number];
+/** One event of a hand-authored voice; several notes means a struck chord. */
+function ev(durationTicks: number, ...notes: NoteSpec[]): CorpusEvent {
+  return {
+    notes: notes.map(([degree, octave = 0]) => ({
+      degree,
+      alteration: 0 as const,
+      octave,
+    })),
+    durationTicks,
+  };
+}
+function voiceOf(voiceId: string, ...events: CorpusEvent[]) {
+  return { voiceId, events } satisfies CorpusMeasureVoice;
+}
+function region(
+  durationTicks: number,
+  root: Degree,
+  quality: ChordQuality = "major",
+): CorpusHarmony {
+  return { durationTicks, chord: { root, alteration: 0, quality } };
+}
+/** A common-time measure with explicit voices and an authored chord track. */
+function polyBar(
+  voices: CorpusMeasureVoice[],
+  harmony: CorpusHarmony[],
+): CorpusMeasure {
+  return {
+    durationTicks: w,
+    beatDurationsTicks: [q, q, q, q],
+    voices,
+    harmony,
+  };
+}
+function withHarmony(
+  authored: CorpusMeasure,
+  harmony: CorpusHarmony[],
+): CorpusMeasure {
+  return { ...authored, harmony };
+}
 
 function measure(
   beatDurationsTicks: number[],
@@ -59,8 +104,9 @@ function phrase(
   measures: CorpusMeasure[],
   noteIdentification: PhraseSpec["noteIdentification"],
   rationale: string,
+  chordIdentification?: PhraseSpec["chordIdentification"],
 ): PhraseSpec {
-  return { measures, noteIdentification, rationale };
+  return { measures, noteIdentification, chordIdentification, rationale };
 }
 
 function splitPhrase(spec: PhraseSpec): PhraseSpec[] {
@@ -103,6 +149,11 @@ function splitPhrase(spec: PhraseSpec): PhraseSpec[] {
     return {
       measures,
       noteIdentification,
+      chordIdentification: measures.some(
+        (authoredMeasure) => authoredMeasure.harmony !== undefined,
+      )
+        ? spec.chordIdentification
+        : undefined,
       rationale:
         noteIdentification === spec.noteIdentification
           ? spec.rationale
@@ -131,15 +182,20 @@ function melody(
     },
     measures: phrases
       .flatMap(splitPhrase)
-      .flatMap(({ measures, noteIdentification, rationale }) =>
-        measures.map((authoredMeasure, index) =>
-          index === measures.length - 1
-            ? {
-                ...authoredMeasure,
-                phraseEnd: { noteIdentification, rationale },
-              }
-            : authoredMeasure,
-        ),
+      .flatMap(
+        ({ measures, noteIdentification, chordIdentification, rationale }) =>
+          measures.map((authoredMeasure, index) =>
+            index === measures.length - 1
+              ? {
+                  ...authoredMeasure,
+                  phraseEnd: {
+                    noteIdentification,
+                    chordIdentification,
+                    rationale,
+                  },
+                }
+              : authoredMeasure,
+          ),
       ),
   };
 }
@@ -1761,6 +1817,276 @@ export const MELODY_CORPUS: CorpusMelody[] = [
       ),
     ],
     "minor-cadence",
+  ),
+  melody(
+    "twinkle-harmonized",
+    "Twinkle, Twinkle, Little Star (harmonized)",
+    92,
+    "public-domain",
+    "Traditional French melody published as ‘Ah! vous dirai-je, maman’ in the eighteenth century, with an original accompaniment written below the tune.",
+    [
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [5]), ev(q, [5])),
+              voiceOf(
+                "harmony",
+                ev(h, [1, -1], [3, -1], [5, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(w, 1)],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(q, [6]), ev(q, [6]), ev(h, [5])),
+              voiceOf(
+                "harmony",
+                ev(h, [4, -2], [6, -2], [1, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 4), region(h, 1)],
+          ),
+        ],
+        "independent",
+        "The opening states 1 twice and the accompaniment keeps a plain I–IV–I underneath it.",
+        "independent",
+      ),
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(q, [4]), ev(q, [4]), ev(q, [3]), ev(q, [3])),
+              voiceOf(
+                "harmony",
+                ev(h, [4, -2], [6, -2], [1, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 4), region(h, 1)],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(q, [2]), ev(q, [2]), ev(h, [1])),
+              voiceOf(
+                "harmony",
+                ev(h, [5, -2], [7, -2], [2, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 5), region(h, 1)],
+          ),
+        ],
+        "independent",
+        "The descent closes on a long 1 over a root-position V–I.",
+        "independent",
+      ),
+    ],
+  ),
+  melody(
+    "cadence-drill-block",
+    "Block Triad Drill: I–IV–V–I",
+    84,
+    "original",
+    "Original exercise written for this corpus: four root-position triads struck as blocks.",
+    [
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [1]), ev(h, [1])),
+              voiceOf(
+                "harmony",
+                ev(h, [1, -1], [3, -1], [5, -1]),
+                ev(h, [4, -2], [6, -2], [1, -1]),
+              ),
+            ],
+            [region(h, 1), region(h, 4)],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [2]), ev(h, [1])),
+              voiceOf(
+                "harmony",
+                ev(h, [5, -2], [7, -2], [2, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 5), region(h, 1)],
+          ),
+        ],
+        "independent",
+        "Every chord holds 1 in the melody or resolves to it, and each triad is struck as one block.",
+        "independent",
+      ),
+    ],
+  ),
+  melody(
+    "cadence-drill-pop",
+    "Block Triad Drill: I–V–vi–IV",
+    84,
+    "original",
+    "Original exercise written for this corpus: the four-chord pop progression as block triads.",
+    [
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [1]), ev(h, [2])),
+              voiceOf(
+                "harmony",
+                ev(h, [1, -1], [3, -1], [5, -1]),
+                ev(h, [5, -2], [7, -2], [2, -1]),
+              ),
+            ],
+            [region(h, 1), region(h, 5)],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [3]), ev(h, [1])),
+              voiceOf(
+                "harmony",
+                ev(h, [6, -2], [1, -1], [3, -1]),
+                ev(h, [4, -2], [6, -2], [1, -1]),
+              ),
+            ],
+            [region(h, 6, "minor"), region(h, 4)],
+          ),
+        ],
+        "independent",
+        "The melody opens and closes on 1 while the harmony turns V to vi rather than home.",
+        "independent",
+      ),
+    ],
+  ),
+  melody(
+    "cadence-drill-inverted",
+    "Inverted Cadence Drill",
+    84,
+    "original",
+    "Original exercise written for this corpus: a dominant with its third in the bass resolving to a root-position tonic.",
+    [
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [1]), ev(h, [2])),
+              voiceOf(
+                "harmony",
+                ev(h, [1, -1], [3, -1], [5, -1]),
+                ev(h, [7, -2], [2, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 1), region(h, 5)],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [2]), ev(h, [1])),
+              voiceOf(
+                "harmony",
+                ev(h, [7, -2], [2, -1], [5, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 5), region(h, 1)],
+          ),
+        ],
+        "independent",
+        "The melody frames the drill with 1, and the dominant sits on its third throughout.",
+        "independent",
+      ),
+    ],
+  ),
+  melody(
+    "turnaround-drill-block",
+    "Turnaround Drill: ii–V–I as Blocks",
+    84,
+    "original",
+    "Original exercise written for this corpus: the ii–V–I turnaround struck as block triads.",
+    [
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [1]), ev(h, [4])),
+              voiceOf(
+                "harmony",
+                ev(h, [1, -1], [3, -1], [5, -1]),
+                ev(h, [2, -1], [4, -1], [6, -1]),
+              ),
+            ],
+            [region(h, 1), region(h, 2, "minor")],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(h, [2]), ev(h, [1])),
+              voiceOf(
+                "harmony",
+                ev(h, [5, -2], [7, -2], [2, -1]),
+                ev(h, [1, -1], [3, -1], [5, -1]),
+              ),
+            ],
+            [region(h, 5), region(h, 1)],
+          ),
+        ],
+        "independent",
+        "The turnaround begins and ends on 1, each chord sounded as one block.",
+        "independent",
+      ),
+    ],
+  ),
+  melody(
+    "turnaround-drill-arpeggiated",
+    "Turnaround Drill: ii–V–I Arpeggiated",
+    84,
+    "original",
+    "Original exercise written for this corpus: the same turnaround spelled one note at a time.",
+    [
+      phrase(
+        [
+          withHarmony(bar4([2, q], [4, q], [5, q, -1], [7, q, -1]), [
+            region(h, 2, "minor"),
+            region(h, 5),
+          ]),
+          withHarmony(bar4([1, q], [3, q], [5, q], [1, q, 1]), [region(w, 1)]),
+        ],
+        "independent",
+        "The same turnaround as the block drill, stated one note at a time and landing on an arpeggiated tonic triad.",
+        "independent",
+      ),
+    ],
+  ),
+  melody(
+    "pedal-drill",
+    "Pedal Tone Drill",
+    84,
+    "original",
+    "Original exercise written for this corpus: a held lower tonic under a moving line.",
+    [
+      phrase(
+        [
+          polyBar(
+            [
+              voiceOf("melody", ev(q, [1]), ev(q, [3]), ev(q, [5]), ev(q, [3])),
+              voiceOf("harmony", ev(w, [1, -1])),
+            ],
+            [region(w, 1)],
+          ),
+          polyBar(
+            [
+              voiceOf("melody", ev(q, [5]), ev(q, [3]), ev(q, [2]), ev(q, [1])),
+              voiceOf("harmony", ev(w, [1, -1])),
+            ],
+            [region(w, 1)],
+          ),
+        ],
+        "independent",
+        "The lower 1 is sustained through every bar while the upper line arpeggiates over it.",
+        "independent",
+      ),
+    ],
   ),
 ];
 

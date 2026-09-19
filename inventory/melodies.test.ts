@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { tonicEventIndexes, voice } from "../music/melody.ts";
+import { cells, tonicEventIndexes, voice } from "../music/melody.ts";
 import { phraseMatchesSituation, SITUATIONS } from "../music/situations.ts";
+import { selectIdentifyNotesPhrase } from "../views/tonic-practice.ts";
 import { MELODIES, MELODY_CORPUS } from "./melodies.ts";
 
 function melody(id: string) {
@@ -97,6 +98,56 @@ test.describe("timed melody corpus", () => {
     }
   });
 
+  test("fills every voice of every multi-voice entry", () => {
+    const multiVoice = MELODIES.filter((entry) => entry.voices.length > 1);
+    expect(multiVoice.length).toBeGreaterThan(0);
+    for (const entry of multiVoice) {
+      for (const entryVoice of entry.voices) {
+        const sounded = entryVoice.events.reduce(
+          (total, event) => total + event.durationTicks,
+          0,
+        );
+        expect(sounded, `${entry.id}/${entryVoice.id}`).toBe(
+          entry.durationTicks,
+        );
+      }
+    }
+  });
+  test("sustains a voice across another voice's arpeggio somewhere", () => {
+    const hasSustainOverArpeggio = MELODIES.some((entry) => {
+      const entryCells = cells(entry);
+      return entryCells.some(
+        (held) =>
+          entryCells.filter(
+            (other) =>
+              other.voiceId !== held.voiceId &&
+              other.onsetTicks > held.onsetTicks &&
+              other.onsetTicks < held.onsetTicks + held.durationTicks,
+          ).length >= 2,
+      );
+    });
+    expect(hasSustainOverArpeggio).toBe(true);
+  });
+  test("selects a multi-voice phrase for the harmony situations", () => {
+    const harmonySituationIds = SITUATIONS.filter(
+      (candidate) => candidate.group === "harmony",
+    )
+      .map(({ id }) => id)
+      .filter((id) => id !== "arpeggiated-triad");
+    for (let seed = 0; seed < 20; seed += 1) {
+      const selection = selectIdentifyNotesPhrase(
+        MELODIES,
+        harmonySituationIds,
+        undefined,
+        () => seed / 20,
+      );
+      expect(selection, `seed ${seed}`).toBeDefined();
+      expect(
+        selection?.phrase.voices.length,
+        `${selection?.phrase.id} for ${selection?.targetSituationId}`,
+      ).toBeGreaterThan(1);
+    }
+  });
   test("covers every situation with an eligible independent phrase", () => {
     const eligiblePhrases = MELODIES.flatMap((entry) => entry.phrases).filter(
       (phrase) =>
@@ -104,12 +155,7 @@ test.describe("timed melody corpus", () => {
         phrase.measures.length >= 2,
     );
 
-    // Harmony and progression situations need multi-voice entries with an
-    // authored chord track, which arrive with the corpus stage of the
-    // simultaneous-notes plan.
-    for (const situation of SITUATIONS.filter(
-      (candidate) => candidate.group === "melodic",
-    )) {
+    for (const situation of SITUATIONS) {
       const matchingPhraseIds = eligiblePhrases
         .filter((phrase) => phraseMatchesSituation(phrase, situation.id))
         .map((phrase) => phrase.id);

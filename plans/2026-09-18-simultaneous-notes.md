@@ -524,14 +524,23 @@ export function cellResult(
   - The stack button at a tick inside an arpeggiated region sounds the notes audible at that tick together — a different sound from tapping the region itself, which is the reason both exist.
   - Layout for existing single-note phrases is visually unchanged (one lane, one cell per note).
 
-## Corpus
+## Corpus — DONE
 
 - Goal: harmonized and chord-drill entries in `inventory/melodies.ts`, reachable by the harmonic situations.
+- Implemented in `inventory/melodies.ts`: authoring helpers `ev()`, `voiceOf()`, `region()`, `polyBar()` (a common-time measure with explicit voices and a chord track) and `withHarmony()` (a chord track over an existing single-voice bar); `PhraseSpec`/`phrase()` gain an optional `chordIdentification` that is plumbed through `splitPhrase()` into `phraseEnd`. Seven new entries: `twinkle-harmonized` (two phrases, block accompaniment under the tune, I–IV–I then IV–I–V–I), `cadence-drill-block` (I–IV–V–I), `cadence-drill-pop` (I–V–vi–IV), `cadence-drill-inverted` (V with its third in the bass resolving to a root-position I), `turnaround-drill-block` (I–ii–V–I as blocks), `turnaround-drill-arpeggiated` (the same turnaround, single voice, one note at a time), and `pedal-drill` (a held lower 1 under an arpeggiating upper line).
+- Decisions and deviations:
+  - `chordIdentification` is only emitted for phrases that actually carry a chord track, so the untouched corpus stays unchanged.
+  - Accompaniment triads are written in true root position by register, not by degree order: `IV` is `4(-2) 6(-2) 1(-1)` and `V` is `5(-2) 7(-2) 2(-1)`, because `realizationOf()` reads the bass from the lowest sounding pitch — writing all three tones at octave −1 puts the wrapped tone underneath and reports an inversion. `cadence-drill-inverted` exploits this deliberately with `7(-2) 2(-1) 5(-1)`.
+  - Every multi-voice entry keeps the melody voice strictly highest at every onset, so the top-cell reduction stays the melody.
+  - Progression drills reuse the block/arpeggiated pair on the same chord track (`turnaround-drill-block` / `turnaround-drill-arpeggiated`) rather than duplicating every progression in both textures.
+  - `arpeggiated-triad` was already covered by single-voice entries, so the "harmony situations select a multi-voice phrase" test exempts it.
+- Coverage after this stage: every situation in all three groups has at least one eligible independent phrase (harmony and progression groups are now included in the corpus coverage test).
 - Tests (`inventory/melodies.test.ts`):
   - Every multi-voice entry normalizes without error and each voice fills its measures.
   - At least one `"independent"` phrase exists for each new situation in both families — otherwise selecting it strands the learner on an empty practice screen.
   - Phrase selection with only harmonic situations selected returns a multi-voice phrase.
   - At least one entry has a voice sustaining across another voice's arpeggio, since that is the shape the grid, the sounding-set detection, and the playback all hinge on.
+- Tests added in `inventory/melodies.test.ts`: "fills every voice of every multi-voice entry", "sustains a voice across another voice's arpeggio somewhere", "selects a multi-voice phrase for the harmony situations", and the existing coverage test now runs over the full `SITUATIONS` catalog.
 
 ## Release
 
