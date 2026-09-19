@@ -1,6 +1,7 @@
 import type { PlayController } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
 import type { Melody, Phrase } from "../music/melody.ts";
+import { routeToPath } from "../router.ts";
 import {
   Binder,
   cls,
@@ -109,6 +110,8 @@ const pageClass = cls("melodies-page");
 const listClass = cls("melodies-list");
 const entryClass = cls("melodies-entry");
 const headClass = cls("melodies-head");
+const titleClass = cls("melodies-title");
+const toggleClass = cls("melodies-toggle");
 const detailClass = cls("melodies-detail");
 const phraseListClass = cls("melodies-phrases");
 const phraseClass = cls("melodies-phrase");
@@ -143,14 +146,25 @@ mountStyle(`
   gap: 12px;
   width: 100%;
   padding: 14px 0;
-  border: 0;
-  background: none;
-  text-align: left;
   font-size: 17px;
   color: var(--color-text);
 }
+.${titleClass} {
+  color: var(--color-text);
+  text-decoration: none;
+}
+.${titleClass}:hover {
+  text-decoration: underline;
+}
 .${headClass} .meta {
   margin-left: auto;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.${toggleClass} {
+  border: 0;
+  background: none;
+  padding: 0;
   font-size: 13px;
   color: var(--color-text-muted);
 }
@@ -247,7 +261,7 @@ class MelodyEntryView implements View<EntryState, EntryMsg> {
     dispatch: (msg: EntryMsg) => void,
     initial: EntryState,
   ) {
-    const headRef = ref("melodyHead");
+    const headRef = ref("melodyToggle");
     const titleRef = ref("melodyTitle");
     const metaRef = ref("melodyMeta");
     const detailRef = ref("melodyDetail");
@@ -258,10 +272,13 @@ class MelodyEntryView implements View<EntryState, EntryMsg> {
     this.container = container;
     container.className = entryClass;
     container.innerHTML = sanitize`
-      <button type="button" class="${headClass}" data-ref="${headRef}">
-        <span data-ref="${titleRef}"></span>
+      <div class="${headClass}">
+        <a class="${titleClass}" data-ref="${titleRef}"></a>
         <span class="meta" data-ref="${metaRef}"></span>
-      </button>
+        <button type="button" class="${toggleClass}" data-ref="${headRef}">
+          phrases
+        </button>
+      </div>
       <div class="${detailClass}" data-ref="${detailRef}">
         <p class="source" data-ref="${sourceRef}"></p>
         <span data-ref="${playRef}"></span>
@@ -272,6 +289,9 @@ class MelodyEntryView implements View<EntryState, EntryMsg> {
 
     onPress(this.b.ref(headRef), () => dispatch({ type: "TOGGLE" }));
 
+    this.b.bindAttr(titleRef, "href", (s) =>
+      routeToPath({ page: "melody", melodyId: s.melody.id }),
+    );
     this.b.bindText(titleRef, (s) => s.melody.title);
     this.b.bindText(
       metaRef,

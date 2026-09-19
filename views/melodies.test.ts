@@ -28,9 +28,11 @@ test.describe("the melody browser", () => {
       const twinkle = ctx.melodies.find((m) => m.id === "twinkle");
 
       return {
-        titles: Array.from(container.querySelectorAll("li > button")).map(
-          (b) => b.textContent ?? "",
+        titles: Array.from(container.querySelectorAll("li > div > a")).map(
+          (a) => a.textContent ?? "",
         ),
+        firstHref:
+          container.querySelector("li > div > a")?.getAttribute("href") ?? "",
         collapsed,
         expandedPhrases: container.querySelectorAll("li li").length,
         phraseCount: twinkle?.phrases.length ?? 0,
@@ -40,6 +42,7 @@ test.describe("the melody browser", () => {
 
     expect(result.titles).toHaveLength(result.melodyCount);
     expect(result.titles[0]).toContain("Twinkle, Twinkle, Little Star");
+    expect(result.firstHref).toBe("/melodies/twinkle");
     expect(result.collapsed).toBe(0);
     expect(result.expandedPhrases).toBe(result.phraseCount);
   });

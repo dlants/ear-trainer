@@ -147,10 +147,14 @@ export class MelodyPageView implements View<State, Msg, MelodyPageCtx> {}
   - Pressing a cell asks the `PlayController` to play that note; pressing a harmony segment plays that chord; the recording play fixture in `test/app-harness.ts` verifies the requests.
   - `parseRoute("/melodies/twinkle")` and `routeToPath` round-trip; an unknown id renders the melody list instead of crashing.
 
-## link it up
+## link it up — DONE
 
 - Goal: the melody list links each entry to its page, and the app mounts the route.
+- Done. Notes and deviations:
+  - The route was already mounted in `views/app.ts`/`main.ts` during stage 2, so this stage was limited to linking.
+  - `views/melodies.ts`: the entry head is no longer a single `<button>`. It is a `<div class="melodies-head">` containing an `<a class="melodies-title" href="/melodies/{id}">` (href from `routeToPath`), the meta span, and a separate small "phrases" toggle button that keeps the existing expand/collapse behavior and `aria-expanded`.
+  - `views/melody-page.ts`: added a static "all melodies" back link (`routeToPath({ page: "melodies" })`) above the title.
+  - Bumped `APP_VERSION` to `0.68`.
 - Tests:
-  - Clicking a melody title in the melody browser navigates to that melody's page (the router link interception path, not a direct dispatch).
-  - A back link from the melody page returns to `/melodies`.
-- Also: bump `APP_VERSION` in `version.ts` (already at `0.67` from stage 2; bump again).
+  - `views/melody-page.test.ts` "links from the melody list and back again" mounts `AppView` plus a real `RouterView`, clicks the twinkle link (router click interception), asserts the route and rendered title, then clicks the back link and asserts the route returns to `/melodies`.
+  - Existing selectors that assumed `li > button` for melody entries were updated to `li > div > a` in `views/melodies.test.ts` and `views/melody-page.test.ts`; `melodies.test.ts` also asserts the first entry's href is `/melodies/twinkle`.

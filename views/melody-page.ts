@@ -10,6 +10,7 @@ import {
 } from "../music/melody.ts";
 import type { Degree } from "../music/note.ts";
 import { noteToMidi } from "../music/pitch.ts";
+import { routeToPath } from "../router.ts";
 import {
   Binder,
   cls,
@@ -127,6 +128,12 @@ mountStyle(`
     max(32px, env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
+.${pageClass} .back {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
 .${pageClass} h1 {
   margin: 0 0 4px;
   font-size: 28px;
@@ -160,6 +167,9 @@ export class MelodyPageView implements View<State, Msg, MelodyPageCtx> {
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${pageClass}">
+        <a class="back" href="${routeToPath({ page: "melodies" })}">
+          all melodies
+        </a>
         <h1 data-ref="${titleRef}"></h1>
         <p class="source" data-ref="${sourceRef}"></p>
         <span data-ref="${playRef}"></span>

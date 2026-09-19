@@ -112,6 +112,52 @@ test.describe("the melody page", () => {
     ]);
   });
 
+  test("links from the melody list and back again", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { appContext, emptyState, RecordingPlay } = await import(
+        "/test/app-harness.ts"
+      );
+      const { RouterView } = await import("/router.ts");
+      const { AppView, update } = await import("/views/app.ts");
+      const route = { page: "melodies" } as const;
+      const ctx = appContext(new RecordingPlay().asController(), route);
+      const state = emptyState(route);
+      const container = document.createElement("div");
+      document.body.append(container);
+      let view: InstanceType<typeof AppView>;
+      const dispatch = (msg: Parameters<typeof update>[1]) => {
+        update(state, msg, ctx, dispatch);
+        view.sync(state);
+      };
+      view = new AppView(container, dispatch, state, ctx);
+      const routerView = new RouterView(ctx.router, dispatch);
+      routerView.mount();
+
+      container
+        .querySelector<HTMLAnchorElement>('a[href="/melodies/twinkle"]')
+        ?.click();
+      const melodyRoute = { ...state.route };
+      const title = container.querySelector("h1")?.textContent ?? "";
+
+      container
+        .querySelector<HTMLAnchorElement>('a[href="/melodies"]')
+        ?.click();
+      const backRoute = { ...state.route };
+
+      routerView.destroy();
+      view.destroy();
+      container.remove();
+      return { melodyRoute, title, backRoute };
+    });
+
+    expect(result.melodyRoute).toEqual({
+      page: "melody",
+      melodyId: "twinkle",
+    });
+    expect(result.title).toBe("Twinkle, Twinkle, Little Star");
+    expect(result.backRoute).toEqual({ page: "melodies" });
+  });
+
   test("falls back to the melody list for an unknown id", async ({ page }) => {
     const result = await page.evaluate(async () => {
       const { appContext, emptyState, RecordingPlay } = await import(
@@ -127,7 +173,7 @@ test.describe("the melody page", () => {
         headings: Array.from(container.querySelectorAll("h1")).map(
           (h) => h.textContent ?? "",
         ),
-        entries: container.querySelectorAll("li > button").length,
+        entries: container.querySelectorAll("li > div > a").length,
         melodyCount: ctx.melodies.melodies.length,
       };
     });
