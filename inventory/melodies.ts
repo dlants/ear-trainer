@@ -8,9 +8,6 @@ import { awayInAManger } from "./melodies/away-in-a-manger.ts";
 import { baaBaaBlackSheep } from "./melodies/baa-baa-black-sheep.ts";
 import { battleHymn } from "./melodies/battle-hymn.ts";
 import { blueBellsOfScotland } from "./melodies/blue-bells-of-scotland.ts";
-import { cadenceDrillBlock } from "./melodies/cadence-drill-block.ts";
-import { cadenceDrillInverted } from "./melodies/cadence-drill-inverted.ts";
-import { cadenceDrillPop } from "./melodies/cadence-drill-pop.ts";
 import { camptownRaces } from "./melodies/camptown-races.ts";
 import { clementine } from "./melodies/clementine.ts";
 import { downInTheValley } from "./melodies/down-in-the-valley.ts";
@@ -46,7 +43,6 @@ import { ohSusanna } from "./melodies/oh-susanna.ts";
 import { ohWhereHasMyLittleDogGone } from "./melodies/oh-where-has-my-little-dog-gone.ts";
 import { oldMacdonald } from "./melodies/old-macdonald.ts";
 import { orangesAndLemons } from "./melodies/oranges-and-lemons.ts";
-import { pedalDrill } from "./melodies/pedal-drill.ts";
 import { pollyPutTheKettleOn } from "./melodies/polly-put-the-kettle-on.ts";
 import { popGoesTheWeasel } from "./melodies/pop-goes-the-weasel.ts";
 import { redRiverValley } from "./melodies/red-river-valley.ts";
@@ -65,8 +61,6 @@ import { swingLow } from "./melodies/swing-low.ts";
 import { theFirstNoel } from "./melodies/the-first-noel.ts";
 import { thisOldMan } from "./melodies/this-old-man.ts";
 import { threeBlindMice } from "./melodies/three-blind-mice.ts";
-import { turnaroundDrillArpeggiated } from "./melodies/turnaround-drill-arpeggiated.ts";
-import { turnaroundDrillBlock } from "./melodies/turnaround-drill-block.ts";
 import { twinkle } from "./melodies/twinkle.ts";
 import { weWishYouAMerryChristmas } from "./melodies/we-wish-you-a-merry-christmas.ts";
 import { whatChildIsThis } from "./melodies/what-child-is-this.ts";
@@ -140,12 +134,6 @@ export const MELODY_CORPUS: CorpusMelody[] = [
   joyToTheWorld,
   godRestYeMerryGentlemen,
   whatChildIsThis,
-  cadenceDrillBlock,
-  cadenceDrillPop,
-  cadenceDrillInverted,
-  turnaroundDrillBlock,
-  turnaroundDrillArpeggiated,
-  pedalDrill,
 ];
 
 export const MELODIES: Melody[] = MELODY_CORPUS.map((entry) => {

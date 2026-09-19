@@ -395,31 +395,20 @@ test.describe("progression situations", () => {
     }
   });
 
-  test("separates block and arpeggiated realizations of one chord track", () => {
-    const block = withHarmony([blockVoice(TRIADS)], TWO_FIVE_ONE);
-    const arpeggio = withHarmony([arpeggioVoice(TRIADS)], TWO_FIVE_ONE);
-    expect(occurrences(block, "two-five-one-block")).toHaveLength(1);
-    expect(occurrences(block, "two-five-one-arpeggiated")).toHaveLength(0);
-    expect(occurrences(arpeggio, "two-five-one-arpeggiated")).toHaveLength(1);
-    expect(occurrences(arpeggio, "two-five-one-block")).toHaveLength(0);
-  });
-
   test("requires the whole progression in order", () => {
     const withoutResolution = withHarmony(
       [blockVoice(TRIADS.slice(0, 2) as [Degree, Degree, Degree][])],
       TWO_FIVE_ONE.slice(0, 2),
     );
-    expect(occurrences(withoutResolution, "two-five-one-block")).toHaveLength(
-      0,
-    );
+    expect(occurrences(withoutResolution, "authentic-cadence")).toHaveLength(0);
     const reordered = withHarmony(
       [blockVoice(TRIADS)],
-      [region(0, 5, "major"), region(24, 2, "minor"), region(48, 1, "major")],
+      [region(0, 5, "major"), region(24, 1, "major"), region(48, 5, "major")],
     );
-    expect(occurrences(reordered, "two-five-one-block")).toHaveLength(0);
+    expect(occurrences(reordered, "plagal-cadence")).toHaveLength(0);
   });
 
-  test("distinguishes root position from inverted cadences", () => {
+  test("matches only root-position cadences", () => {
     const rootPosition = withHarmony([blockVoice(TRIADS)], TWO_FIVE_ONE);
     const inverted = withHarmony(
       [
@@ -433,10 +422,6 @@ test.describe("progression situations", () => {
     );
     expect(occurrences(rootPosition, "authentic-cadence")).toHaveLength(1);
     expect(occurrences(inverted, "authentic-cadence")).toHaveLength(0);
-    expect(occurrences(inverted, "authentic-cadence-inverted")).toHaveLength(1);
-    expect(
-      occurrences(rootPosition, "authentic-cadence-inverted"),
-    ).toHaveLength(0);
   });
 
   test("reports the cells sounding inside the matched regions", () => {

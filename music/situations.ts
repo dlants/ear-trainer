@@ -40,12 +40,7 @@ export type SituationId =
   | "ascending-run"
   | "descending-run"
   | "authentic-cadence"
-  | "authentic-cadence-inverted"
-  | "two-five-one-block"
-  | "two-five-one-arpeggiated"
-  | "plagal-cadence"
-  | "deceptive-cadence"
-  | "pop-progression";
+  | "plagal-cadence";
 
 /** Detection family: what a situation is defined over. */
 export type SituationKind = "cells" | "progression";
@@ -206,11 +201,7 @@ const HARMONY_SITUATIONS: readonly SituationEntry[] = [
   },
 ];
 
-type ProgressionSpec = {
-  steps: readonly ProgressionStep[];
-  /** The occurrence must have at least one step whose bass is not the root. */
-  requireInversion?: boolean;
-};
+type ProgressionSpec = { steps: readonly ProgressionStep[] };
 
 function chordStep(
   root: Degree,
@@ -225,37 +216,8 @@ const PROGRESSIONS: Record<string, ProgressionSpec> = {
   "authentic-cadence": {
     steps: [chordStep(5, "major", "root"), chordStep(1, "major", "root")],
   },
-  "authentic-cadence-inverted": {
-    steps: [chordStep(5, "major"), chordStep(1, "major")],
-    requireInversion: true,
-  },
-  "two-five-one-block": {
-    steps: [
-      chordStep(2, "minor", "any", "block"),
-      chordStep(5, "major", "any", "block"),
-      chordStep(1, "major", "any", "block"),
-    ],
-  },
-  "two-five-one-arpeggiated": {
-    steps: [
-      chordStep(2, "minor", "any", "arpeggiated"),
-      chordStep(5, "major", "any", "arpeggiated"),
-      chordStep(1, "major", "any", "arpeggiated"),
-    ],
-  },
   "plagal-cadence": {
     steps: [chordStep(4, "major"), chordStep(1, "major")],
-  },
-  "deceptive-cadence": {
-    steps: [chordStep(5, "major"), chordStep(6, "minor")],
-  },
-  "pop-progression": {
-    steps: [
-      chordStep(1, "major"),
-      chordStep(5, "major"),
-      chordStep(6, "minor"),
-      chordStep(4, "major"),
-    ],
   },
 };
 
@@ -267,40 +229,10 @@ const PROGRESSION_SITUATIONS: readonly SituationEntry[] = [
     degrees: progressionDegrees("authentic-cadence"),
   },
   {
-    id: "authentic-cadence-inverted",
-    label: "Inverted authentic cadence",
-    description: "V resolving to I with a note other than the root in the bass",
-    degrees: progressionDegrees("authentic-cadence-inverted"),
-  },
-  {
-    id: "two-five-one-block",
-    label: "ii–V–I as block chords",
-    description: "The turnaround struck as chords",
-    degrees: progressionDegrees("two-five-one-block"),
-  },
-  {
-    id: "two-five-one-arpeggiated",
-    label: "ii–V–I arpeggiated",
-    description: "The same turnaround spelled one note at a time",
-    degrees: progressionDegrees("two-five-one-arpeggiated"),
-  },
-  {
     id: "plagal-cadence",
     label: "Plagal cadence",
     description: "IV resolving to I",
     degrees: progressionDegrees("plagal-cadence"),
-  },
-  {
-    id: "deceptive-cadence",
-    label: "Deceptive cadence",
-    description: "V resolving to vi instead of I",
-    degrees: progressionDegrees("deceptive-cadence"),
-  },
-  {
-    id: "pop-progression",
-    label: "I–V–vi–IV",
-    description: "The four-chord pop progression",
-    degrees: progressionDegrees("pop-progression"),
   },
 ];
 
@@ -369,12 +301,6 @@ function findProgressionOccurrences(
       );
     });
     if (!matches) continue;
-    if (
-      spec.requireInversion &&
-      realizations.every((realization) => realization.bass === "root")
-    ) {
-      continue;
-    }
     occurrences.push(
       occurrence(
         situationId,

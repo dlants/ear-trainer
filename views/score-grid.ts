@@ -1,4 +1,4 @@
-import { checkIcon, playIcon, xIcon } from "../icons.ts";
+import { checkIcon, chordIcon, noteIcon, playIcon, xIcon } from "../icons.ts";
 import type {
   Cell,
   CellId,
@@ -118,6 +118,7 @@ const cellTrackClass = cls("score-cell-track");
 const cellButtonClass = cls("score-cell-button");
 const harmonyTrackClass = cls("score-harmony-track");
 const harmonySegmentClass = cls("score-harmony-segment");
+const trackIconClass = cls("score-track-icon");
 const struckClass = cls("score-struck-guess");
 const resultIconClass = cls("score-result-icon");
 const cursorClass = cls("score-slot-cursor");
@@ -126,7 +127,10 @@ const correctClass = cls("score-slot-correct");
 const incorrectClass = cls("score-slot-incorrect");
 mountStyle(`
 .${scoreGridClass} { display: grid; gap: 8px; }
-.${scoreGridClass} .${measureClass} { display: grid; gap: 4px; }
+.${scoreGridClass} .${measureClass} { display: grid; grid-template-columns: 22px 1fr; gap: 4px; }
+.${scoreGridClass} .${stackTrackClass},
+.${scoreGridClass} .${cellTrackClass},
+.${scoreGridClass} .${harmonyTrackClass} { grid-column: 2; }
 .${scoreGridClass} .${stackTrackClass} { position: relative; height: 22px; }
 .${scoreGridClass} .${stackButtonClass} {
   position: absolute;
@@ -168,10 +172,18 @@ mountStyle(`
   justify-content: center;
   gap: 2px;
   padding: 0 4px;
-  border-radius: var(--radius-control);
+  border-radius: 0;
   font-weight: 700;
   overflow: hidden;
   white-space: nowrap;
+}
+.${scoreGridClass} .${trackIconClass} {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--color-text-muted);
 }
 .${scoreGridClass} .${struckClass} { text-decoration: line-through; }
 .${scoreGridClass} .${resultIconClass} { display: inline-flex; flex: 0 0 auto; font-size: 0.9em; }
@@ -562,11 +574,14 @@ class MeasureView implements View<MeasureState, MeasureMsg> {
     const stacksRef = ref("stacks");
     const cellsRef = ref("cells");
     const harmonyRef = ref("harmony");
+    const harmonyIconRef = ref("harmonyIcon");
     this.container = container;
     container.innerHTML = sanitize`
       <section class="${measureClass}" aria-label="bar ${initial.measureIndex + 1}">
         <div class="${stackTrackClass}" data-ref="${stacksRef}" aria-label="simultaneous notes"></div>
+        <div class="${trackIconClass}" aria-hidden="true">${noteIcon()}</div>
         <div class="${cellTrackClass}" data-ref="${cellsRef}"></div>
+        <div class="${trackIconClass}" data-ref="${harmonyIconRef}" aria-hidden="true">${chordIcon()}</div>
         <div class="${harmonyTrackClass}" data-ref="${harmonyRef}" aria-label="harmony"></div>
       </section>
     `;
@@ -578,6 +593,7 @@ class MeasureView implements View<MeasureState, MeasureMsg> {
       height: `${state.laneCount * LANE_HEIGHT_PX}px`,
     }));
     this.b.bindVisible(harmonyRef, (state) => state.hasHarmony);
+    this.b.bindVisible(harmonyIconRef, (state) => state.hasHarmony);
     this.b.bindList(stacksRef, "div", (state) =>
       state.stacks.map((stack) =>
         showKeyed(

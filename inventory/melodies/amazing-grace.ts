@@ -14,7 +14,8 @@ import {
 
 /**
  * The left hand is a single sustained root under each bar of held tonic, and
- * thickens into a dyad only at the turn to IV and at the two V–I cadences.
+ * thickens into a dyad only at the turn to IV and at the two V–I cadences,
+ * filling out a full tonic triad at the first V–I arrival.
  */
 export const amazingGrace: CorpusMelody = melody(
   "amazing-grace",
@@ -49,7 +50,7 @@ export const amazingGrace: CorpusMelody = melody(
         polyBar3(
           [
             voiceOf("melody", ev(q, [5, -1]), ev(h, [1])),
-            voiceOf("harmony", ev(q, [5, -2]), ev(h, [1, -2])),
+            voiceOf("harmony", ev(q, [5, -2]), ev(h, [1, -2], [3, -2], [5, -2])),
           ],
           [region(q, 5), region(h, 1)],
         ),

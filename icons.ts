@@ -93,6 +93,20 @@ export function arrowRightIcon(): RawHtml {
   return svg('<path d="M4 12h15"/><path d="m13 6 6 6-6 6"/>');
 }
 
+/** Quarter note, for a single melody note cell. */
+export function noteIcon(): RawHtml {
+  return raw(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true"><ellipse cx="9" cy="17.4" rx="5" ry="3.6" transform="rotate(-20 9 17.4)"/><path d="M12.6 16.2V3.2h2v13z"/></svg>',
+  );
+}
+
+/** Three stacked noteheads, for a chord cell. */
+export function chordIcon(): RawHtml {
+  return raw(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5.2" rx="4.6" ry="3.2" transform="rotate(-20 12 5.2)"/><ellipse cx="12" cy="12" rx="4.6" ry="3.2" transform="rotate(-20 12 12)"/><ellipse cx="12" cy="18.8" rx="4.6" ry="3.2" transform="rotate(-20 12 18.8)"/></svg>',
+  );
+}
+
 export function checkIcon(): RawHtml {
   return svg('<path d="M20 6 9 17l-5-5"/>');
 }
