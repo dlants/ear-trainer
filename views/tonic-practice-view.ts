@@ -595,6 +595,7 @@ export class IdentifyNotesView
     const practiceInstructionRef = ref("practiceInstruction");
     const melodicSituationsRef = ref("melodicSituations");
     const harmonySituationsRef = ref("harmonySituations");
+    const progressionSituationsRef = ref("progressionSituations");
     const vocabularyRef = ref("vocabulary");
     const beginRef = ref("begin");
     const emptyRef = ref("empty");
@@ -625,6 +626,8 @@ export class IdentifyNotesView
           <div class="${situationListClass}" data-ref="${melodicSituationsRef}" aria-label="melodic situations"></div>
           <h2 class="${situationGroupClass}">Harmony</h2>
           <div class="${situationListClass}" data-ref="${harmonySituationsRef}" aria-label="harmony situations"></div>
+          <h2 class="${situationGroupClass}">Progression</h2>
+          <div class="${situationListClass}" data-ref="${progressionSituationsRef}" aria-label="progression situations"></div>
           <p class="${vocabularyClass}"><strong>Answer choices:</strong> <span data-ref="${vocabularyRef}"></span></p>
           <div class="${actionRowClass}">
             <button type="button" class="${primaryClass}" data-ref="${beginRef}">back to practice</button>
@@ -669,6 +672,7 @@ export class IdentifyNotesView
     for (const [listRef, group] of [
       [melodicSituationsRef, "melodic"],
       [harmonySituationsRef, "harmony"],
+      [progressionSituationsRef, "progression"],
     ] as const) {
       this.b.bindList(listRef, "div", (state) =>
         SITUATIONS.filter((situation) => situation.group === group).map(

@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { cells, type Phrase, type TimedEvent, type Voice } from "./melody.ts";
+import {
+  cells,
+  type HarmonyRegion,
+  type Phrase,
+  type TimedEvent,
+  type Voice,
+} from "./melody.ts";
 import type { Degree, Note } from "./note.ts";
 import {
   findSituationOccurrences,
@@ -30,6 +36,7 @@ function phrase(events: readonly (Note | Note[])[]): Phrase {
     noteIdentification: "independent",
     rationale: "Test fixture.",
     context: "major-cadence",
+    harmony: [],
     tempoBpm: 96,
     durationTicks: timedEvents.length * 24,
     voices: [{ id: "melody", events: timedEvents }],
@@ -51,6 +58,7 @@ function voicedPhrase(voices: Voice[], durationTicks: number): Phrase {
     noteIdentification: "independent",
     rationale: "Test fixture.",
     context: "major-cadence",
+    harmony: [],
     tempoBpm: 96,
     durationTicks,
     voices,
@@ -84,9 +92,13 @@ function indexes(phraseFixture: Phrase, situationId: SituationId): number[][] {
 
 test.describe("musical situations", () => {
   test("checks in the complete catalog and degree sets", () => {
-    expect(SITUATIONS.every((situation) => situation.kind === "cells")).toBe(
-      true,
-    );
+    expect(
+      SITUATIONS.every(
+        (situation) =>
+          situation.kind ===
+          (situation.group === "progression" ? "progression" : "cells"),
+      ),
+    ).toBe(true);
     expect(
       SITUATIONS.filter((situation) => situation.group === "harmony").map(
         (situation) => situation.id,
@@ -321,5 +333,124 @@ test.describe("musical situations", () => {
       ]),
     ).toEqual([1, 2, 3, 4, 5, 6]);
     expect(promptDegreesForSituations([])).toEqual([]);
+  });
+});
+
+test.describe("progression situations", () => {
+  function region(
+    startTicks: number,
+    root: Degree,
+    quality: "major" | "minor",
+  ): HarmonyRegion {
+    return {
+      id: `harmony:${startTicks}` as HarmonyRegion["id"],
+      startTicks,
+      endTicks: startTicks + 24,
+      chord: { root, alteration: 0, quality },
+    };
+  }
+  const TWO_FIVE_ONE: HarmonyRegion[] = [
+    region(0, 2, "minor"),
+    region(24, 5, "major"),
+    region(48, 1, "major"),
+  ];
+  function blockVoice(roots: readonly [Degree, Degree, Degree][]): Voice {
+    return {
+      id: "harmony",
+      events: roots.map((triad, index) => ({
+        notes: triad.map((degree, slot) => note(degree, slot === 0 ? -1 : 0)),
+        onsetTicks: index * 24,
+        durationTicks: 24,
+      })),
+    };
+  }
+  function arpeggioVoice(roots: readonly [Degree, Degree, Degree][]): Voice {
+    return {
+      id: "harmony",
+      events: roots.flatMap((triad, index) =>
+        triad.map((degree, slot) => ({
+          notes: [note(degree, slot === 0 ? -1 : 0)],
+          onsetTicks: index * 24 + slot * 8,
+          durationTicks: 8,
+        })),
+      ),
+    };
+  }
+  const TRIADS: [Degree, Degree, Degree][] = [
+    [2, 4, 6],
+    [5, 7, 2],
+    [1, 3, 5],
+  ];
+  function withHarmony(voices: Voice[], harmony: HarmonyRegion[]): Phrase {
+    return { ...voicedPhrase(voices, 72), harmony };
+  }
+
+  test("matches identity regardless of texture when unconstrained", () => {
+    const block = withHarmony([blockVoice(TRIADS)], TWO_FIVE_ONE);
+    const arpeggio = withHarmony([arpeggioVoice(TRIADS)], TWO_FIVE_ONE);
+    for (const fixture of [block, arpeggio]) {
+      expect(
+        findSituationOccurrences(fixture, cells(fixture), "authentic-cadence"),
+      ).toHaveLength(1);
+    }
+  });
+
+  test("separates block and arpeggiated realizations of one chord track", () => {
+    const block = withHarmony([blockVoice(TRIADS)], TWO_FIVE_ONE);
+    const arpeggio = withHarmony([arpeggioVoice(TRIADS)], TWO_FIVE_ONE);
+    expect(occurrences(block, "two-five-one-block")).toHaveLength(1);
+    expect(occurrences(block, "two-five-one-arpeggiated")).toHaveLength(0);
+    expect(occurrences(arpeggio, "two-five-one-arpeggiated")).toHaveLength(1);
+    expect(occurrences(arpeggio, "two-five-one-block")).toHaveLength(0);
+  });
+
+  test("requires the whole progression in order", () => {
+    const withoutResolution = withHarmony(
+      [blockVoice(TRIADS.slice(0, 2) as [Degree, Degree, Degree][])],
+      TWO_FIVE_ONE.slice(0, 2),
+    );
+    expect(occurrences(withoutResolution, "two-five-one-block")).toHaveLength(
+      0,
+    );
+    const reordered = withHarmony(
+      [blockVoice(TRIADS)],
+      [region(0, 5, "major"), region(24, 2, "minor"), region(48, 1, "major")],
+    );
+    expect(occurrences(reordered, "two-five-one-block")).toHaveLength(0);
+  });
+
+  test("distinguishes root position from inverted cadences", () => {
+    const rootPosition = withHarmony([blockVoice(TRIADS)], TWO_FIVE_ONE);
+    const inverted = withHarmony(
+      [
+        blockVoice([
+          [2, 4, 6],
+          [5, 7, 2],
+          [3, 5, 1],
+        ]),
+      ],
+      TWO_FIVE_ONE,
+    );
+    expect(occurrences(rootPosition, "authentic-cadence")).toHaveLength(1);
+    expect(occurrences(inverted, "authentic-cadence")).toHaveLength(0);
+    expect(occurrences(inverted, "authentic-cadence-inverted")).toHaveLength(1);
+    expect(
+      occurrences(rootPosition, "authentic-cadence-inverted"),
+    ).toHaveLength(0);
+  });
+
+  test("reports the cells sounding inside the matched regions", () => {
+    const block = withHarmony([blockVoice(TRIADS)], TWO_FIVE_ONE);
+    const [found] = occurrences(block, "authentic-cadence");
+    expect(found).toHaveLength(6);
+    expect(found.every((cellId) => Number(cellId.split(":")[0]) >= 24)).toBe(
+      true,
+    );
+  });
+
+  test("never matches a phrase with no stated harmony", () => {
+    expect(
+      phraseMatchesSituation(phrase([note(5), note(1)]), "authentic-cadence"),
+    ).toBe(false);
   });
 });

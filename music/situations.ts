@@ -1,13 +1,22 @@
 import {
+  type BassPosition,
   type Cell,
   type CellId,
+  type Chord,
+  type ChordQuality,
   cells,
   cellsById,
+  cellsInRegion,
   cellsSoundingAt,
+  chordSequence,
+  type HarmonyRegion,
   onsets,
   type Phrase,
+  realizationOf,
+  type Texture,
 } from "./melody.ts";
-import { type Degree, type Note, noteOffset } from "./note.ts";
+import type { Alteration, Degree, Note } from "./note.ts";
+import { noteOffset } from "./note.ts";
 
 export type SituationId =
   | "tonic"
@@ -29,13 +38,31 @@ export type SituationId =
   | "arpeggiated-triad"
   | "pedal-tone"
   | "ascending-run"
-  | "descending-run";
+  | "descending-run"
+  | "authentic-cadence"
+  | "authentic-cadence-inverted"
+  | "two-five-one-block"
+  | "two-five-one-arpeggiated"
+  | "plagal-cadence"
+  | "deceptive-cadence"
+  | "pop-progression";
 
 /** Detection family: what a situation is defined over. */
-export type SituationKind = "cells";
+export type SituationKind = "cells" | "progression";
 
 /** Selector grouping; independent of how the situation is detected. */
-export type SituationGroup = "melodic" | "harmony";
+export type SituationGroup = "melodic" | "harmony" | "progression";
+
+/** A progression step: authored identity plus constraints on how it is heard. */
+export type ProgressionStep = {
+  root: Degree;
+  alteration: Alteration;
+  quality: ChordQuality;
+  seventh?: "minor" | "major";
+  /** `"inverted"` accepts any bass other than the root. */
+  bass?: BassPosition | "any" | "inverted";
+  texture?: Texture | "any";
+};
 
 export type SituationDefinition = {
   id: SituationId;
@@ -179,16 +206,199 @@ const HARMONY_SITUATIONS: readonly SituationEntry[] = [
   },
 ];
 
+type ProgressionSpec = {
+  steps: readonly ProgressionStep[];
+  /** The occurrence must have at least one step whose bass is not the root. */
+  requireInversion?: boolean;
+};
+
+function chordStep(
+  root: Degree,
+  quality: ChordQuality,
+  bass: ProgressionStep["bass"] = "any",
+  texture: ProgressionStep["texture"] = "any",
+): ProgressionStep {
+  return { root, alteration: 0, quality, bass, texture };
+}
+
+const PROGRESSIONS: Record<string, ProgressionSpec> = {
+  "authentic-cadence": {
+    steps: [chordStep(5, "major", "root"), chordStep(1, "major", "root")],
+  },
+  "authentic-cadence-inverted": {
+    steps: [chordStep(5, "major"), chordStep(1, "major")],
+    requireInversion: true,
+  },
+  "two-five-one-block": {
+    steps: [
+      chordStep(2, "minor", "any", "block"),
+      chordStep(5, "major", "any", "block"),
+      chordStep(1, "major", "any", "block"),
+    ],
+  },
+  "two-five-one-arpeggiated": {
+    steps: [
+      chordStep(2, "minor", "any", "arpeggiated"),
+      chordStep(5, "major", "any", "arpeggiated"),
+      chordStep(1, "major", "any", "arpeggiated"),
+    ],
+  },
+  "plagal-cadence": {
+    steps: [chordStep(4, "major"), chordStep(1, "major")],
+  },
+  "deceptive-cadence": {
+    steps: [chordStep(5, "major"), chordStep(6, "minor")],
+  },
+  "pop-progression": {
+    steps: [
+      chordStep(1, "major"),
+      chordStep(5, "major"),
+      chordStep(6, "minor"),
+      chordStep(4, "major"),
+    ],
+  },
+};
+
+const PROGRESSION_SITUATIONS: readonly SituationEntry[] = [
+  {
+    id: "authentic-cadence",
+    label: "Authentic cadence",
+    description: "V resolving to I, both in root position",
+    degrees: progressionDegrees("authentic-cadence"),
+  },
+  {
+    id: "authentic-cadence-inverted",
+    label: "Inverted authentic cadence",
+    description: "V resolving to I with a note other than the root in the bass",
+    degrees: progressionDegrees("authentic-cadence-inverted"),
+  },
+  {
+    id: "two-five-one-block",
+    label: "ii–V–I as block chords",
+    description: "The turnaround struck as chords",
+    degrees: progressionDegrees("two-five-one-block"),
+  },
+  {
+    id: "two-five-one-arpeggiated",
+    label: "ii–V–I arpeggiated",
+    description: "The same turnaround spelled one note at a time",
+    degrees: progressionDegrees("two-five-one-arpeggiated"),
+  },
+  {
+    id: "plagal-cadence",
+    label: "Plagal cadence",
+    description: "IV resolving to I",
+    degrees: progressionDegrees("plagal-cadence"),
+  },
+  {
+    id: "deceptive-cadence",
+    label: "Deceptive cadence",
+    description: "V resolving to vi instead of I",
+    degrees: progressionDegrees("deceptive-cadence"),
+  },
+  {
+    id: "pop-progression",
+    label: "I–V–vi–IV",
+    description: "The four-chord pop progression",
+    degrees: progressionDegrees("pop-progression"),
+  },
+];
+
+/** Scale degree a diatonic third-stack step above `root`. */
+function stackedDegree(root: Degree, steps: number): Degree {
+  return (((root - 1 + steps * 2) % 7) + 1) as Degree;
+}
+
+function progressionDegrees(id: string): Degree[] {
+  const spec = PROGRESSIONS[id];
+  const degrees = new Set<Degree>();
+  for (const step of spec?.steps ?? []) {
+    const slots = step.seventh ? 4 : 3;
+    for (let slot = 0; slot < slots; slot += 1) {
+      degrees.add(stackedDegree(step.root, slot));
+    }
+  }
+  return [...degrees].sort((a, b) => a - b);
+}
+
+function stepMatchesIdentity(step: ProgressionStep, chord: Chord): boolean {
+  return (
+    step.root === chord.root &&
+    step.alteration === chord.alteration &&
+    step.quality === chord.quality &&
+    step.seventh === chord.seventh
+  );
+}
+
+function bassMatches(
+  constraint: ProgressionStep["bass"],
+  bass: BassPosition,
+): boolean {
+  if (constraint === undefined || constraint === "any") return true;
+  if (constraint === "inverted") return bass !== "root";
+  return constraint === bass;
+}
+
+function findProgressionOccurrences(
+  phrase: Phrase,
+  cellList: Cell[],
+  situationId: SituationId,
+): SituationOccurrence[] {
+  const spec = PROGRESSIONS[situationId];
+  if (!spec) return [];
+  const sequence = chordSequence(phrase.harmony);
+  const occurrences: SituationOccurrence[] = [];
+  for (
+    let start = 0;
+    start + spec.steps.length <= sequence.length;
+    start += 1
+  ) {
+    const window = sequence.slice(start, start + spec.steps.length);
+    const realizations = window.map((region) =>
+      realizationOf(cellList, region),
+    );
+    const matches = spec.steps.every((step, index) => {
+      const region = window[index];
+      const realization = realizations[index];
+      return (
+        stepMatchesIdentity(step, region.chord) &&
+        bassMatches(step.bass, realization.bass) &&
+        (step.texture === undefined ||
+          step.texture === "any" ||
+          step.texture === realization.texture)
+      );
+    });
+    if (!matches) continue;
+    if (
+      spec.requireInversion &&
+      realizations.every((realization) => realization.bass === "root")
+    ) {
+      continue;
+    }
+    occurrences.push(
+      occurrence(
+        situationId,
+        window.flatMap((region: HarmonyRegion) =>
+          cellsInRegion(cellList, region),
+        ),
+      ),
+    );
+  }
+  return occurrences;
+}
+
 function catalog(
   entries: readonly SituationEntry[],
   group: SituationGroup,
+  kind: SituationKind = "cells",
 ): SituationDefinition[] {
-  return entries.map((entry) => ({ ...entry, kind: "cells", group }));
+  return entries.map((entry) => ({ ...entry, kind, group }));
 }
 
 export const SITUATIONS: readonly SituationDefinition[] = [
   ...catalog(MELODIC_SITUATIONS, "melodic"),
   ...catalog(HARMONY_SITUATIONS, "harmony"),
+  ...catalog(PROGRESSION_SITUATIONS, "progression", "progression"),
 ];
 
 const DEFINITIONS = new Map(
@@ -454,10 +664,13 @@ function findPedalToneOccurrences(cellList: Cell[]): SituationOccurrence[] {
 }
 
 export function findSituationOccurrences(
-  _phrase: Phrase,
+  phrase: Phrase,
   cellList: Cell[],
   situationId: SituationId,
 ): SituationOccurrence[] {
+  if (DEFINITIONS.get(situationId)?.kind === "progression") {
+    return findProgressionOccurrences(phrase, cellList, situationId);
+  }
   switch (situationId) {
     case "harmonic-third":
       return findIntervalOccurrences(cellList, situationId, 2);

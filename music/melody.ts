@@ -1,5 +1,6 @@
 import type { Result } from "./format.ts";
 import {
+  type Alteration,
   type Context,
   type Degree,
   type Event,
@@ -25,12 +26,41 @@ export type Measure = {
   beatDurationsTicks: number[];
 };
 
+/** Authored harmony, in scale degrees so it stays key-agnostic. */
+export type ChordQuality = "major" | "minor" | "diminished" | "augmented";
+export type Chord = {
+  root: Degree;
+  alteration: Alteration;
+  quality: ChordQuality;
+  seventh?: "minor" | "major";
+  /** Authored intent for the bass. Matching uses the realization from cells. */
+  bass?: Degree;
+};
+
+/** `harmony:${startTicks}` — unique because regions never overlap. */
+export type RegionId = string & { readonly __brand: "RegionId" };
+
+/** Chord regions tile the phrase; gaps are legal and mean "no stated harmony". */
+export type HarmonyRegion = {
+  id: RegionId;
+  startTicks: number;
+  endTicks: number;
+  chord: Chord;
+};
+
+export type CorpusHarmony = {
+  durationTicks: number;
+  /** Omitted where the author does not want to commit to a harmony. */
+  chord?: Chord;
+};
+
 export type Score = {
   context: Context;
   tempoBpm: number;
   durationTicks: number;
   voices: Voice[];
   measures: Measure[];
+  harmony: HarmonyRegion[];
 };
 
 export type IdentificationPhraseSuitability =
@@ -71,6 +101,8 @@ export type CorpusMeasure = {
   durationTicks: number;
   beatDurationsTicks: number[];
   voices: CorpusMeasureVoice[];
+  /** Tiles the measure exactly when present; omitted means no stated harmony. */
+  harmony?: CorpusHarmony[];
   phraseEnd?: {
     noteIdentification: IdentificationPhraseSuitability;
     rationale: string;
@@ -79,7 +111,7 @@ export type CorpusMeasure = {
 
 export type CorpusMelody = Omit<
   Melody,
-  "durationTicks" | "voices" | "measures" | "phrases"
+  "durationTicks" | "voices" | "measures" | "phrases" | "harmony"
 > & {
   measures: CorpusMeasure[];
 };
@@ -135,6 +167,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
   const voiceEvents = new Map<string, TimedEvent[]>();
   const voiceOrder: string[] = [];
   const boundaries: PhraseBoundary[] = [];
+  const harmony: HarmonyRegion[] = [];
   let scoreCursor = 0;
   let firstPhraseMeasureIndex = 0;
 
@@ -240,6 +273,40 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       }
     }
 
+    if (authoredMeasure.harmony) {
+      let harmonyCursor = measureStart;
+      for (const [regionIndex, region] of authoredMeasure.harmony.entries()) {
+        if (!isPositiveInteger(region.durationTicks)) {
+          return failure(
+            entry.id,
+            `measure ${measureNumber} harmony ${regionIndex + 1} durationTicks must be a positive integer`,
+          );
+        }
+        const regionEnd = harmonyCursor + region.durationTicks;
+        if (regionEnd > measureEnd) {
+          return failure(
+            entry.id,
+            `measure ${measureNumber} harmony is overfilled by ${regionEnd - measureEnd} ticks`,
+          );
+        }
+        if (region.chord) {
+          harmony.push({
+            id: `harmony:${harmonyCursor}` as RegionId,
+            startTicks: harmonyCursor,
+            endTicks: regionEnd,
+            chord: { ...region.chord },
+          });
+        }
+        harmonyCursor = regionEnd;
+      }
+      if (harmonyCursor < measureEnd) {
+        return failure(
+          entry.id,
+          `measure ${measureNumber} harmony is underfilled by ${measureEnd - harmonyCursor} ticks`,
+        );
+      }
+    }
+
     measures.push({
       startTicks: measureStart,
       endTicks: measureEnd,
@@ -306,6 +373,17 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
         )
         .map((event) => cloneTimedEvent(event, event.onsetTicks - phraseStart)),
     }));
+    const phraseHarmony = harmony
+      .filter(
+        (region) =>
+          region.startTicks >= phraseStart && region.startTicks < phraseEnd,
+      )
+      .map((region) => ({
+        id: `harmony:${region.startTicks - phraseStart}` as RegionId,
+        startTicks: region.startTicks - phraseStart,
+        endTicks: Math.min(region.endTicks, phraseEnd) - phraseStart,
+        chord: { ...region.chord },
+      }));
     return {
       id: `${entry.id}:phrase-${phraseIndex + 1}`,
       melodyId: entry.id,
@@ -317,6 +395,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       durationTicks: phraseEnd - phraseStart,
       voices: phraseVoices,
       measures: phraseMeasures,
+      harmony: phraseHarmony,
     } satisfies Phrase;
   });
 
@@ -330,6 +409,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
       durationTicks: scoreCursor,
       voices,
       measures,
+      harmony,
       phrases,
       source: { ...entry.source },
     },
@@ -491,6 +571,108 @@ export function cellsSoundingAt(cellList: Cell[], ticks: number): CellId[] {
         a.voiceId.localeCompare(b.voiceId),
     )
     .map((cell) => cell.id);
+}
+
+export function chordAt(
+  harmony: HarmonyRegion[],
+  ticks: number,
+): Chord | undefined {
+  return harmony.find(
+    (region) => region.startTicks <= ticks && ticks < region.endTicks,
+  )?.chord;
+}
+
+function sameChord(a: Chord, b: Chord): boolean {
+  return (
+    a.root === b.root &&
+    a.alteration === b.alteration &&
+    a.quality === b.quality &&
+    a.seventh === b.seventh
+  );
+}
+
+/**
+ * Regions with immediate repeats of the same chord collapsed; the form
+ * progressions match against.
+ */
+export function chordSequence(harmony: HarmonyRegion[]): HarmonyRegion[] {
+  const ordered = [...harmony].sort((a, b) => a.startTicks - b.startTicks);
+  const result: HarmonyRegion[] = [];
+  for (const region of ordered) {
+    const previous = result.at(-1);
+    if (
+      previous &&
+      previous.endTicks === region.startTicks &&
+      sameChord(previous.chord, region.chord)
+    ) {
+      previous.endTicks = region.endTicks;
+      continue;
+    }
+    result.push({ ...region, chord: { ...region.chord } });
+  }
+  return result;
+}
+
+/** How a region was actually played, derived from its cells. */
+export type BassPosition = "root" | "first" | "second" | "third" | "non-chord";
+export type Texture = "block" | "arpeggiated" | "mixed";
+export type Realization = {
+  bass: BassPosition;
+  texture: Texture;
+};
+
+/** Scale degree a diatonic third-stack step above `root`. */
+function stackedDegree(root: Degree, steps: number): Degree {
+  return (((root - 1 + steps * 2) % 7) + 1) as Degree;
+}
+
+function bassPosition(chord: Chord, bass: Note): BassPosition {
+  const positions: BassPosition[] = ["root", "first", "second", "third"];
+  const slots = chord.seventh ? 4 : 3;
+  for (let step = 0; step < slots; step += 1) {
+    if (bass.degree === stackedDegree(chord.root, step)) {
+      return positions[step];
+    }
+  }
+  return "non-chord";
+}
+
+export function cellsInRegion(cellList: Cell[], region: HarmonyRegion): Cell[] {
+  return cellList.filter(
+    (cell) =>
+      cell.onsetTicks < region.endTicks &&
+      cell.onsetTicks + cell.durationTicks > region.startTicks,
+  );
+}
+
+export function realizationOf(
+  cellList: Cell[],
+  region: HarmonyRegion,
+): Realization {
+  const inRegion = cellsInRegion(cellList, region);
+  const attacks = inRegion.filter(
+    (cell) =>
+      cell.onsetTicks >= region.startTicks && cell.onsetTicks < region.endTicks,
+  );
+  const sounding = inRegion.length > 0 ? inRegion : attacks;
+  const lowest = sounding.reduce<Cell | undefined>(
+    (best, cell) =>
+      best === undefined || noteOffset(cell.note) < noteOffset(best.note)
+        ? cell
+        : best,
+    undefined,
+  );
+  const attackTicks = new Set(attacks.map((cell) => cell.onsetTicks));
+  const texture: Texture =
+    attackTicks.size <= 1
+      ? "block"
+      : attackTicks.size === attacks.length
+        ? "arpeggiated"
+        : "mixed";
+  return {
+    bass: lowest ? bassPosition(region.chord, lowest.note) : "non-chord",
+    texture,
+  };
 }
 
 export function voice(phrase: Phrase, voiceId: string): Voice | undefined {

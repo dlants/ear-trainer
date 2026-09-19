@@ -3,14 +3,15 @@ import type { Score } from "../music/melody.ts";
 import { fakeTimers } from "../test/support.ts";
 import {
   type Instrument,
+  type InstrumentStartEvent,
   SamplerAudioEngine,
   SCORE_ARTICULATION_GAP_SECONDS,
-  type ScheduledNote,
   scheduleScore,
 } from "./engine.ts";
 
 const phrase: Score = {
   context: "major-cadence",
+  harmony: [],
   tempoBpm: 120,
   durationTicks: 168,
   measures: [
@@ -66,10 +67,10 @@ const phrase: Score = {
 };
 
 class FakeInstrument implements Instrument {
-  readonly started: ScheduledNote[] = [];
+  readonly started: InstrumentStartEvent[] = [];
   readonly stops: number[] = [];
 
-  start(event: ScheduledNote): () => void {
+  start(event: InstrumentStartEvent): () => void {
     this.started.push(event);
     return () => this.stops.push(event.note);
   }
@@ -96,6 +97,26 @@ test.describe("score scheduling", () => {
       { eventIndex: 1, onsetMs: 250, endMs: 470 },
       { eventIndex: 2, onsetMs: 1000, endMs: 1970 },
       { eventIndex: 3, onsetMs: 2500, endMs: 2970 },
+    ]);
+  });
+
+  test("rebases ranged playback while preserving source melody cue indexes", () => {
+    const schedule = scheduleScore(phrase, 60, {
+      startTicks: 48,
+      endTicks: 144,
+    });
+
+    expect(schedule.durationSeconds).toBe(2);
+    expect(
+      schedule.notes.map(({ note, time, duration }) => [note, time, duration]),
+    ).toEqual([
+      [62, 0, 1 - SCORE_ARTICULATION_GAP_SECONDS],
+      [72, 1.5, 0.5 - SCORE_ARTICULATION_GAP_SECONDS],
+      [55, 1.5, 0.5 - SCORE_ARTICULATION_GAP_SECONDS],
+    ]);
+    expect(schedule.cues).toEqual([
+      { eventIndex: 2, onsetMs: 0, endMs: 970 },
+      { eventIndex: 3, onsetMs: 1500, endMs: 1970 },
     ]);
   });
 

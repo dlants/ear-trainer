@@ -2,14 +2,20 @@ import { expect, test } from "@playwright/test";
 import {
   type Cell,
   type CellId,
+  type Chord,
+  type CorpusHarmony,
   type CorpusMelody,
   cells,
   cellsById,
   cellsSoundingAt,
+  chordAt,
+  chordSequence,
+  type HarmonyRegion,
   lanes,
   normalizeMelody,
   onsetAt,
   onsets,
+  realizationOf,
   type Score,
   type TimedEvent,
   tonicEventIndexes,
@@ -411,6 +417,7 @@ function score(voices: Score["voices"]): Score {
     context: "major-cadence",
     tempoBpm: 96,
     durationTicks,
+    harmony: [],
     voices,
     measures: [
       {
@@ -560,5 +567,137 @@ test.describe("cells, lanes, and onsets", () => {
     const onsetList = onsets(cells(value));
     expect(onsetAt(onsetList, 24)?.cellIds).toHaveLength(1);
     expect(onsetAt(onsetList, 30)).toBeUndefined();
+  });
+});
+
+test.describe("harmony track", () => {
+  function chord(root: Note["degree"], quality: "major" | "minor"): Chord {
+    return { root, alteration: 0, quality };
+  }
+  function harmonized(
+    harmonies: (CorpusHarmony[] | undefined)[],
+  ): CorpusMelody {
+    return {
+      id: "harmonized",
+      title: "Harmonized",
+      context: "major-cadence",
+      tempoBpm: 96,
+      source: { description: "Test fixture", status: "original" },
+      measures: harmonies.map((harmony, index) => ({
+        durationTicks: 48,
+        beatDurationsTicks: [24, 24],
+        harmony,
+        voices: [
+          {
+            voiceId: "melody",
+            events: [{ notes: [note(1)], durationTicks: 48 }],
+          },
+        ],
+        phraseEnd:
+          index === harmonies.length - 1
+            ? {
+                noteIdentification: "independent" as const,
+                rationale: "The tonic is explicit.",
+              }
+            : undefined,
+      })),
+    };
+  }
+
+  test("normalizes authored harmony onto absolute tick bounds", () => {
+    const melody = normalize(
+      harmonized([
+        [
+          { durationTicks: 24, chord: chord(2, "minor") },
+          { durationTicks: 24, chord: chord(5, "major") },
+        ],
+        undefined,
+        [{ durationTicks: 48, chord: chord(1, "major") }],
+      ]),
+    );
+    expect(
+      melody.harmony.map(({ startTicks, endTicks, chord: authored }) => [
+        startTicks,
+        endTicks,
+        authored.root,
+      ]),
+    ).toEqual([
+      [0, 24, 2],
+      [24, 48, 5],
+      [96, 144, 1],
+    ]);
+    expect(chordAt(melody.harmony, 30)?.root).toBe(5);
+    expect(chordAt(melody.harmony, 60)).toBeUndefined();
+  });
+
+  test("rejects harmony that does not tile its measure", () => {
+    expect(
+      errorFor(harmonized([[{ durationTicks: 24, chord: chord(1, "major") }]])),
+    ).toContain("underfilled");
+    expect(
+      errorFor(harmonized([[{ durationTicks: 96, chord: chord(1, "major") }]])),
+    ).toContain("overfilled");
+  });
+
+  test("collapses a chord repeated across measures", () => {
+    const melody = normalize(
+      harmonized([
+        [{ durationTicks: 48, chord: chord(1, "major") }],
+        [{ durationTicks: 48, chord: chord(1, "major") }],
+        [{ durationTicks: 48, chord: chord(5, "major") }],
+      ]),
+    );
+    expect(
+      chordSequence(melody.harmony).map(({ startTicks, endTicks }) => [
+        startTicks,
+        endTicks,
+      ]),
+    ).toEqual([
+      [0, 96],
+      [96, 144],
+    ]);
+  });
+
+  test("reads realization from the cells, not the authored bass", () => {
+    const region = {
+      id: "harmony:0" as HarmonyRegion["id"],
+      startTicks: 0,
+      endTicks: 72,
+      chord: { ...chord(1, "major"), bass: 1 as Note["degree"] },
+    };
+    const blocked = score([
+      {
+        id: "melody",
+        events: [ev([note(1), note(3), note(5)], 0, 72)],
+      },
+    ]);
+    expect(realizationOf(cells(blocked), region)).toEqual({
+      bass: "root",
+      texture: "block",
+    });
+    const arpeggiated = score([
+      {
+        id: "melody",
+        events: [
+          ev([note(3, 0, -1)], 0, 24),
+          ev([note(5)], 24, 24),
+          ev([note(1, 0, 1)], 48, 24),
+        ],
+      },
+    ]);
+    expect(realizationOf(cells(arpeggiated), region)).toEqual({
+      bass: "first",
+      texture: "arpeggiated",
+    });
+    const mixed = score([
+      {
+        id: "melody",
+        events: [ev([note(5, 0, -1), note(1)], 0, 24), ev([note(3)], 24, 48)],
+      },
+    ]);
+    expect(realizationOf(cells(mixed), region)).toEqual({
+      bass: "second",
+      texture: "mixed",
+    });
   });
 });

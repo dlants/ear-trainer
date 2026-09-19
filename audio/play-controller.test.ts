@@ -107,6 +107,7 @@ const noteStep: PlayStep = {
 };
 const score: Score = {
   context: "major-cadence",
+  harmony: [],
   tempoBpm: 120,
   durationTicks: 48,
   measures: [{ startTicks: 0, endTicks: 48, beatDurationsTicks: [24, 24] }],

@@ -5,9 +5,11 @@ import type {
   PlayStep,
 } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
+import type { KeyValueStore } from "../deck/store.ts";
 import type { Phrase, TimedEvent } from "../music/melody.ts";
 import type { Degree, Note } from "../music/note.ts";
 import {
+  IDENTIFY_NOTE_DEGREES,
   type IdentifyNotesCtx,
   type IdentifyNotesMsg,
   type IdentifyNotesState,
@@ -66,6 +68,8 @@ export const profile: Profile = {
   name: "Test",
   color: "green",
   tonic: 60,
+  lowNote: 53,
+  highNote: 72,
   cadenceSpeed: "medium",
   drone: true,
 };
@@ -104,6 +108,7 @@ export function phrase(
     noteIdentification: "independent",
     rationale: "Test phrase.",
     context: "major-cadence",
+    harmony: [],
     tempoBpm: 120,
     durationTicks: measureCount * 96,
     measures,
@@ -111,7 +116,19 @@ export function phrase(
   };
 }
 
-function ctx(play: FakeIdentifyNotesPlay, phrases: Phrase[]): IdentifyNotesCtx {
+export function memoryStorage(): KeyValueStore {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+}
+
+function ctx(
+  play: FakeIdentifyNotesPlay,
+  phrases: Phrase[],
+  storage: KeyValueStore = memoryStorage(),
+): IdentifyNotesCtx {
   return {
     play: play as unknown as PlayController,
     profile,
@@ -121,11 +138,15 @@ function ctx(play: FakeIdentifyNotesPlay, phrases: Phrase[]): IdentifyNotesCtx {
       phrases: [candidate],
       source: { description: "Test", status: "original" as const },
     })),
+    storage,
     random: () => 0,
   };
 }
 
-export function mountIdentifySelector(phrases: Phrase[] = [phrase(4)]): {
+export function mountIdentifySelector(
+  phrases: Phrase[] = [phrase(4)],
+  storage: KeyValueStore = memoryStorage(),
+): {
   container: HTMLElement;
   state: IdentifyNotesState;
   dispatch: (msg: IdentifyNotesMsg) => void;
@@ -133,8 +154,10 @@ export function mountIdentifySelector(phrases: Phrase[] = [phrase(4)]): {
   view: IdentifyNotesView;
 } {
   const play = new FakeIdentifyNotesPlay();
-  const state = initialIdentifyNotesState();
-  const context = ctx(play, phrases);
+  const context = ctx(play, phrases, storage);
+  const state = initialIdentifyNotesState(context);
+  state.screen = "situations";
+  state.trial = undefined;
   const container = document.createElement("div");
   container.style.width = "420px";
   document.body.appendChild(container);
@@ -147,10 +170,7 @@ export function mountIdentifySelector(phrases: Phrase[] = [phrase(4)]): {
   return { container, state, dispatch, play, view };
 }
 
-export function mountIdentify(
-  measureCount = 4,
-  promptDegrees: Degree[] = [1],
-): {
+export function mountIdentify(measureCount = 4): {
   container: HTMLElement;
   state: IdentifyNotesState;
   dispatch: (msg: IdentifyNotesMsg) => void;
@@ -162,12 +182,13 @@ export function mountIdentify(
   const state: IdentifyNotesState = {
     screen: "practice",
     selectedSituationIds: ["tonic"],
+    tonic: 60,
     droneOn: false,
     trial: {
       phrase: selected,
       targetSituationId: "tonic",
       phase: "answering",
-      promptDegrees,
+      promptDegrees: [...IDENTIFY_NOTE_DEGREES],
       answers: new Array(selected.voices[0].events.length).fill(undefined),
       cursorEventIndex: 0,
       firstVisibleMeasureIndex: 0,

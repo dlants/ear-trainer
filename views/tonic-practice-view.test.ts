@@ -91,7 +91,7 @@ test("situation selector is keyed, accessible, persistent, and never empty", asy
     };
   });
 
-  expect(result.count).toBe(20);
+  expect(result.count).toBe(27);
   expect(result.ids).toEqual([
     "tonic",
     "dominant-adjacent-tonic",
@@ -113,6 +113,13 @@ test("situation selector is keyed, accessible, persistent, and never empty", asy
     "triad-together",
     "arpeggiated-triad",
     "pedal-tone",
+    "authentic-cadence",
+    "authentic-cadence-inverted",
+    "two-five-one-block",
+    "two-five-one-arpeggiated",
+    "plagal-cadence",
+    "deceptive-cadence",
+    "pop-progression",
   ]);
   expect(result.labels.every((label) => (label?.length ?? 0) > 10)).toBe(true);
   expect(result.afterPointer.selected).toEqual([

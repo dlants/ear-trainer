@@ -104,8 +104,9 @@ test.describe("timed melody corpus", () => {
         phrase.measures.length >= 2,
     );
 
-    // Harmony situations need multi-voice entries, which arrive with the
-    // corpus stage of the simultaneous-notes plan.
+    // Harmony and progression situations need multi-voice entries with an
+    // authored chord track, which arrive with the corpus stage of the
+    // simultaneous-notes plan.
     for (const situation of SITUATIONS.filter(
       (candidate) => candidate.group === "melodic",
     )) {

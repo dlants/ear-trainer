@@ -441,9 +441,19 @@ export function cellResult(
   - `arpeggiated-triad` matches 1-3-5 stated in sequence within one chord region and `triad-together` does not, and vice versa for the block-chord case. The two textures must be distinguishable, since teaching the difference is the point.
   - `pedal-tone` matches a sustained cell spanning two or more attacks beneath it.
 
-## Harmony track
+## Harmony track — DONE
 
 - Goal: `Chord`/`HarmonyRegion` authored on corpus measures, normalized onto `Score`, with `chordAt()` and `chordSequence()`; progression situations detected and selectable.
+- Implemented in `music/melody.ts`: `Chord`, `ChordQuality`, `RegionId`, `HarmonyRegion`, `CorpusHarmony`, plus `chordAt()`, `chordSequence()`, `cellsInRegion()`, `realizationOf()` with `BassPosition`/`Texture`/`Realization`. `Score` gains a required `harmony: HarmonyRegion[]`; `CorpusMeasure` gains optional `harmony?: CorpusHarmony[]` that must tile the measure exactly when present. Phrase slicing rebases region ticks and ids. In `music/situations.ts`: `SituationKind` gains `"progression"`, `SituationGroup` gains `"progression"`, `ProgressionStep`, a `PROGRESSIONS` spec table and the seven catalog entries, matched by `findProgressionOccurrences()` over `chordSequence(phrase.harmony)` with realization derived from cells. The selector in `views/tonic-practice-view.ts` renders a third "Progression" group.
+- Decisions and deviations:
+  - `RegionId` is `harmony:${startTicks}`, unique because regions never overlap, and stable across re-derivation like `CellId`.
+  - A `CorpusHarmony` entry may omit its `chord`, which is how a measure states harmony over part of its span and leaves the rest a gap; a measure may also omit `harmony` entirely.
+  - `ProgressionStep.bass` accepts `"inverted"` (any bass other than the root) in addition to `BassPosition | "any"`, and a spec may set `requireInversion` so `authentic-cadence-inverted` matches when *at least one* of its chords is inverted — a per-step constraint cannot express that.
+  - A region whose cells all attack at one tick is `"block"` (including the single-note case); all-distinct attack ticks is `"arpeggiated"`; anything else is `"mixed"`.
+  - `arpeggiated-triad` was left scoped to consecutive single-note onsets rather than re-scoped to a chord region, since the corpus is still unharmonized and region-scoping would strip every existing match; the region-scoped texture distinction is now carried by the progression situations' `texture` constraint.
+  - `chordIdentification` on phrases is deferred to the Grid UI stage, which is where it is first read.
+  - The corpus is untouched (every entry normalizes with an empty harmony track); authored harmony arrives in the corpus stage, so the `inventory/melodies.test.ts` coverage test still exempts the harmony and progression groups.
+- Tests: `music/melody.test.ts` "harmony track" (tick bounds and gaps, under/overfill rejection, `chordSequence()` collapsing, `realizationOf()` bass/texture from cells rather than the authored `bass`); `music/situations.test.ts` "progression situations" (identity across textures, block vs arpeggiated disjointness, ordering/completeness, root-position vs inverted, reported `cellIds`, no harmony means no match).
 - Tests (`music/melody.test.ts`, `music/situations.test.ts`, `inventory/melodies.test.ts`):
   - A measure's authored harmony normalizes to regions with absolute tick bounds; a measure with no harmony leaves a gap rather than inventing one.
   - `chordSequence()` collapses a chord repeated across three measures into one region, so a progression spanning slow harmonic rhythm still matches.
