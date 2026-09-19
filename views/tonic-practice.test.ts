@@ -6,12 +6,22 @@ import type {
 } from "../audio/engine.ts";
 import { PlayController } from "../audio/play-controller.ts";
 import { DeckStore, type KeyValueStore } from "../deck/store.ts";
-import type { Melody, Phrase } from "../music/melody.ts";
+import type {
+  CellId,
+  HarmonyRegion,
+  Melody,
+  Phrase,
+  RegionId,
+} from "../music/melody.ts";
+import { cells } from "../music/melody.ts";
 import type { Context, Note, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import { phraseMatchesSituation } from "../music/situations.ts";
 import {
+  type CellAnswer,
   type IdentifyNotesCtx,
+  type IdentifyNotesMsg,
+  type IdentifyNotesState,
   identifyNotesTonics,
   initialIdentifyNotesState,
   selectIdentifyNotesPhrase,
@@ -84,6 +94,22 @@ function phraseWithDegrees(
   return selected;
 }
 
+function cellIdAt(state: IdentifyNotesState, index: number): CellId {
+  const cell = state.trial?.cells[index];
+  if (!cell) throw new Error(`no cell ${index}`);
+  return cell.id;
+}
+function select(cellId: CellId): IdentifyNotesMsg {
+  return { type: "SELECT_CELL", cellId };
+}
+function answerAt(state: IdentifyNotesState, index: number): CellAnswer {
+  return state.trial?.cellAnswers[cellIdAt(state, index)];
+}
+function answers(state: IdentifyNotesState): (CellAnswer | null)[] {
+  return (state.trial?.cells ?? []).map(
+    (cell) => state.trial?.cellAnswers[cell.id] ?? null,
+  );
+}
 function melody(id: string, phrases: Phrase[]): Melody {
   const durationTicks = phrases.reduce(
     (total, candidate) => total + candidate.durationTicks,
@@ -412,23 +438,83 @@ test.describe("identify-notes reducer", () => {
     const tonic = phraseWithDegrees("tonic", 0, [1, 4]);
     const { ctx } = setup([melody("tonic", [tonic])]);
     const state = initialIdentifyNotesState(ctx);
-    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 0 }, ctx);
+    const cell = (index: number) => cellIdAt(state, index);
+    updateIdentifyNotes(state, select(cell(0)), ctx);
     updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 3 }, ctx);
-    expect(state.trial?.answers[0]).toBe(3);
-    expect(state.trial?.selectedSlotIndex).toBe(1);
-    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 0 }, ctx);
+    expect(answerAt(state, 0)).toBe(3);
+    expect(state.trial?.selection).toEqual({ kind: "cell", cellId: cell(1) });
+    updateIdentifyNotes(state, select(cell(0)), ctx);
     updateIdentifyNotes(state, { type: "SET_ANSWER", answer: "other" }, ctx);
-    expect(state.trial?.answers[0]).toBe("other");
-    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 0 }, ctx);
+    expect(answerAt(state, 0)).toBe("other");
+    updateIdentifyNotes(state, select(cell(0)), ctx);
     updateIdentifyNotes(state, { type: "SET_ANSWER", answer: undefined }, ctx);
-    expect(state.trial?.answers[0]).toBeUndefined();
-    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 1 }, ctx);
+    expect(answerAt(state, 0)).toBeUndefined();
+    expect(cell(0) in (state.trial?.cellAnswers ?? {})).toBe(false);
+    updateIdentifyNotes(state, select(cell(1)), ctx);
     updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 4 }, ctx);
-    expect(state.trial?.answers[1]).toBe(4);
-    expect(state.trial?.selectedSlotIndex).toBeUndefined();
+    expect(answerAt(state, 1)).toBe(4);
+    expect(state.trial?.selection).toEqual({ kind: "cell", cellId: cell(2) });
+    updateIdentifyNotes(state, { type: "SET_ANSWER", answer: "skip" }, ctx);
+    expect(answerAt(state, 2)).toBe("skip");
+    expect(state.trial?.selection).toBeUndefined();
     updateIdentifyNotes(state, { type: "REVEAL" }, ctx);
     updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 1 }, ctx);
-    expect(state.trial?.answers).toEqual([undefined, 4]);
+    expect(answers(state)).toEqual([null, 4, "skip"]);
+  });
+  test("answering one tone of an onset leaves its neighbours untouched", () => {
+    const chord = phraseWithDegrees("tonic", 0, [1, 4]);
+    const { ctx } = setup([melody("tonic", [chord])]);
+    const state = initialIdentifyNotesState(ctx);
+    const trial = state.trial;
+    if (!trial) throw new Error("missing trial");
+    const [top, bottom] = [cellIdAt(state, 1), cellIdAt(state, 2)];
+    expect(trial.cells[1]?.onsetTicks).toBe(trial.cells[2]?.onsetTicks);
+    updateIdentifyNotes(state, select(top), ctx);
+    updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 4 }, ctx);
+    expect(Object.keys(trial.cellAnswers)).toEqual([top]);
+    expect(trial.cellAnswers[bottom]).toBeUndefined();
+    expect(trial.selection).toEqual({ kind: "cell", cellId: bottom });
+  });
+  test("recomputing cells reproduces the ids answers are stored under", () => {
+    const tonic = phraseWithDegrees("tonic", 0, [1, 4]);
+    const { ctx } = setup([melody("tonic", [tonic])]);
+    const state = initialIdentifyNotesState(ctx);
+    const trial = state.trial;
+    if (!trial) throw new Error("missing trial");
+    updateIdentifyNotes(state, select(cellIdAt(state, 1)), ctx);
+    updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 4 }, ctx);
+    const recomputed = cells(trial.phrase);
+    expect(recomputed.map((cell) => cell.id)).toEqual(
+      trial.cells.map((cell) => cell.id),
+    );
+    expect(trial.cellAnswers[recomputed[1]?.id ?? ("" as CellId)]).toBe(4);
+  });
+  test("selecting a region swaps the palette and keeps the two answer maps apart", () => {
+    const harmonized = phraseWithDegrees("tonic", 0, [1, 4]);
+    const region: HarmonyRegion = {
+      id: "harmony:0" as RegionId,
+      startTicks: 0,
+      endTicks: 48,
+      chord: { root: 1, alteration: 0, quality: "major" },
+    };
+    harmonized.harmony = [region];
+    const { ctx } = setup([melody("tonic", [harmonized])]);
+    const state = initialIdentifyNotesState(ctx);
+    updateIdentifyNotes(state, select(cellIdAt(state, 0)), ctx);
+    updateIdentifyNotes(
+      state,
+      { type: "SELECT_REGION", regionId: region.id },
+      ctx,
+    );
+    expect(state.trial?.selection).toEqual({
+      kind: "chord",
+      regionId: region.id,
+    });
+    updateIdentifyNotes(state, { type: "SET_CHORD_ANSWER", answer: 5 }, ctx);
+    expect(state.trial?.chordAnswers[region.id]).toBe(5);
+    expect(state.trial?.cellAnswers).toEqual({});
+    updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 2 }, ctx);
+    expect(state.trial?.cellAnswers).toEqual({});
   });
 
   test("owns guesses, playback cursor, reveal, next, and bounded viewport state", () => {
@@ -440,15 +526,10 @@ test.describe("identify-notes reducer", () => {
     );
     const state = initialIdentifyNotesState(ctx);
 
-    expect(state.trial?.answers).toEqual([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-    ]);
-    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 2 }, ctx);
+    expect(answers(state)).toEqual([null, null, null, null, null]);
+    updateIdentifyNotes(state, select(cellIdAt(state, 2)), ctx);
     updateIdentifyNotes(state, { type: "SET_ANSWER", answer: 1 }, ctx);
-    expect(state.trial?.answers).toEqual([undefined, undefined, 1, undefined]);
+    expect(answers(state)).toEqual([null, null, 1, null, null]);
 
     if (!state.trial) throw new Error("missing trial");
     updateIdentifyNotes(state, { type: "SCROLL", delta: 1 }, ctx);
@@ -457,25 +538,28 @@ test.describe("identify-notes reducer", () => {
     expect(state.trial.firstVisibleMeasureIndex).toBe(2);
 
     updateIdentifyNotes(state, { type: "PLAY_EVENT", eventIndex: 2 }, ctx);
-    expect(state.trial.cursorEventIndex).toBe(2);
+    expect(state.trial.onsets[state.trial.cursorOnsetIndex]?.onsetTicks).toBe(
+      48,
+    );
     updateIdentifyNotes(state, { type: "PLAY_PAUSE" }, ctx);
     expect(ctx.play.getState()).toEqual({ status: "idle" });
-    expect(state.trial.selectedSlotIndex).toBe(3);
+    expect(state.trial.selection).toEqual({
+      kind: "cell",
+      cellId: cellIdAt(state, 3),
+    });
     updateIdentifyNotes(state, { type: "PLAY_PAUSE" }, ctx);
-    expect(state.trial.selectedSlotIndex).toBeUndefined();
-    updateIdentifyNotes(state, { type: "SELECT_SLOT", eventIndex: 1 }, ctx);
+    expect(state.trial.selection).toBeUndefined();
+    updateIdentifyNotes(state, select(cellIdAt(state, 1)), ctx);
     updateIdentifyNotes(state, { type: "PLAY_FROM_BEGINNING" }, ctx);
-    expect(state.trial.cursorEventIndex).toBe(0);
+    expect(state.trial.cursorOnsetIndex).toBe(0);
     expect(state.trial.firstVisibleMeasureIndex).toBe(0);
-    expect(state.trial.selectedSlotIndex).toBeUndefined();
+    expect(state.trial.selection).toBeUndefined();
 
     updateIdentifyNotes(state, { type: "REVEAL" }, ctx);
     expect(state.trial.phase).toBe("revealed");
     updateIdentifyNotes(state, { type: "NEXT" }, ctx);
     expect(state.trial?.phrase).toBe(second);
-    expect(state.trial?.answers.every((answer) => answer === undefined)).toBe(
-      true,
-    );
+    expect(answers(state).every((answer) => answer === null)).toBe(true);
     expect(audio.calls).toEqual([
       `score:${first.id}:57:48-60`,
       `score:${first.id}:57:48-240`,

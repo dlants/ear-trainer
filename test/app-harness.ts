@@ -19,7 +19,6 @@ import type { Midi } from "../music/pitch.ts";
 import { RouterController } from "../router.ts";
 import type { AppCtx, State } from "../views/app.ts";
 import { DismissStack } from "../views/dropdown.ts";
-import { initialIdentifyNotesState } from "../views/tonic-practice.ts";
 
 export class ControlledHandle implements PlaybackHandle {
   readonly durationMs = 100;
@@ -44,9 +43,13 @@ export class ControlledHandle implements PlaybackHandle {
 
 export class FakeAudio implements AudioEngine {
   unlocked = true;
+  unlockCalls = 0;
   readonly handles: ControlledHandle[] = [];
 
-  async unlock(): Promise<void> {}
+  async unlock(): Promise<void> {
+    this.unlockCalls += 1;
+    this.unlocked = true;
+  }
 
   drone: Midi | undefined;
   setDrone(tonic: Midi | undefined): void {
@@ -107,15 +110,24 @@ function memoryStorage(): KeyValueStore {
 export function emptyState(route: State["route"]): State {
   return {
     route,
-    identifyNotes: initialIdentifyNotesState(),
-    options: {
+    identifyNotes: {
+      screen: "practice",
+      selectedSituationIds: ["tonic"],
+      trial: undefined,
       tonic: 60,
+      droneOn: false,
+    },
+    options: {
+      lowNote: 53,
+      highNote: 72,
       cadenceSpeed: "medium",
       mic: { status: "off" },
       error: undefined,
     },
-    start: { status: "idle", error: undefined },
     audioUnlocked: true,
+    audioUnlocking: false,
+    pendingIdentifyMsg: undefined,
+    pendingOptionsMsg: undefined,
   };
 }
 
@@ -131,6 +143,8 @@ export function appContext(
     name: "me",
     color: "#000000",
     tonic: 60,
+    lowNote: 53,
+    highNote: 72,
     cadenceSpeed: "medium",
     drone: true,
   };
@@ -144,6 +158,7 @@ export function appContext(
       play,
       profile,
       melodies: MELODIES,
+      storage,
       random: () => 0,
     },
     options: {

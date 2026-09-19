@@ -67,7 +67,9 @@ test("touch pointerdown does not activate an AudioContext", async ({
   await expect.poll(() => reports).toContain("click:running");
 });
 
-test("the start view defers audio unlock until click", async ({ page }) => {
+test("the landing activity link defers audio unlock until click", async ({
+  page,
+}) => {
   const reports: string[] = [];
   page.on("console", (message) => reports.push(message.text()));
 
@@ -83,7 +85,7 @@ test("the start view defers audio unlock until click", async ({ page }) => {
 
     addEventListener("pointerdown", () => {
       alert("hold before pointerup");
-      console.log(`start-pointerdown:${context?.state ?? "none"}`);
+      console.log(`landing-pointerdown:${context?.state ?? "none"}`);
     });
   });
 
@@ -94,9 +96,9 @@ test("the start view defers audio unlock until click", async ({ page }) => {
     }),
   );
   await page.goto("/test/start-activation.html");
-  const button = page.getByRole("button", { name: "start practicing" });
-  const box = await button.boundingBox();
-  if (!box) throw new Error("start button has no bounding box");
+  const link = page.getByRole("link", { name: "Identify the notes" });
+  const box = await link.boundingBox();
+  if (!box) throw new Error("activity link has no bounding box");
   const dialogPromise = page.waitForEvent("dialog");
   const tapPromise = page.touchscreen.tap(
     box.x + box.width / 2,
@@ -107,6 +109,6 @@ test("the start view defers audio unlock until click", async ({ page }) => {
   await dialog.dismiss();
   await tapPromise;
 
-  expect(reports).toContain("start-pointerdown:none");
+  expect(reports).toContain("landing-pointerdown:none");
   await expect.poll(() => reports).toContain("unlock:running");
 });

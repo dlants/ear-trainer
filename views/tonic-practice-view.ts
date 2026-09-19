@@ -1,8 +1,7 @@
 import type { PlayState } from "../audio/play-controller.ts";
 import { arrowDownIcon, arrowUpIcon, checkIcon, xIcon } from "../icons.ts";
-import type { Measure, TimedEvent } from "../music/melody.ts";
-import { voice } from "../music/melody.ts";
-import type { Degree } from "../music/note.ts";
+import type { Cell, CellId, Measure } from "../music/melody.ts";
+import type { Degree, Note } from "../music/note.ts";
 import { SITUATIONS, type SituationDefinition } from "../music/situations.ts";
 import {
   Binder,
@@ -18,53 +17,47 @@ import {
 } from "../vamp.ts";
 import { PlayButtonView } from "./play-button.ts";
 import {
+  type CellAnswer,
   IDENTIFY_NOTE_DEGREES,
   type IdentifyNotesCtx,
   type IdentifyNotesMsg,
   type IdentifyNotesState,
   type IdentifyNotesTrial,
-  type MelodySlotAnswer,
   VISIBLE_MEASURE_COUNT,
 } from "./tonic-practice.ts";
 
 export type SlotResult = "correct" | "incorrect";
 
 function actualAnswer(
-  event: TimedEvent,
+  note: Note,
   promptDegrees: Degree[],
-): Exclude<MelodySlotAnswer, undefined> {
-  const note = event.notes.length === 1 ? event.notes[0] : undefined;
-  return note && note.alteration === 0 && promptDegrees.includes(note.degree)
+): Exclude<CellAnswer, undefined | "skip"> {
+  return note.alteration === 0 && promptDegrees.includes(note.degree)
     ? note.degree
     : "other";
 }
 
 export function slotResult(
-  event: TimedEvent,
+  note: Note,
   promptDegrees: Degree[],
-  answer: MelodySlotAnswer,
+  answer: CellAnswer,
 ): SlotResult {
-  return (answer ?? "other") === actualAnswer(event, promptDegrees)
+  return (answer ?? "other") === actualAnswer(note, promptDegrees)
     ? "correct"
     : "incorrect";
 }
 
-function guessLabel(answer: MelodySlotAnswer): string {
+function guessLabel(answer: CellAnswer): string {
   if (answer === undefined) return "";
+  if (answer === "skip") return "_";
   return answer === "other" ? "other" : String(answer);
 }
 
-function noteLabel(event: TimedEvent): string {
-  return event.notes
-    .map((note) => {
-      const accidental =
-        note.alteration === 1 ? "♯" : note.alteration === -1 ? "♭" : "";
-      const octave = (note.octave > 0 ? "↑" : "↓").repeat(
-        Math.abs(note.octave),
-      );
-      return `${accidental}${note.degree}${octave}`;
-    })
-    .join("+");
+function noteLabel(note: Note): string {
+  const accidental =
+    note.alteration === 1 ? "♯" : note.alteration === -1 ? "♭" : "";
+  const octave = (note.octave > 0 ? "↑" : "↓").repeat(Math.abs(note.octave));
+  return `${accidental}${note.degree}${octave}`;
 }
 
 function playbackFor(
@@ -232,23 +225,23 @@ mountStyle(`
 `);
 
 type SlotState = {
-  event: TimedEvent;
-  eventIndex: number;
+  cell: Cell;
+  cellIndex: number;
   measure: Measure;
   promptDegrees: Degree[];
-  answer: MelodySlotAnswer;
+  answer: CellAnswer;
   selected: boolean;
   cursor: boolean;
   revealed: boolean;
 };
 
-type SlotMsg = { type: "ACTIVATE"; eventIndex: number };
+type SlotMsg = { type: "ACTIVATE"; cellIndex: number; cellId: CellId };
 
 function slotStyle(state: SlotState): Record<string, string> {
   const duration = state.measure.endTicks - state.measure.startTicks;
   const leftPercent =
-    ((state.event.onsetTicks - state.measure.startTicks) / duration) * 100;
-  const widthPercent = (state.event.durationTicks / duration) * 100;
+    ((state.cell.onsetTicks - state.measure.startTicks) / duration) * 100;
+  const widthPercent = (state.cell.durationTicks / duration) * 100;
   return {
     left: `calc(${leftPercent}% + 2px)`,
     width: `calc(${widthPercent}% - 4px)`,
@@ -256,8 +249,9 @@ function slotStyle(state: SlotState): Record<string, string> {
 }
 
 function revealedResult(state: SlotState): SlotResult | undefined {
-  if (!state.revealed || state.answer === undefined) return undefined;
-  return slotResult(state.event, state.promptDegrees, state.answer);
+  if (!state.revealed || state.answer === undefined || state.answer === "skip")
+    return undefined;
+  return slotResult(state.cell.note, state.promptDegrees, state.answer);
 }
 
 function resultClass(state: SlotState): string {
@@ -294,7 +288,11 @@ class BeatSlotView implements View<SlotState, SlotMsg> {
     `;
     this.b = new Binder(container, initial);
     onPress(this.b.ref(buttonRef), () =>
-      dispatch({ type: "ACTIVATE", eventIndex: initial.eventIndex }),
+      dispatch({
+        type: "ACTIVATE",
+        cellIndex: initial.cellIndex,
+        cellId: initial.cell.id,
+      }),
     );
     this.b.bindStyle(cellRef, slotStyle);
     this.b.bindClass(cellRef, () => beatCellClass);
@@ -311,7 +309,7 @@ class BeatSlotView implements View<SlotState, SlotMsg> {
       [guessLabelClass, resultClass(state)].filter(Boolean).join(" "),
     );
     this.b.bindText(toneTextRef, (state) =>
-      state.revealed ? noteLabel(state.event) : "?",
+      state.revealed ? noteLabel(state.cell.note) : "?",
     );
     this.b.bindText(guessTextRef, (state) => guessLabel(state.answer));
     this.b.bindVisible(
@@ -323,14 +321,15 @@ class BeatSlotView implements View<SlotState, SlotMsg> {
       (state) => revealedResult(state) === "incorrect",
     );
     this.b.bindAttr(buttonRef, "data-event-index", (state) =>
-      String(state.eventIndex),
+      String(state.cellIndex),
     );
     this.b.bindAttr(buttonRef, "data-row", () => "tone");
     this.b.bindAttr(guessRef, "data-event-index", (state) =>
-      String(state.eventIndex),
+      String(state.cellIndex),
     );
     this.b.bindAttr(guessRef, "data-row", () => "guess");
-    this.b.bindAttr(cellRef, "data-beat", (state) => String(state.eventIndex));
+    this.b.bindAttr(cellRef, "data-cell-id", (state) => state.cell.id);
+    this.b.bindAttr(cellRef, "data-beat", (state) => String(state.cellIndex));
     this.b.bindAttr(cellRef, "data-selected", (state) =>
       state.selected ? "true" : undefined,
     );
@@ -340,8 +339,8 @@ class BeatSlotView implements View<SlotState, SlotMsg> {
     );
     this.b.bindAttr(buttonRef, "aria-label", (state) =>
       state.revealed
-        ? `melody note ${state.eventIndex + 1}: ${noteLabel(state.event)}`
-        : `masked melody note ${state.eventIndex + 1}`,
+        ? `melody note ${state.cellIndex + 1}: ${noteLabel(state.cell.note)}`
+        : `masked melody note ${state.cellIndex + 1}`,
     );
   }
 
@@ -358,7 +357,7 @@ class BeatSlotView implements View<SlotState, SlotMsg> {
 type MeasureState = {
   measure: Measure;
   measureIndex: number;
-  events: { event: TimedEvent; eventIndex: number }[];
+  cells: { cell: Cell; cellIndex: number }[];
   trial: IdentifyNotesTrial;
 };
 
@@ -385,18 +384,22 @@ class MelodyMeasureView implements View<MeasureState, MeasureMsg> {
       String(state.measureIndex),
     );
     this.b.bindList(beatsRef, "div", (state) =>
-      state.events.map(({ event, eventIndex }) =>
+      state.cells.map(({ cell, cellIndex }) =>
         showKeyed(
-          String(eventIndex),
+          cell.id,
           BeatSlotView,
           {
-            event,
-            eventIndex,
+            cell,
+            cellIndex,
             measure: state.measure,
             promptDegrees: state.trial.promptDegrees,
-            answer: state.trial.answers[eventIndex],
-            selected: state.trial.selectedSlotIndex === eventIndex,
-            cursor: state.trial.cursorEventIndex === eventIndex,
+            answer: state.trial.cellAnswers[cell.id],
+            selected:
+              state.trial.selection?.kind === "cell" &&
+              state.trial.selection.cellId === cell.id,
+            cursor:
+              state.trial.onsets[state.trial.cursorOnsetIndex]?.onsetTicks ===
+              cell.onsetTicks,
             revealed: state.trial.phase === "revealed",
           },
           {},
@@ -515,12 +518,12 @@ function vocabularyLabel(): string {
 }
 
 type AnswerChoiceState = {
-  answer: MelodySlotAnswer;
+  answer: CellAnswer;
   label: string;
   selected: boolean;
 };
 
-type AnswerChoiceMsg = { type: "CHOOSE"; answer: MelodySlotAnswer };
+type AnswerChoiceMsg = { type: "CHOOSE"; answer: CellAnswer };
 
 class AnswerChoiceView implements View<AnswerChoiceState, AnswerChoiceMsg> {
   container: HTMLElement;
@@ -560,9 +563,9 @@ class AnswerChoiceView implements View<AnswerChoiceState, AnswerChoiceMsg> {
 
 function answerChoices(trial: IdentifyNotesTrial): AnswerChoiceState[] {
   const selected =
-    trial.selectedSlotIndex === undefined
-      ? undefined
-      : trial.answers[trial.selectedSlotIndex];
+    trial.selection?.kind === "cell"
+      ? trial.cellAnswers[trial.selection.cellId]
+      : undefined;
   return [
     { answer: undefined, label: "?", selected: selected === undefined },
     ...trial.promptDegrees.map((degree) => ({
@@ -829,36 +832,32 @@ export class IdentifyNotesView
     this.b.bindList(measuresRef, "div", (state) => {
       const trial = state.trial;
       if (!trial) return [];
-      const melodyEvents = voice(trial.phrase, "melody")?.events ?? [];
       const first = trial.firstVisibleMeasureIndex;
       return trial.phrase.measures
         .slice(first, first + VISIBLE_MEASURE_COUNT)
         .map((measure, offset) => {
           const measureIndex = first + offset;
-          const events = melodyEvents.flatMap((event, eventIndex) =>
-            event.onsetTicks >= measure.startTicks &&
-            event.onsetTicks < measure.endTicks
-              ? [{ event, eventIndex }]
+          const measureCells = trial.cells.flatMap((cell, cellIndex) =>
+            cell.onsetTicks >= measure.startTicks &&
+            cell.onsetTicks < measure.endTicks
+              ? [{ cell, cellIndex }]
               : [],
           );
           return showKeyed(
             `${trial.phrase.id}:${measureIndex}`,
             MelodyMeasureView,
-            { measure, measureIndex, events, trial },
+            { measure, measureIndex, cells: measureCells, trial },
             {},
             (msg) => {
-              dispatch({ type: "PLAY_EVENT", eventIndex: msg.eventIndex });
-              dispatch({ type: "SELECT_SLOT", eventIndex: msg.eventIndex });
+              dispatch({ type: "PLAY_EVENT", eventIndex: msg.cellIndex });
+              dispatch({ type: "SELECT_CELL", cellId: msg.cellId });
             },
           );
         });
     });
     this.b.bindList(paletteRef, "span", (state) => {
       const trial = state.trial;
-      if (
-        trial?.phase !== "answering" ||
-        trial.selectedSlotIndex === undefined
-      ) {
+      if (trial?.phase !== "answering" || trial.selection?.kind !== "cell") {
         return [];
       }
       return answerChoices(trial).map((choice) =>

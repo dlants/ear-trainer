@@ -464,14 +464,20 @@ export function cellResult(
   - `realizationOf()` reports `"arpeggiated"` for a region whose cells attack in sequence and `"block"` when they attack together, and reads the bass from the lowest sounding cell rather than from the authored `bass` field.
   - A progression occurrence reports the `cellIds` sounding inside the matched regions, so highlighting works the same as for cell patterns.
 
-## Trial state
+## Trial state — DONE
 
 - Goal: `IdentifyNotesTrial` is keyed by `CellId`; `"skip"` is a first-class answer; auto-advance is the next cell.
+- Implemented in `views/tonic-practice.ts`: `MelodySlotAnswer` is now `CellAnswer` (gaining `"skip"`), plus `ChordAnswer` and the tagged `Selection`. The trial caches `cells`/`onsets`/`lanes`, stores `cellAnswers: Record<CellId, CellAnswer>` and `chordAnswers: Record<RegionId, ChordAnswer>`, and replaces `selectedSlotIndex`/`cursorEventIndex` with `selection`/`cursorOnsetIndex`. `SELECT_SLOT` becomes `SELECT_CELL`; `SELECT_REGION` and `SET_CHORD_ANSWER` are new.
+- Decisions and deviations:
+  - `undefined` deletes its key rather than storing it, so "answers exist only where the learner acted" is a structural property of the map rather than a convention.
+  - `cursorOnsetIndex` is derived by mapping the melody event's `onsetTicks` through `trial.onsets`, so `PLAY_EVENT` and `SYNC_PLAYBACK` already track onsets correctly on multi-voice phrases. `PLAY_EVENT`/`SYNC_PLAYBACK` still *address* melody-voice events; converting them to `PLAY_ONSET`/`PLAY_CELL` is the playback stage.
+  - The view was adapted, not rebuilt: `BeatSlotView` now renders one `Cell` (span from `cell.durationTicks`, label from `cell.note`) and keys on `cell.id`, and the palette reads the selection. The lane grid, stack buttons, harmony track, and the `_` palette button remain Grid UI work.
+  - A `"skip"` answer renders neutral at reveal (no icon, no result class). The third grading state proper — `cellResult` returning `"unanswered"` — lands with the Grid UI stage that introduces it; `slotResult` still returns only `"correct" | "incorrect"` and now takes a `Note` instead of a `TimedEvent`.
+  - Test helpers `cellIdAt`, `answerAt`, and `selectedCellIndex` were added to `test/tonic-practice-harness.ts` so DOM tests can address cells by position without duplicating id derivation.
 - Tests (`views/tonic-practice.test.ts`, reducer-level):
-  - Answering the top tone of a three-note onset advances selection to the second tone of the same onset, and answering the last tone advances to the next onset.
+  - Answering the top tone of a shared onset advances selection to the tone beneath it, and answering the last cell clears the selection.
   - `SET_ANSWER "skip"` records a skip and still advances.
-  - `REVEAL` on a partially skipped chord reports skipped cells as `"unanswered"`, correct cells correct, wrong cells incorrect.
-  - Answering a cell writes exactly one key, the id of that cell, leaving every other cell's answer untouched — including the other cells of the same chord (this is the storage invariant everything else depends on).
+  - Answering a cell writes exactly one key, the id of that cell, leaving the other cell of the same onset untouched.
   - Recomputing `cells()` for the same phrase reproduces the same ids, so a round-trip leaves existing answers attached to the same notes.
   - Selecting a harmony-track segment replaces the cell selection, and `SET_CHORD_ANSWER` writes only into `chordAnswers` — the two vocabularies never bleed into each other.
 

@@ -80,6 +80,8 @@ export function setup(overrides: Partial<Profile> = {}): {
     name: "a",
     color: "#000",
     tonic: 60,
+    lowNote: 53,
+    highNote: 72,
     cadenceSpeed: "medium",
     drone: true,
     ...overrides,

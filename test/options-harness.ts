@@ -49,6 +49,8 @@ export function setup(): {
     name: "me",
     color: "#000000",
     tonic: 60,
+    lowNote: 53,
+    highNote: 72,
     cadenceSpeed: "medium",
     drone: true,
   };

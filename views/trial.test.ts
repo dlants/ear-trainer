@@ -259,6 +259,76 @@ test.describe("trial flow", () => {
     expect(result.afterNext).toBeNull();
   });
 
+  test("offers extra practice and keeps selecting cards after due work is done", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setupDue, start } = await import("/test/trial-harness.ts");
+      const env = setupDue();
+      const cards = Object.values(env.deck.getState().cards);
+      for (const card of cards) {
+        env.deck.grade(card.id, "known", "got-it", env.ctx.now());
+      }
+      const { state, dispatch } = start(env.ctx);
+      const caughtUp = {
+        hasTrial: state.trial !== undefined,
+        canKeepPracticing: state.canKeepPracticing,
+      };
+      dispatch({ type: "KEEP_PRACTICING" });
+      const firstExtra = state.trial?.card.id;
+      dispatch({ type: "COMMIT", confidence: "known" });
+      dispatch({ type: "GRADE", outcome: "got-it" });
+      return {
+        caughtUp,
+        mode: state.practiceMode,
+        firstExtra,
+        nextExtra: state.trial?.card.id,
+      };
+    });
+    expect(result.caughtUp).toEqual({
+      hasTrial: false,
+      canKeepPracticing: true,
+    });
+    expect(result.mode).toBe("extra");
+    expect(result.firstExtra).toBeTruthy();
+    expect(result.nextExtra).toBeTruthy();
+  });
+
+  test("renders the caught-up actions only when cards are available", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { setup, setupDue, start } = await import("/test/trial-harness.ts");
+      const { TrialView } = await import("/views/trial.ts");
+      const render = (env: ReturnType<typeof setup>) => {
+        const { state, dispatch } = start(env.ctx);
+        const container = document.createElement("div");
+        document.body.append(container);
+        new TrialView(container, dispatch, state, env.ctx);
+        const keep = [...container.querySelectorAll("button")].find(
+          (button) => button.textContent?.trim() === "keep practicing",
+        );
+        return {
+          text: container.textContent ?? "",
+          keepVisible:
+            keep instanceof HTMLElement &&
+            getComputedStyle(keep).display !== "none",
+        };
+      };
+      const due = setupDue();
+      for (const card of Object.values(due.deck.getState().cards)) {
+        due.deck.grade(card.id, "known", "got-it", due.ctx.now());
+      }
+      return { caughtUp: render(due), empty: render(setup()) };
+    });
+    expect(result.caughtUp.text).toContain("all caught up");
+    expect(result.caughtUp.text).toContain("add more cards");
+    expect(result.caughtUp.text).toContain("least confident ones");
+    expect(result.caughtUp.keepVisible).toBe(true);
+    expect(result.empty.text).toContain("nothing to practice yet");
+    expect(result.empty.keepVisible).toBe(false);
+  });
+
   test("clears the drone when nothing is due", async ({ page }) => {
     const drones = await page.evaluate(async () => {
       const { setup, start } = await import("/test/trial-harness.ts");

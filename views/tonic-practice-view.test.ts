@@ -158,7 +158,7 @@ test("returning from situations autoplays and change shows the selected count", 
     const practice = {
       screen: env.state.screen,
       target: env.state.trial?.targetSituationId,
-      eventCount: env.state.trial?.answers.length,
+      eventCount: env.state.trial?.cells.length,
       toneSlots: env.container.querySelectorAll('button[data-row="tone"]')
         .length,
       guessSlots: env.container.querySelectorAll(
@@ -248,7 +248,8 @@ test("guess cells are blank until answered through the shared palette", async ({
   page,
 }) => {
   const result = await page.evaluate(async () => {
-    const { mountIdentify } = await import("/test/tonic-practice-harness.ts");
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const { mountIdentify } = harness;
     const env = mountIdentify(2);
     const tones = () =>
       Array.from(
@@ -299,8 +300,8 @@ test("guess cells are blank until answered through the shared palette", async ({
       reset: guesses()[0]?.textContent,
       sameNode: first === guesses()[0],
       guessTags: guesses().map((slot) => slot.tagName),
-      selectedSlot: env.state.trial?.selectedSlotIndex,
-      cursor: env.state.trial?.cursorEventIndex,
+      selectedSlot: harness.selectedCellIndex(env.state),
+      cursor: env.state.trial?.cursorOnsetIndex,
       notePlayCount: env.play.calls.filter(
         (call) => call === "autoplay:tonic:melody-note",
       ).length,
@@ -340,7 +341,8 @@ test("each rhythmic beat is a vertical tone and guess cell", async ({
   page,
 }) => {
   const result = await page.evaluate(async () => {
-    const { mountIdentify } = await import("/test/tonic-practice-harness.ts");
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const { mountIdentify } = harness;
     const env = mountIdentify(2);
     const beats = Array.from(
       env.container.querySelectorAll<HTMLElement>("[data-beat]"),
@@ -414,7 +416,8 @@ test("viewport hides bar controls when every bar is visible", async ({
   page,
 }) => {
   const result = await page.evaluate(async () => {
-    const { mountIdentify } = await import("/test/tonic-practice-harness.ts");
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const { mountIdentify } = harness;
     const snapshots: Record<
       string,
       {
@@ -447,10 +450,16 @@ test("viewport hides bar controls when every bar is visible", async ({
         buttons: visibleButtons(),
         range: range?.style.display === "none" ? undefined : range?.textContent,
       };
-      env.dispatch({ type: "SELECT_SLOT", eventIndex: 0 });
+      env.dispatch({
+        type: "SELECT_CELL",
+        cellId: harness.cellIdAt(env.state, 0),
+      });
       env.dispatch({ type: "SET_ANSWER", answer: 1 });
       env.dispatch({ type: "SCROLL", delta: 1 });
-      const after = { rows: readRows(), answer: env.state.trial?.answers[0] };
+      const after = {
+        rows: readRows(),
+        answer: harness.answerAt(env.state, 0),
+      };
       snapshots[String(count)] = { before, after };
     }
     return snapshots;
@@ -470,13 +479,14 @@ test("play controls and note taps keep a persistent cursor", async ({
   page,
 }) => {
   const result = await page.evaluate(async () => {
-    const { mountIdentify } = await import("/test/tonic-practice-harness.ts");
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const { mountIdentify } = harness;
     const env = mountIdentify(7);
     const tone = env.container.querySelector<HTMLButtonElement>(
       'button[data-row="tone"][data-event-index="4"]',
     );
     tone?.click();
-    const afterTap = env.state.trial?.cursorEventIndex;
+    const afterTap = env.state.trial?.cursorOnsetIndex;
     const playDuringNote = Array.from(
       env.container.querySelectorAll<HTMLButtonElement>("button"),
     ).find((button) => button.textContent?.trim() === "play");
@@ -516,7 +526,7 @@ test("play controls and note taps keep a persistent cursor", async ({
       notePlaybackControl,
       playbackLabels,
       pauseLabel,
-      finalCursor: env.state.trial?.cursorEventIndex,
+      finalCursor: env.state.trial?.cursorOnsetIndex,
       finalViewport: env.state.trial?.firstVisibleMeasureIndex,
       calls: env.play.calls,
     };
@@ -539,10 +549,14 @@ test("combined answer controls fit a narrow mobile viewport", async ({
 }) => {
   await page.setViewportSize({ width: 320, height: 760 });
   const result = await page.evaluate(async () => {
-    const { mountIdentify } = await import("/test/tonic-practice-harness.ts");
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const { mountIdentify } = harness;
     const env = mountIdentify(2);
     env.container.style.width = "320px";
-    env.dispatch({ type: "SELECT_SLOT", eventIndex: 0 });
+    env.dispatch({
+      type: "SELECT_CELL",
+      cellId: harness.cellIdAt(env.state, 0),
+    });
     const containerRect = env.container.getBoundingClientRect();
     const visibleButtons = Array.from(
       env.container.querySelectorAll<HTMLButtonElement>("button"),
@@ -606,11 +620,18 @@ test("combined answer controls fit a narrow mobile viewport", async ({
 
 test("reveal keeps unanswered notes neutral", async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const { mountIdentify } = await import("/test/tonic-practice-harness.ts");
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const { mountIdentify } = harness;
     const env = mountIdentify(2);
-    env.dispatch({ type: "SELECT_SLOT", eventIndex: 0 });
+    env.dispatch({
+      type: "SELECT_CELL",
+      cellId: harness.cellIdAt(env.state, 0),
+    });
     env.dispatch({ type: "SET_ANSWER", answer: 1 });
-    env.dispatch({ type: "SELECT_SLOT", eventIndex: 1 });
+    env.dispatch({
+      type: "SELECT_CELL",
+      cellId: harness.cellIdAt(env.state, 1),
+    });
     env.dispatch({ type: "SET_ANSWER", answer: 1 });
     env.dispatch({ type: "REVEAL" });
     const tones = Array.from(
@@ -636,12 +657,17 @@ test("reveal keeps unanswered notes neutral", async ({ page }) => {
       ).find((candidate) => candidate.style.display !== "none")?.dataset
         .resultIcon,
     }));
-    env.dispatch({ type: "SELECT_SLOT", eventIndex: 2 });
+    env.dispatch({
+      type: "SELECT_CELL",
+      cellId: harness.cellIdAt(env.state, 2),
+    });
     env.dispatch({ type: "SET_ANSWER", answer: 1 });
     return {
       tones,
       guesses,
-      answers: env.state.trial?.answers.map((value) => value ?? null),
+      answers: env.state.trial?.cells.map(
+        (cell) => env.state.trial?.cellAnswers[cell.id] ?? null,
+      ),
       text: env.container.textContent,
     };
   });

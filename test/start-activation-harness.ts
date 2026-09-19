@@ -1,13 +1,13 @@
-import type { AudioEngine } from "../audio/engine.ts";
-import { initialState, StartView } from "../views/start.ts";
+import { ActivityCatalogView } from "../views/activity-catalog.ts";
 
-new StartView(
+document.addEventListener("click", (event) => event.preventDefault());
+
+new ActivityCatalogView(
   document.body,
   (message) => {
-    if (message.type !== "UNLOCK") return;
+    if (message.type !== "ACTIVATE_ACTIVITY") return;
     const context = new AudioContext();
     void context.resume().then(() => console.log(`unlock:${context.state}`));
   },
-  initialState(),
-  { audio: {} as AudioEngine },
+  {},
 );

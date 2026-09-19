@@ -2,7 +2,10 @@ import type { AudioEngine } from "../audio/engine.ts";
 import type { PlayController, PlayMsg } from "../audio/play-controller.ts";
 import type { Route, RouterController, RouterMsg } from "../router.ts";
 import { Binder, noop, ref, sanitize, show, type View } from "../vamp.ts";
-import { ActivityCatalogView } from "./activity-catalog.ts";
+import {
+  type ActivityCatalogMsg,
+  ActivityCatalogView,
+} from "./activity-catalog.ts";
 import type { DismissStack } from "./dropdown.ts";
 import { NavView } from "./nav.ts";
 import {
@@ -13,13 +16,6 @@ import {
   initialState as optionsInitialState,
   update as optionsUpdate,
 } from "./options.ts";
-import {
-  type Msg as StartMsg,
-  type State as StartState,
-  StartView,
-  initialState as startInitialState,
-  update as startUpdate,
-} from "./start.ts";
 import {
   type IdentifyNotesCtx,
   type IdentifyNotesMsg,
@@ -33,8 +29,10 @@ export type State = {
   route: Route;
   identifyNotes: IdentifyNotesState;
   options: OptionsState;
-  start: StartState;
   audioUnlocked: boolean;
+  audioUnlocking: boolean;
+  pendingIdentifyMsg: IdentifyNotesMsg | undefined;
+  pendingOptionsMsg: OptionsMsg | undefined;
 };
 
 export type Msg =
@@ -42,7 +40,9 @@ export type Msg =
   | { type: "PLAY_MSG"; msg: PlayMsg }
   | { type: "IDENTIFY_NOTES_MSG"; msg: IdentifyNotesMsg }
   | { type: "OPTIONS_MSG"; msg: OptionsMsg }
-  | { type: "START_MSG"; msg: StartMsg };
+  | { type: "CATALOG_MSG"; msg: ActivityCatalogMsg }
+  | { type: "AUDIO_UNLOCKED" }
+  | { type: "AUDIO_UNLOCK_ERROR" };
 
 export type AppCtx = {
   audio: AudioEngine;
@@ -56,10 +56,12 @@ export type AppCtx = {
 export function initialState(route: Route, ctx: AppCtx): State {
   return {
     route,
-    identifyNotes: initialIdentifyNotesState(),
+    identifyNotes: initialIdentifyNotesState(ctx.identifyNotes),
     options: optionsInitialState(ctx.options),
-    start: startInitialState(),
     audioUnlocked: ctx.audio.unlocked,
+    audioUnlocking: false,
+    pendingIdentifyMsg: undefined,
+    pendingOptionsMsg: undefined,
   };
 }
 
@@ -77,10 +79,40 @@ function stopActivityAudio(state: State, ctx: AppCtx): void {
   state.identifyNotes.droneOn = false;
 }
 
-function resetActivity(state: State): void {
-  if (state.route.page === "activity" && state.audioUnlocked) {
-    state.identifyNotes = initialIdentifyNotesState();
+function resetActivity(state: State, ctx: AppCtx): void {
+  if (state.route.page === "activity") {
+    state.identifyNotes = initialIdentifyNotesState(ctx.identifyNotes);
   }
+}
+
+function identifyNotesMsgNeedsAudio(msg: IdentifyNotesMsg): boolean {
+  return [
+    "BEGIN",
+    "PLAY_CONTEXT",
+    "CHANGE_KEY",
+    "TOGGLE_DRONE",
+    "PLAY_PAUSE",
+    "PLAY_FROM_BEGINNING",
+    "PLAY_EVENT",
+    "NEXT",
+  ].includes(msg.type);
+}
+
+function optionsMsgNeedsAudio(msg: OptionsMsg): boolean {
+  return ["PREVIEW", "SET_CADENCE_SPEED", "USE_HEARD_NOTE"].includes(msg.type);
+}
+
+function requestAudioUnlock(
+  state: State,
+  ctx: AppCtx,
+  dispatch: (msg: Msg) => void,
+): void {
+  if (state.audioUnlocked || state.audioUnlocking) return;
+  state.audioUnlocking = true;
+  ctx.audio.unlock().then(
+    () => dispatch({ type: "AUDIO_UNLOCKED" }),
+    () => dispatch({ type: "AUDIO_UNLOCK_ERROR" }),
+  );
 }
 
 export function update(
@@ -95,12 +127,14 @@ export function update(
       const route = ctx.router.update(msg);
       const routeChanged = !sameRoute(previousRoute, route);
       if (routeChanged) {
+        state.pendingIdentifyMsg = undefined;
+        state.pendingOptionsMsg = undefined;
         stopActivityAudio(state, ctx);
         if (previousRoute.page === "options") ctx.options.mic.stop();
       }
       state.route = route;
       if (routeChanged) {
-        if (route.page === "activity") resetActivity(state);
+        if (route.page === "activity") resetActivity(state, ctx);
         else if (route.page === "options") {
           state.options = optionsInitialState(ctx.options);
         }
@@ -121,19 +155,46 @@ export function update(
       }
       break;
     case "IDENTIFY_NOTES_MSG":
+      if (identifyNotesMsgNeedsAudio(msg.msg) && !state.audioUnlocked) {
+        state.pendingIdentifyMsg = msg.msg;
+        requestAudioUnlock(state, ctx, dispatch);
+        break;
+      }
       updateIdentifyNotes(state.identifyNotes, msg.msg, ctx.identifyNotes);
       break;
     case "OPTIONS_MSG":
+      if (optionsMsgNeedsAudio(msg.msg) && !state.audioUnlocked) {
+        state.pendingOptionsMsg = msg.msg;
+        requestAudioUnlock(state, ctx, dispatch);
+        break;
+      }
       optionsUpdate(state.options, msg.msg, ctx.options);
       break;
-    case "START_MSG":
-      startUpdate(state.start, msg.msg, { audio: ctx.audio }, (startMsg) =>
-        dispatch({ type: "START_MSG", msg: startMsg }),
-      );
-      if (msg.msg.type === "UNLOCKED") {
-        state.audioUnlocked = true;
-        resetActivity(state);
+    case "CATALOG_MSG":
+      requestAudioUnlock(state, ctx, dispatch);
+      break;
+    case "AUDIO_UNLOCKED":
+      state.audioUnlocked = true;
+      state.audioUnlocking = false;
+      if (
+        state.pendingIdentifyMsg &&
+        state.route.page === "activity" &&
+        state.route.activity === "identify-notes"
+      ) {
+        const pending = state.pendingIdentifyMsg;
+        state.pendingIdentifyMsg = undefined;
+        updateIdentifyNotes(state.identifyNotes, pending, ctx.identifyNotes);
       }
+      if (state.pendingOptionsMsg && state.route.page === "options") {
+        const pending = state.pendingOptionsMsg;
+        state.pendingOptionsMsg = undefined;
+        optionsUpdate(state.options, pending, ctx.options);
+      }
+      break;
+    case "AUDIO_UNLOCK_ERROR":
+      state.audioUnlocking = false;
+      state.pendingIdentifyMsg = undefined;
+      state.pendingOptionsMsg = undefined;
       break;
   }
 }
@@ -169,13 +230,10 @@ export class AppView implements View<State, Msg, AppCtx> {
     this.b.bindSlot(pageRef, (state) => {
       switch (state.route.page) {
         case "catalog":
-          return show(ActivityCatalogView, {}, {}, noop);
+          return show(ActivityCatalogView, {}, {}, (msg) =>
+            dispatch({ type: "CATALOG_MSG", msg }),
+          );
         case "activity":
-          if (!state.audioUnlocked) {
-            return show(StartView, state.start, { audio: ctx.audio }, (msg) =>
-              dispatch({ type: "START_MSG", msg }),
-            );
-          }
           return show(
             IdentifyNotesView,
             state.identifyNotes,

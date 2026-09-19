@@ -6,9 +6,11 @@ import type {
 } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
 import type { KeyValueStore } from "../deck/store.ts";
-import type { Phrase, TimedEvent } from "../music/melody.ts";
+import type { CellId, Phrase, TimedEvent } from "../music/melody.ts";
+import { cells, lanes, onsets } from "../music/melody.ts";
 import type { Degree, Note } from "../music/note.ts";
 import {
+  type CellAnswer,
   IDENTIFY_NOTE_DEGREES,
   type IdentifyNotesCtx,
   type IdentifyNotesMsg,
@@ -170,6 +172,27 @@ export function mountIdentifySelector(
   return { container, state, dispatch, play, view };
 }
 
+export function cellIdAt(state: IdentifyNotesState, index: number): CellId {
+  const cell = state.trial?.cells[index];
+  if (!cell) throw new Error(`tonic-practice-harness: no cell ${index}`);
+  return cell.id;
+}
+
+export function selectedCellIndex(
+  state: IdentifyNotesState,
+): number | undefined {
+  const selection = state.trial?.selection;
+  if (selection?.kind !== "cell") return undefined;
+  const index = state.trial?.cells.findIndex(
+    (cell) => cell.id === selection.cellId,
+  );
+  return index === undefined || index < 0 ? undefined : index;
+}
+
+export function answerAt(state: IdentifyNotesState, index: number): CellAnswer {
+  return state.trial?.cellAnswers[cellIdAt(state, index)];
+}
+
 export function mountIdentify(measureCount = 4): {
   container: HTMLElement;
   state: IdentifyNotesState;
@@ -189,8 +212,12 @@ export function mountIdentify(measureCount = 4): {
       targetSituationId: "tonic",
       phase: "answering",
       promptDegrees: [...IDENTIFY_NOTE_DEGREES],
-      answers: new Array(selected.voices[0].events.length).fill(undefined),
-      cursorEventIndex: 0,
+      cells: cells(selected),
+      onsets: onsets(cells(selected)),
+      lanes: lanes(selected),
+      cellAnswers: {},
+      chordAnswers: {},
+      cursorOnsetIndex: 0,
       firstVisibleMeasureIndex: 0,
     },
   };

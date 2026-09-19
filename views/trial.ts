@@ -6,6 +6,7 @@ import { checkIcon, questionIcon } from "../icons.ts";
 import { patternFromId } from "../music/format.ts";
 import type { Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
+import { routeToPath } from "../router.ts";
 import {
   Binder,
   cls,
@@ -30,14 +31,18 @@ export type Trial = {
   confidence: Confidence | undefined;
 };
 
-/** `trial: undefined` means nothing is due right now. */
+export type PracticeMode = "due" | "extra";
+
 export type State = {
   trial: Trial | undefined;
+  practiceMode: PracticeMode;
+  canKeepPracticing: boolean;
   error: string | undefined;
 };
 
 export type Msg =
   | { type: "NEXT_TRIAL" }
+  | { type: "KEEP_PRACTICING" }
   | { type: "PLAY_CONTEXT" }
   | { type: "PLAY_PATTERN" }
   | { type: "TOGGLE_DRONE" }
@@ -53,8 +58,13 @@ export type TrialCtx = {
   now(): Date;
 };
 
-export function nextTrial(ctx: TrialCtx): Trial | undefined {
-  const card = ctx.deck.nextDue(ctx.now());
+export function nextTrial(
+  ctx: TrialCtx,
+  mode: PracticeMode = "due",
+): Trial | undefined {
+  const now = ctx.now();
+  const card =
+    mode === "due" ? ctx.deck.nextDue(now) : ctx.deck.leastConfident(now);
   if (!card) return undefined;
   const pattern = patternFromId(card.patternId);
   if (!pattern.ok) return undefined;
@@ -81,7 +91,12 @@ export function showsNotation(trial: Trial): boolean {
 }
 
 export function initialState(_ctx: TrialCtx): State {
-  return { trial: undefined, error: undefined };
+  return {
+    trial: undefined,
+    practiceMode: "due",
+    canKeepPracticing: false,
+    error: undefined,
+  };
 }
 
 function contextStep(trial: Trial, ctx: TrialCtx): PlayStep {
@@ -109,8 +124,10 @@ function patternStep(trial: Trial): PlayStep {
 }
 
 function selectNextTrial(state: State, ctx: TrialCtx): void {
-  state.trial = nextTrial(ctx);
+  state.trial = nextTrial(ctx, state.practiceMode);
   const trial = state.trial;
+  state.canKeepPracticing =
+    !trial && ctx.deck.leastConfident(ctx.now()) !== undefined;
   ctx.play.setDrone(droneTonic(trial, ctx));
   if (!trial) {
     ctx.play.stop();
@@ -126,6 +143,12 @@ function selectNextTrial(state: State, ctx: TrialCtx): void {
 export function update(state: State, msg: Msg, ctx: TrialCtx): void {
   switch (msg.type) {
     case "NEXT_TRIAL":
+      state.practiceMode = "due";
+      selectNextTrial(state, ctx);
+      break;
+
+    case "KEEP_PRACTICING":
+      state.practiceMode = "extra";
       selectNextTrial(state, ctx);
       break;
 
@@ -176,6 +199,10 @@ export function update(state: State, msg: Msg, ctx: TrialCtx): void {
 }
 
 const trialClass = cls("trial");
+const emptyClass = cls("empty");
+const emptyTitleClass = cls("empty-title");
+const emptyHintClass = cls("empty-hint");
+const keepPracticingClass = cls("keep-practicing");
 const promptClass = cls("prompt");
 const instructionClass = cls("instruction");
 const rowClass = cls("row");
@@ -197,6 +224,37 @@ mountStyle(`
   min-height: 100dvh;
   box-sizing: border-box;
   font-family: system-ui, sans-serif;
+}
+.${trialClass} .${emptyClass} {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+.${trialClass} .${emptyTitleClass} {
+  font-size: 24px;
+  font-weight: 650;
+}
+.${trialClass} .${emptyHintClass} {
+  max-width: 300px;
+  color: var(--color-text-muted);
+  font-size: 17px;
+  line-height: 1.4;
+}
+.${trialClass} .${emptyHintClass} a {
+  color: var(--color-brand);
+}
+.${trialClass} .${keepPracticingClass} {
+  padding: 14px 20px;
+  border: 2px solid var(--color-brand-border);
+  border-radius: var(--radius-control);
+  background: var(--color-brand-surface);
+  color: var(--color-brand);
+  font-size: 18px;
+  font-weight: 650;
 }
 .${trialClass} .${promptClass} {
   flex: 1;
@@ -273,10 +331,15 @@ export class TrialView
     initial: State,
     ctx: Pick<TrialCtx, "play" | "profile">,
   ) {
+    const promptRef = ref("prompt");
     const notationRef = ref("notation");
     const questionRef = ref("question");
     const instructionRef = ref("instruction");
     const emptyRef = ref("empty");
+    const emptyTitleRef = ref("emptyTitle");
+    const caughtUpHintRef = ref("caughtUpHint");
+    const emptyHintRef = ref("emptyHint");
+    const keepPracticingRef = ref("keepPracticing");
     const errorRef = ref("error");
     const droneRef = ref("drone");
     const contextRef = ref("context");
@@ -292,8 +355,17 @@ export class TrialView
     container.innerHTML = sanitize`
       <div class="${trialClass}">
         <div data-ref="${errorRef}"></div>
-        <div data-ref="${emptyRef}">nothing due — come back later</div>
-        <div class="${promptClass}">
+        <div class="${emptyClass}" data-ref="${emptyRef}">
+          <div class="${emptyTitleClass}" data-ref="${emptyTitleRef}"></div>
+          <div class="${emptyHintClass}" data-ref="${caughtUpHintRef}">
+            <a href="${routeToPath({ page: "cards" })}">add more cards</a>, or keep working on your least confident ones.
+          </div>
+          <div class="${emptyHintClass}" data-ref="${emptyHintRef}">
+            <a href="${routeToPath({ page: "cards" })}">add some cards</a> to get started.
+          </div>
+          <button type="button" class="${keepPracticingClass}" data-ref="${keepPracticingRef}">keep practicing</button>
+        </div>
+        <div class="${promptClass}" data-ref="${promptRef}">
           <div class="${bigClass}">
             <div data-ref="${notationRef}"></div>
             <div data-ref="${questionRef}">?</div>
@@ -379,6 +451,7 @@ export class TrialView
         () => dispatch({ type: "PLAY_PATTERN" }),
       );
     });
+    on(keepPracticingRef, { type: "KEEP_PRACTICING" });
     on(knownRef, { type: "COMMIT", confidence: "known" });
     on(unsureRef, { type: "COMMIT", confidence: "unsure" });
     on(gotItRef, { type: "GRADE", outcome: "got-it" });
@@ -387,6 +460,13 @@ export class TrialView
     this.b.bindText(errorRef, (s) => s.error ?? "");
     this.b.bindVisible(errorRef, (s) => s.error !== undefined);
     this.b.bindVisible(emptyRef, (s) => s.trial === undefined);
+    this.b.bindText(emptyTitleRef, (s) =>
+      s.canKeepPracticing ? "all caught up" : "nothing to practice yet",
+    );
+    this.b.bindVisible(caughtUpHintRef, (s) => s.canKeepPracticing);
+    this.b.bindVisible(emptyHintRef, (s) => !s.canKeepPracticing);
+    this.b.bindVisible(keepPracticingRef, (s) => s.canKeepPracticing);
+    this.b.bindVisible(promptRef, (s) => s.trial !== undefined);
     this.b.bindText(instructionRef, (s) =>
       s.trial?.card.mode === "transcription"
         ? "identify the notes"
@@ -400,7 +480,7 @@ export class TrialView
     );
     this.b.bindVisible(
       questionRef,
-      (s) => s.trial === undefined || !showsNotation(s.trial),
+      (s) => s.trial !== undefined && !showsNotation(s.trial),
     );
     this.b.bindVisible(commitRowRef, (s) => s.trial?.phase === "presenting");
     this.b.bindVisible(outcomeRowRef, (s) => s.trial?.phase === "revealing");

@@ -1,10 +1,24 @@
 import type { PlayController, PlayStep } from "../audio/play-controller.ts";
 import type { Profile } from "../deck/profiles.ts";
-import { type Melody, type Phrase, voice } from "../music/melody.ts";
+import type { KeyValueStore } from "../deck/store.ts";
+import {
+  type Cell,
+  type CellId,
+  cells,
+  type Lane,
+  lanes,
+  type Melody,
+  type Onset,
+  onsets,
+  type Phrase,
+  type RegionId,
+  voice,
+} from "../music/melody.ts";
 import type { Degree } from "../music/note.ts";
+import type { Midi } from "../music/pitch.ts";
 import {
   phraseMatchesSituation,
-  promptDegreesForSituations,
+  SITUATIONS,
   type SituationId,
 } from "../music/situations.ts";
 
@@ -12,18 +26,40 @@ export type Activity = "identify-notes";
 
 export type IdentifyNotesScreen = "situations" | "practice";
 export type IdentifyNotesPhase = "answering" | "revealed";
-export type MelodySlotAnswer = Degree | "other" | undefined;
+export type CellAnswer = Degree | "other" | "skip" | undefined;
+/** Diatonic triad of the context, by root degree. */
+export type ChordAnswer = Degree | "other" | "skip" | undefined;
+export type Selection =
+  | { kind: "cell"; cellId: CellId }
+  | { kind: "chord"; regionId: RegionId };
 
 export const VISIBLE_MEASURE_COUNT = 3;
+export const KEY_PADDING_BELOW = 7;
+export const KEY_PADDING_ABOVE = 12;
+export const MIN_KEY_SPAN = 7;
+export const IDENTIFY_NOTE_DEGREES = [
+  1, 2, 3, 4, 5, 6, 7,
+] as const satisfies readonly Degree[];
+
+const DEFAULT_SITUATION_IDS: SituationId[] = ["tonic"];
+
+export function situationSelectionKey(profileId: string): string {
+  return `profile:${profileId}:identify-notes:situations`;
+}
 
 export type IdentifyNotesTrial = {
   phrase: Phrase;
+  /** Cached: the view derives grid geometry from these on every sync. */
+  cells: Cell[];
+  onsets: Onset[];
+  lanes: Lane[];
   targetSituationId: SituationId;
   phase: IdentifyNotesPhase;
   promptDegrees: Degree[];
-  answers: MelodySlotAnswer[];
-  selectedSlotIndex?: number;
-  cursorEventIndex: number;
+  cellAnswers: Record<CellId, CellAnswer>;
+  chordAnswers: Record<RegionId, ChordAnswer>;
+  selection?: Selection;
+  cursorOnsetIndex: number;
   firstVisibleMeasureIndex: number;
 };
 
@@ -31,6 +67,7 @@ export type IdentifyNotesState = {
   screen: IdentifyNotesScreen;
   selectedSituationIds: SituationId[];
   trial: IdentifyNotesTrial | undefined;
+  tonic: Midi;
   droneOn: boolean;
 };
 
@@ -38,6 +75,7 @@ export type IdentifyNotesCtx = {
   play: PlayController;
   profile: Profile;
   melodies: Melody[];
+  storage: KeyValueStore;
   random(): number;
 };
 
@@ -46,12 +84,15 @@ export type IdentifyNotesMsg =
   | { type: "BEGIN" }
   | { type: "CHANGE_SITUATIONS" }
   | { type: "PLAY_CONTEXT" }
+  | { type: "CHANGE_KEY" }
   | { type: "TOGGLE_DRONE" }
   | { type: "PLAY_PAUSE" }
   | { type: "PLAY_FROM_BEGINNING" }
   | { type: "PLAY_EVENT"; eventIndex: number }
-  | { type: "SELECT_SLOT"; eventIndex: number }
-  | { type: "SET_ANSWER"; answer: MelodySlotAnswer }
+  | { type: "SELECT_CELL"; cellId: CellId }
+  | { type: "SELECT_REGION"; regionId: RegionId }
+  | { type: "SET_ANSWER"; answer: CellAnswer }
+  | { type: "SET_CHORD_ANSWER"; answer: ChordAnswer }
   | { type: "REVEAL" }
   | { type: "SCROLL"; delta: -1 | 1 }
   | { type: "SYNC_PLAYBACK" }
@@ -61,6 +102,39 @@ function randomIndex(length: number, random: () => number): number {
   const value = random();
   if (!Number.isFinite(value)) return 0;
   return Math.min(length - 1, Math.max(0, Math.floor(value * length)));
+}
+
+export function identifyNotesTonics(profile: Profile): Midi[] {
+  const padded = {
+    minimum: profile.lowNote + KEY_PADDING_BELOW,
+    maximum: profile.highNote - KEY_PADDING_ABOVE,
+  };
+  const center = Math.round((padded.minimum + padded.maximum) / 2);
+  const minimum = Math.min(
+    padded.minimum,
+    center - Math.floor(MIN_KEY_SPAN / 2),
+  );
+  const maximum = Math.max(padded.maximum, minimum + MIN_KEY_SPAN);
+  return Array.from(
+    { length: Math.max(0, maximum - minimum + 1) },
+    (_, index) => minimum + index,
+  );
+}
+
+function chooseTonic(
+  profile: Profile,
+  previous: Midi | undefined,
+  random: () => number,
+): Midi {
+  const candidates = identifyNotesTonics(profile);
+  if (candidates.length === 0) return profile.tonic;
+  const alternatives =
+    previous === undefined || candidates.length === 1
+      ? candidates
+      : candidates.filter((candidate) => candidate !== previous);
+  const fallback = candidates[0];
+  if (fallback === undefined) return profile.tonic;
+  return alternatives[randomIndex(alternatives.length, random)] ?? fallback;
 }
 
 function eligiblePhrases(melody: Melody): Phrase[] {
@@ -119,60 +193,130 @@ export function selectIdentifyNotesPhrase(
     : undefined;
 }
 
-export function initialIdentifyNotesState(): IdentifyNotesState {
+function storedSituationIds(ctx: IdentifyNotesCtx): SituationId[] {
+  const stored = ctx.storage.getItem(situationSelectionKey(ctx.profile.id));
+  if (stored === null) return [...DEFAULT_SITUATION_IDS];
+  const parsed: unknown = JSON.parse(stored);
+  if (!Array.isArray(parsed)) return [...DEFAULT_SITUATION_IDS];
+  const knownIds = new Set<SituationId>(
+    SITUATIONS.map((situation) => situation.id),
+  );
+  const selected = parsed.filter(
+    (id): id is SituationId =>
+      typeof id === "string" && knownIds.has(id as SituationId),
+  );
+  return selected.length > 0 ? selected : [...DEFAULT_SITUATION_IDS];
+}
+
+function persistSituationIds(
+  state: IdentifyNotesState,
+  ctx: IdentifyNotesCtx,
+): void {
+  ctx.storage.setItem(
+    situationSelectionKey(ctx.profile.id),
+    JSON.stringify(state.selectedSituationIds),
+  );
+}
+
+export function initialIdentifyNotesState(
+  ctx: IdentifyNotesCtx,
+): IdentifyNotesState {
+  const selectedSituationIds = storedSituationIds(ctx);
+  const selection = selectIdentifyNotesPhrase(
+    ctx.melodies,
+    selectedSituationIds,
+    undefined,
+    ctx.random,
+  );
   return {
-    screen: "situations",
-    selectedSituationIds: ["tonic"],
-    trial: undefined,
+    screen: "practice",
+    selectedSituationIds,
+    trial: selection ? identifyTrial(selection) : undefined,
+    tonic: chooseTonic(ctx.profile, undefined, ctx.random),
     droneOn: false,
   };
 }
 
 function melodyStep(
   phrase: Phrase,
-  ctx: IdentifyNotesCtx,
+  tonic: Midi,
 ): Extract<PlayStep, { type: "score" }> {
   return {
     buttonId: "tonic:melody",
     type: "score",
     score: phrase,
-    tonic: ctx.profile.tonic,
+    tonic,
   };
 }
 
-function playMelody(phrase: Phrase, ctx: IdentifyNotesCtx): void {
-  ctx.play.autoplay([melodyStep(phrase, ctx)]);
+function playMelody(phrase: Phrase, tonic: Midi, ctx: IdentifyNotesCtx): void {
+  ctx.play.autoplay([melodyStep(phrase, tonic)]);
 }
 
-function playContext(phrase: Phrase, ctx: IdentifyNotesCtx): void {
+function playContext(phrase: Phrase, tonic: Midi, ctx: IdentifyNotesCtx): void {
   ctx.play.toggle("trial:context", {
     buttonId: "trial:context",
     type: "context",
     context: phrase.context,
-    tonic: ctx.profile.tonic,
+    tonic,
     speed: ctx.profile.cadenceSpeed,
   });
 }
 
 function toggleDrone(state: IdentifyNotesState, ctx: IdentifyNotesCtx): void {
   state.droneOn = !state.droneOn;
-  ctx.play.setDrone(state.droneOn ? ctx.profile.tonic : undefined);
+  ctx.play.setDrone(state.droneOn ? state.tonic : undefined);
 }
 
-function identifyTrial(
-  selection: PhraseSelection,
-  selectedSituationIds: readonly SituationId[],
-): IdentifyNotesTrial {
-  const eventCount = voice(selection.phrase, "melody")?.events.length ?? 0;
+function identifyTrial(selection: PhraseSelection): IdentifyNotesTrial {
+  const cellList = cells(selection.phrase);
   return {
     phrase: selection.phrase,
+    cells: cellList,
+    onsets: onsets(cellList),
+    lanes: lanes(selection.phrase),
     targetSituationId: selection.targetSituationId,
     phase: "answering",
-    promptDegrees: promptDegreesForSituations(selectedSituationIds),
-    answers: new Array<MelodySlotAnswer>(eventCount).fill(undefined),
-    cursorEventIndex: 0,
+    promptDegrees: [...IDENTIFY_NOTE_DEGREES],
+    cellAnswers: {},
+    chordAnswers: {},
+    cursorOnsetIndex: 0,
     firstVisibleMeasureIndex: 0,
   };
+}
+
+function selectedCellIndex(trial: IdentifyNotesTrial): number | undefined {
+  if (trial.selection?.kind !== "cell") return undefined;
+  const cellId = trial.selection.cellId;
+  const index = trial.cells.findIndex((cell) => cell.id === cellId);
+  return index < 0 ? undefined : index;
+}
+
+function answerable(
+  trial: IdentifyNotesTrial,
+  answer: CellAnswer | ChordAnswer,
+): boolean {
+  return (
+    answer === undefined ||
+    answer === "other" ||
+    answer === "skip" ||
+    trial.promptDegrees.includes(answer)
+  );
+}
+
+/** Answers live only where the learner acted, so `undefined` clears the key. */
+function setAnswer<Key extends string>(
+  answers: Record<Key, CellAnswer>,
+  key: Key,
+  answer: CellAnswer,
+): void {
+  if (answer === undefined) delete answers[key];
+  else answers[key] = answer;
+}
+
+function onsetIndexAt(trial: IdentifyNotesTrial, ticks: number): number {
+  const index = trial.onsets.findIndex((onset) => onset.onsetTicks === ticks);
+  return index < 0 ? trial.cursorOnsetIndex : index;
 }
 
 function selectIdentifyTrial(
@@ -190,8 +334,8 @@ function selectIdentifyTrial(
     ctx.play.stop();
     return false;
   }
-  state.trial = identifyTrial(selection, state.selectedSituationIds);
-  playMelody(selection.phrase, ctx);
+  state.trial = identifyTrial(selection);
+  playMelody(selection.phrase, state.tonic, ctx);
   return true;
 }
 
@@ -207,12 +351,16 @@ export function updateIdentifyNotes(
   switch (msg.type) {
     case "TOGGLE_SITUATION": {
       const index = state.selectedSituationIds.indexOf(msg.situationId);
-      if (index >= 0) state.selectedSituationIds.splice(index, 1);
-      else state.selectedSituationIds.push(msg.situationId);
+      if (index >= 0) {
+        if (state.selectedSituationIds.length === 1) break;
+        state.selectedSituationIds.splice(index, 1);
+      } else state.selectedSituationIds.push(msg.situationId);
+      persistSituationIds(state, ctx);
       break;
     }
     case "BEGIN":
-      if (selectIdentifyTrial(state, ctx)) state.screen = "practice";
+      state.screen = "practice";
+      selectIdentifyTrial(state, ctx);
       break;
     case "CHANGE_SITUATIONS":
       ctx.play.stop();
@@ -225,7 +373,13 @@ export function updateIdentifyNotes(
       selectIdentifyTrial(state, ctx);
       break;
     case "PLAY_CONTEXT":
-      if (state.trial) playContext(state.trial.phrase, ctx);
+      if (state.trial) playContext(state.trial.phrase, state.tonic, ctx);
+      break;
+    case "CHANGE_KEY":
+      ctx.play.stop();
+      state.tonic = chooseTonic(ctx.profile, state.tonic, ctx.random);
+      if (state.droneOn) ctx.play.setDrone(state.tonic);
+      if (state.trial) playContext(state.trial.phrase, state.tonic, ctx);
       break;
     case "TOGGLE_DRONE":
       if (state.screen === "practice" && state.trial) toggleDrone(state, ctx);
@@ -241,15 +395,14 @@ export function updateIdentifyNotes(
         ctx.play.stop();
         break;
       }
-      const event = voice(trial.phrase, "melody")?.events[
-        trial.cursorEventIndex
-      ];
-      if (!event) break;
+      const onset = trial.onsets[trial.cursorOnsetIndex];
+      if (!onset) break;
+      trial.selection = undefined;
       ctx.play.autoplay([
         {
-          ...melodyStep(trial.phrase, ctx),
+          ...melodyStep(trial.phrase, state.tonic),
           range: {
-            startTicks: event.onsetTicks,
+            startTicks: onset.onsetTicks,
             endTicks: trial.phrase.durationTicks,
           },
         },
@@ -258,11 +411,12 @@ export function updateIdentifyNotes(
     }
     case "PLAY_FROM_BEGINNING":
       if (state.trial) {
-        state.trial.cursorEventIndex = 0;
+        state.trial.cursorOnsetIndex = 0;
         state.trial.firstVisibleMeasureIndex = 0;
+        state.trial.selection = undefined;
         ctx.play.autoplay([
           {
-            ...melodyStep(state.trial.phrase, ctx),
+            ...melodyStep(state.trial.phrase, state.tonic),
             buttonId: "tonic:melody-restart",
           },
         ]);
@@ -273,10 +427,10 @@ export function updateIdentifyNotes(
       if (!trial) break;
       const event = voice(trial.phrase, "melody")?.events[msg.eventIndex];
       if (!event) break;
-      trial.cursorEventIndex = msg.eventIndex;
+      trial.cursorOnsetIndex = onsetIndexAt(trial, event.onsetTicks);
       ctx.play.autoplay([
         {
-          ...melodyStep(trial.phrase, ctx),
+          ...melodyStep(trial.phrase, state.tonic),
           buttonId: "tonic:melody-note",
           range: {
             startTicks: event.onsetTicks,
@@ -286,35 +440,49 @@ export function updateIdentifyNotes(
       ]);
       break;
     }
-    case "SELECT_SLOT": {
+    case "SELECT_CELL": {
       const trial = state.trial;
       if (
         trial?.phase === "answering" &&
-        msg.eventIndex >= 0 &&
-        msg.eventIndex < trial.answers.length
+        trial.cells.some((cell) => cell.id === msg.cellId)
       ) {
-        trial.selectedSlotIndex = msg.eventIndex;
+        trial.selection = { kind: "cell", cellId: msg.cellId };
+      }
+      break;
+    }
+    case "SELECT_REGION": {
+      const trial = state.trial;
+      if (
+        trial?.phase === "answering" &&
+        trial.phrase.harmony.some((region) => region.id === msg.regionId)
+      ) {
+        trial.selection = { kind: "chord", regionId: msg.regionId };
       }
       break;
     }
     case "SET_ANSWER": {
       const trial = state.trial;
-      const index = trial?.selectedSlotIndex;
-      if (trial?.phase !== "answering" || index === undefined) break;
-      if (
-        msg.answer !== undefined &&
-        msg.answer !== "other" &&
-        !trial.promptDegrees.includes(msg.answer)
-      ) {
-        break;
-      }
-      trial.answers[index] = msg.answer;
+      if (trial?.phase !== "answering") break;
+      const index = selectedCellIndex(trial);
+      const cell = index === undefined ? undefined : trial.cells[index];
+      if (index === undefined || !cell || !answerable(trial, msg.answer)) break;
+      setAnswer(trial.cellAnswers, cell.id, msg.answer);
+      const next = trial.cells[index + 1];
+      trial.selection = next ? { kind: "cell", cellId: next.id } : undefined;
+      break;
+    }
+    case "SET_CHORD_ANSWER": {
+      const trial = state.trial;
+      if (trial?.phase !== "answering") break;
+      const selection = trial.selection;
+      if (selection?.kind !== "chord" || !answerable(trial, msg.answer)) break;
+      setAnswer(trial.chordAnswers, selection.regionId, msg.answer);
       break;
     }
     case "REVEAL":
       if (state.trial?.phase === "answering") {
         state.trial.phase = "revealed";
-        state.trial.selectedSlotIndex = undefined;
+        state.trial.selection = undefined;
       }
       break;
     case "SCROLL": {
@@ -339,7 +507,7 @@ export function updateIdentifyNotes(
       }
       const event = voice(trial.phrase, "melody")?.events[playback.eventIndex];
       if (!event) break;
-      trial.cursorEventIndex = playback.eventIndex;
+      trial.cursorOnsetIndex = onsetIndexAt(trial, event.onsetTicks);
       const measureIndex = trial.phrase.measures.findIndex(
         (measure) =>
           event.onsetTicks >= measure.startTicks &&
