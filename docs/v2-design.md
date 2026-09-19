@@ -124,12 +124,16 @@ The initial activity is **Identify the notes**:
 - Before practice, choose any combination from a flat catalog of musical situations.
 - Situations include tonic, direct tonic–dominant and tonic–third motion, movement within the tonic triad, and stepwise windows around individual scale degrees.
 - The selected situations determine both which melody phrases may be sampled and which scale-degree answers appear.
-- Present neutral event positions without revealing their pitches, while retaining authored rhythm, register, and phrase structure in playback.
-- Ask for one answer for every sounded melody event; events outside the selected vocabulary remain visible and are answered as `other`.
+- Present neutral note positions without revealing their pitches, while retaining authored rhythm, register, voicing, and phrase structure in playback.
+- Ask for one answer per sounded note rather than per melody event, so a chord is several answers and a sustained tone is one; notes outside the selected vocabulary are answered `other`, and a note the learner deliberately declines is skipped rather than counted wrong.
+- Let the learner sound any single note, everything audible at a given moment, or a whole chord region, so a simultaneity can be pulled apart and reassembled by ear.
+- Where a phrase carries authored harmony, show it as a chord track and, when the phrase is suitable, ask for the chord as well.
 - Reveal each actual note and the correctness of the learner's answer.
 - Allow replay, optional key and drone support, situation changes, and another melody.
 
 Situations are independent practice-selection units, not levels or prerequisites. They may overlap, and selecting several should give each covered situation an equal opportunity to drive phrase sampling even when their corpus frequencies differ. The phrase remains the source of tonal orientation; the situation that selected it is sampling provenance, not a highlighted target or a separate correctness rule.
+
+Situations come in two families. **Cell patterns** are defined over what is played and when — the melodic gestures, and also the vertical ones: an interval sounding, a block triad, an arpeggiated triad, a pedal tone. They are detected over what is *audible* at each attack rather than over attacks alone, so a held tone against an arpeggio counts. **Progressions** are defined over the authored chord track, which states harmonic identity in scale degrees and is never inferred from the notes. A progression matches on identity and, separately, on realization — which degree is in the bass and whether the region is blocked or broken — so ii-V-I is the same progression in every texture while root-position and inverted, blocked and arpeggiated remain nameable apart. Progressions select phrases; the learner still identifies notes.
 
 ## Directions that can grow from note identification
 

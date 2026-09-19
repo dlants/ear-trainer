@@ -542,6 +542,9 @@ export function cellResult(
   - At least one entry has a voice sustaining across another voice's arpeggio, since that is the shape the grid, the sounding-set detection, and the playback all hinge on.
 - Tests added in `inventory/melodies.test.ts`: "fills every voice of every multi-voice entry", "sustains a voice across another voice's arpeggio somewhere", "selects a multi-voice phrase for the harmony situations", and the existing coverage test now runs over the full `SITUATIONS` catalog.
 
-## Release
+## Release — DONE
 
 - Goal: `APP_VERSION` bumped, `docs/` updated to describe cells, lanes, skips, the harmony track, and both situation families.
+- Implemented: `APP_VERSION` `0.61` → `0.62`. `docs/about.md` "How to use it" now describes the grouped situation catalog, the cell/lane grid, single-tone and stack playback, `other`/`_` answers, and the harmony track; its corpus section notes multi-voice entries and the authored chord track. `docs/v2-design.md` "Start with situation-driven note identification" now asks one answer per note rather than per event, lists the three playback scopes and the chord track, and gains a paragraph distinguishing the cell-pattern and progression situation families (identity vs realization).
+- Decisions: `docs/design.md` was left untouched — it is the v1 design record, and its "Simultaneity" section is historical rather than a description of current behavior.
+- Full suite green: `npm run typecheck`, `npm run lint`, `npm test` (231 passed).
