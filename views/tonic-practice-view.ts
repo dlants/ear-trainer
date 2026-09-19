@@ -849,7 +849,7 @@ export class IdentifyNotesView
             { measure, measureIndex, cells: measureCells, trial },
             {},
             (msg) => {
-              dispatch({ type: "PLAY_EVENT", eventIndex: msg.cellIndex });
+              dispatch({ type: "PLAY_CELL", cellId: msg.cellId });
               dispatch({ type: "SELECT_CELL", cellId: msg.cellId });
             },
           );

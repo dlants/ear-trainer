@@ -68,7 +68,7 @@ export class FakeAudio implements AudioEngine {
     return this.handle();
   }
 
-  playNote(_note: Midi): PlaybackHandle {
+  playNotes(_notes: Midi[]): PlaybackHandle {
     return this.handle();
   }
 

@@ -504,7 +504,7 @@ test("play controls and note taps keep a persistent cursor", async ({
       buttonId: "tonic:melody",
       durationMs: 1000,
       queueLength: 0,
-      eventIndex: 8,
+      onsetIndex: 8,
     };
     env.dispatch({ type: "SYNC_PLAYBACK" });
     const cursor = env.container.querySelector(

@@ -135,7 +135,7 @@ function previewCadence(
 function preview(state: State, target: "low" | "high", ctx: OptionsCtx): void {
   const buttonId: PlayButtonId = `options:${target}-note`;
   const note = target === "low" ? state.lowNote : state.highNote;
-  const step: PlayStep = { buttonId, type: "note", note };
+  const step: PlayStep = { buttonId, type: "notes", notes: [note] };
   state.error = undefined;
   ctx.play.toggle(buttonId, step);
 }

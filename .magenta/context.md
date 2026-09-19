@@ -5,6 +5,10 @@
 Use the project-local Vamp skill at `.magenta/skills/vamp/skill.md` whenever changing views, components, state management, or routing. Treat `vamp.ts` as authoritative when the skill and implementation differ.
 Use the project-local design-system skill at `.magenta/skills/design-system/skill.md` whenever changing frontend colors, controls, icons, or other visual styling.
 
+## Versioning
+
+Every code or content change must include a minor bump to the displayed `APP_VERSION` in `version.ts` (for example, `0.1` → `0.2`).
+
 ## Testing
 
 Read `docs/testing.md` before changing or running tests. Tests are colocated as `*.test.ts` and run with Playwright via `npm test`. Pure logic is imported directly; DOM tests execute real modules in the browser against `test/blank.html`, with shared browser fixtures in `test/*-harness.ts` and helpers in `test/support.ts`. The focused `*.activation.test.ts` suite runs in WebKit. Real Android coverage lives in `android/` and runs with `npm run test:android`.
@@ -25,7 +29,7 @@ Read `docs/testing.md` before changing or running tests. Tests are colocated as 
 
 ## Audio playback
 
-`audio/engine.ts` defines `AudioEngine` and the Web Audio implementation. `soundfontEngine()` creates an `AudioContext` lazily during `AudioEngine.unlock()`, loads a `smplr` soundfont, schedules cadence/pattern/note playback on the context clock, and synthesizes the sustained tonic drone with oscillators. Audio unlock must remain behind an explicit user `click`/`onActivate` gesture; do not move it to `pointerdown`. `views/start.ts` owns that unlock interaction.
+`audio/engine.ts` defines `AudioEngine` and the Web Audio implementation. `soundfontEngine()` creates an `AudioContext` lazily during `AudioEngine.unlock()`, loads a `smplr` soundfont, schedules cadence/pattern/note playback on the context clock, and synthesizes the sustained tonic drone with oscillators. Audio unlock must remain behind an explicit user `click`/`onActivate` gesture; do not move it to `pointerdown`. `views/activity-catalog.ts` requests unlock from the landing-page activity link, and the situation start action in `views/tonic-practice-view.ts` provides the deep-link fallback; `views/app.ts` owns the unlock lifecycle and defers beginning a trial until unlock completes.
 
 `audio/play-controller.ts` is the application-facing playback layer. `PlayController` toggles individual controls, replaces active playback, sequences autoplay steps, keeps the drone outside the playback queue, and reports completion through dispatched `PlayMsg`s. It is created in `main.ts` and injected through view context; views should request playback through it rather than using Web Audio directly.
 

@@ -5,6 +5,24 @@ test.beforeEach(async ({ page }) => {
   await page.goto(HARNESS_URL);
 });
 
+test("Binder drives canvas rendering from state", async ({ page }) => {
+  const seen = await page.evaluate(async () => {
+    const { Binder, ref } = await import("/vamp.ts");
+    const container = document.createElement("div");
+    const canvasRef = ref("canvas");
+    container.innerHTML = `<canvas data-ref="${canvasRef}"></canvas>`;
+    const binder = new Binder(container, 1);
+    const values: number[] = [];
+    binder.bindCanvas(canvasRef, (_context, _canvas, state) => {
+      values.push(state);
+    });
+    binder.sync(2);
+    return values;
+  });
+
+  expect(seen).toEqual([1, 2]);
+});
+
 test.describe("PostRenderEventBus", () => {
   test("delivers queued events to all subscribers in order on flush, once", async ({
     page,

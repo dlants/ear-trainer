@@ -154,8 +154,8 @@ class FakeAudio implements AudioEngine {
     return this.handle(`score:${score.id}:${tonic}${suffix}`);
   }
 
-  playNote(noteMidi: Midi): PlaybackHandle {
-    return this.handle(`note:${noteMidi}`);
+  playNotes(notes: Midi[]): PlaybackHandle {
+    return this.handle(`notes:${notes.join("+")}`);
   }
 
   private handle(call: string): PlaybackHandle {
@@ -517,6 +517,39 @@ test.describe("identify-notes reducer", () => {
     expect(state.trial?.cellAnswers).toEqual({});
   });
 
+  test("plays the sounding set at an onset and a single pitch for a cell", () => {
+    const only = phrase("only", 0, "independent", 5);
+    const { audio, ctx } = setup([melody("only", [only])]);
+    const state = initialIdentifyNotesState(ctx);
+    updateIdentifyNotes(state, { type: "PLAY_ONSET", onsetIndex: 2 }, ctx);
+    updateIdentifyNotes(
+      state,
+      { type: "PLAY_CELL", cellId: cellIdAt(state, 3) },
+      ctx,
+    );
+    expect(audio.calls).toEqual(["notes:58+57", "notes:69"]);
+    expect(state.trial?.cursorOnsetIndex).toBe(3);
+  });
+
+  test("follows playback cues one onset at a time", () => {
+    const only = phrase("only", 0, "independent", 5);
+    const { ctx } = setup([melody("only", [only])]);
+    const state = initialIdentifyNotesState(ctx);
+    let onsetIndex = 2;
+    ctx.play.getState = () => ({
+      status: "playing",
+      buttonId: "tonic:melody",
+      durationMs: 1000,
+      queueLength: 0,
+      onsetIndex,
+    });
+    updateIdentifyNotes(state, { type: "SYNC_PLAYBACK" }, ctx);
+    expect(state.trial?.cursorOnsetIndex).toBe(2);
+    onsetIndex = 3;
+    updateIdentifyNotes(state, { type: "SYNC_PLAYBACK" }, ctx);
+    expect(state.trial?.cursorOnsetIndex).toBe(3);
+  });
+
   test("owns guesses, playback cursor, reveal, next, and bounded viewport state", () => {
     const first = phrase("only", 0, "independent", 5);
     const second = phrase("only", 1, "independent", 4);
@@ -537,7 +570,7 @@ test.describe("identify-notes reducer", () => {
     updateIdentifyNotes(state, { type: "SCROLL", delta: 1 }, ctx);
     expect(state.trial.firstVisibleMeasureIndex).toBe(2);
 
-    updateIdentifyNotes(state, { type: "PLAY_EVENT", eventIndex: 2 }, ctx);
+    updateIdentifyNotes(state, { type: "PLAY_ONSET", onsetIndex: 3 }, ctx);
     expect(state.trial.onsets[state.trial.cursorOnsetIndex]?.onsetTicks).toBe(
       48,
     );
@@ -561,7 +594,7 @@ test.describe("identify-notes reducer", () => {
     expect(state.trial?.phrase).toBe(second);
     expect(answers(state).every((answer) => answer === null)).toBe(true);
     expect(audio.calls).toEqual([
-      `score:${first.id}:57:48-60`,
+      `notes:69`,
       `score:${first.id}:57:48-240`,
       `score:${first.id}:57`,
       `score:${second.id}:57`,

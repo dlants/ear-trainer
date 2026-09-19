@@ -196,14 +196,18 @@ export class DeckStore {
     if (removed) this.persist();
   }
 
-  nextDue(now: Date, siblingGap = 2): DeckCard | undefined {
-    const recentSiblingKeys = new Set(
+  private recentSiblingKeys(siblingGap: number): Set<string> {
+    return new Set(
       this.log
         .slice(-siblingGap)
         .map(({ cardId }) => this.cards[cardId]?.patternId)
         .filter((patternId) => patternId !== undefined)
         .map(siblingKey),
     );
+  }
+
+  nextDue(now: Date, siblingGap = 2): DeckCard | undefined {
+    const recentSiblingKeys = this.recentSiblingKeys(siblingGap);
     let best: DeckCard | undefined;
     let bestWithoutRecentSibling: DeckCard | undefined;
     for (const card of Object.values(this.cards)) {
@@ -218,6 +222,41 @@ export class DeckStore {
           card.fsrs.due.getTime() < bestWithoutRecentSibling.fsrs.due.getTime())
       ) {
         bestWithoutRecentSibling = card;
+      }
+    }
+    return bestWithoutRecentSibling ?? best;
+  }
+
+  leastConfident(now: Date, siblingGap = 2): DeckCard | undefined {
+    const recentSiblingKeys = this.recentSiblingKeys(siblingGap);
+    let best: DeckCard | undefined;
+    let bestConfidence = Infinity;
+    let bestWithoutRecentSibling: DeckCard | undefined;
+    let bestWithoutRecentSiblingConfidence = Infinity;
+    for (const card of Object.values(this.cards)) {
+      if (card.status !== "deck") continue;
+      const confidence =
+        card.fsrs.state === FsrsState.New
+          ? 0
+          : scheduler.get_retrievability(card.fsrs, now, false);
+      if (
+        confidence < bestConfidence ||
+        (confidence === bestConfidence &&
+          (!best || card.fsrs.due.getTime() < best.fsrs.due.getTime()))
+      ) {
+        best = card;
+        bestConfidence = confidence;
+      }
+      if (
+        !recentSiblingKeys.has(siblingKey(card.patternId)) &&
+        (confidence < bestWithoutRecentSiblingConfidence ||
+          (confidence === bestWithoutRecentSiblingConfidence &&
+            (!bestWithoutRecentSibling ||
+              card.fsrs.due.getTime() <
+                bestWithoutRecentSibling.fsrs.due.getTime())))
+      ) {
+        bestWithoutRecentSibling = card;
+        bestWithoutRecentSiblingConfidence = confidence;
       }
     }
     return bestWithoutRecentSibling ?? best;

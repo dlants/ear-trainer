@@ -63,6 +63,54 @@ function phrase(
   return { measures, noteIdentification, rationale };
 }
 
+function splitPhrase(spec: PhraseSpec): PhraseSpec[] {
+  const measureCounts =
+    spec.measures.length % 2 === 0
+      ? Array(spec.measures.length / 2).fill(2)
+      : [3, ...Array((spec.measures.length - 3) / 2).fill(2)];
+  let startMeasureIndex = 0;
+
+  return measureCounts.map((measureCount) => {
+    const measures = spec.measures.slice(
+      startMeasureIndex,
+      startMeasureIndex + measureCount,
+    );
+    startMeasureIndex += measureCount;
+    const events = measures.flatMap(
+      (authoredMeasure) =>
+        authoredMeasure.voices
+          .find(({ voiceId }) => voiceId === "melody")
+          ?.events.filter(({ notes }) => notes.length > 0) ?? [],
+    );
+    const tonicIndexes = events.flatMap((event, eventIndex) =>
+      event.notes.some(
+        ({ degree, alteration }) => degree === 1 && alteration === 0,
+      )
+        ? [eventIndex]
+        : [],
+    );
+    const hasStrongTonicEvidence =
+      tonicIndexes.length >= 2 ||
+      tonicIndexes.includes(0) ||
+      tonicIndexes.includes(events.length - 1);
+    const isPracticeLength = events.length >= 4 && events.length <= 8;
+    const noteIdentification =
+      spec.noteIdentification === "independent" &&
+      (!isPracticeLength || !hasStrongTonicEvidence)
+        ? "context-required"
+        : spec.noteIdentification;
+
+    return {
+      measures,
+      noteIdentification,
+      rationale:
+        noteIdentification === spec.noteIdentification
+          ? spec.rationale
+          : `This short excerpt is retained for context; it has ${events.length} sounded notes and does not meet the compact independent-phrase rubric.`,
+    };
+  });
+}
+
 function melody(
   id: string,
   title: string,
@@ -81,13 +129,18 @@ function melody(
       description: `${provenance} Independent tonic-relative transcription for this corpus.`,
       status,
     },
-    measures: phrases.flatMap(({ measures, noteIdentification, rationale }) =>
-      measures.map((authoredMeasure, index) =>
-        index === measures.length - 1
-          ? { ...authoredMeasure, phraseEnd: { noteIdentification, rationale } }
-          : authoredMeasure,
+    measures: phrases
+      .flatMap(splitPhrase)
+      .flatMap(({ measures, noteIdentification, rationale }) =>
+        measures.map((authoredMeasure, index) =>
+          index === measures.length - 1
+            ? {
+                ...authoredMeasure,
+                phraseEnd: { noteIdentification, rationale },
+              }
+            : authoredMeasure,
+        ),
       ),
-    ),
   };
 }
 

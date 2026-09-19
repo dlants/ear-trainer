@@ -93,7 +93,8 @@ function identifyNotesMsgNeedsAudio(msg: IdentifyNotesMsg): boolean {
     "TOGGLE_DRONE",
     "PLAY_PAUSE",
     "PLAY_FROM_BEGINNING",
-    "PLAY_EVENT",
+    "PLAY_ONSET",
+    "PLAY_CELL",
     "NEXT",
   ].includes(msg.type);
 }

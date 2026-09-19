@@ -72,8 +72,8 @@ class FakeAudio implements AudioEngine {
     return this.nextHandle();
   }
 
-  playNote(note: Midi): PlaybackHandle {
-    this.calls.push(`note:${note}`);
+  playNotes(notes: Midi[]): PlaybackHandle {
+    this.calls.push(`notes:${notes.join("+")}`);
     return this.nextHandle();
   }
 
@@ -102,8 +102,8 @@ const patternStep: PlayStep = {
 };
 const noteStep: PlayStep = {
   buttonId: "options:tonic",
-  type: "note",
-  note: 55,
+  type: "notes",
+  notes: [55],
 };
 const score: Score = {
   context: "major-cadence",
@@ -186,7 +186,7 @@ test.describe("PlayController", () => {
     await settlePromises();
     controller.update(messages.shift() as PlayMsg);
 
-    expect(audio.calls).toEqual(["score:48:60", "note:55"]);
+    expect(audio.calls).toEqual(["score:48:60", "notes:55"]);
     expect(controller.getState()).toMatchObject({
       status: "playing",
       buttonId: "options:tonic",
@@ -198,7 +198,7 @@ test.describe("PlayController", () => {
       playbackId: 0,
       end: "completed",
     });
-    expect(audio.calls).toEqual(["score:48:60", "note:55"]);
+    expect(audio.calls).toEqual(["score:48:60", "notes:55"]);
   });
 
   test("toggles the active button off and discards queued autoplay", async () => {
@@ -222,7 +222,7 @@ test.describe("PlayController", () => {
     controller.toggle("options:tonic", noteStep);
 
     expect(audio.handles[0].cancelCount).toBe(1);
-    expect(audio.calls).toEqual(["context:major-cadence:60", "note:55"]);
+    expect(audio.calls).toEqual(["context:major-cadence:60", "notes:55"]);
     expect(controller.getState()).toEqual({
       status: "playing",
       buttonId: "options:tonic",
@@ -231,7 +231,7 @@ test.describe("PlayController", () => {
     });
     await settlePromises();
     controller.update(messages.shift() as PlayMsg);
-    expect(audio.calls).toEqual(["context:major-cadence:60", "note:55"]);
+    expect(audio.calls).toEqual(["context:major-cadence:60", "notes:55"]);
     expect(controller.getState()).toMatchObject({
       status: "playing",
       buttonId: "options:tonic",
@@ -251,7 +251,7 @@ test.describe("PlayController", () => {
     await settlePromises();
     controller.update(messages.shift() as PlayMsg);
 
-    expect(audio.calls).toEqual(["context:major-cadence:60", "note:55"]);
+    expect(audio.calls).toEqual(["context:major-cadence:60", "notes:55"]);
     expect(controller.getState()).toMatchObject({
       status: "playing",
       buttonId: "options:tonic",
@@ -264,8 +264,8 @@ test.describe("PlayController", () => {
       const audio = new FakeAudio();
       audio.enqueue(
         new ControlledHandle(1050, true, [
-          { eventIndex: 0, onsetMs: 50, endMs: 470 },
-          { eventIndex: 1, onsetMs: 550, endMs: 970 },
+          { onsetIndex: 0, onsetMs: 50, endMs: 470 },
+          { onsetIndex: 1, onsetMs: 550, endMs: 970 },
         ]),
       );
       const { controller, messages } = setup(audio);
@@ -273,11 +273,11 @@ test.describe("PlayController", () => {
 
       await timers.advance(50);
       controller.update(messages.shift() as PlayMsg);
-      expect(controller.getState()).toMatchObject({ eventIndex: 0 });
+      expect(controller.getState()).toMatchObject({ onsetIndex: 0 });
 
       await timers.advance(420);
       controller.update(messages.shift() as PlayMsg);
-      expect(controller.getState()).not.toHaveProperty("eventIndex");
+      expect(controller.getState()).not.toHaveProperty("onsetIndex");
       controller.stop();
     } finally {
       timers.restore();
@@ -289,7 +289,7 @@ test.describe("PlayController", () => {
     try {
       const audio = new FakeAudio();
       const scoreHandle = new ControlledHandle(1000, true, [
-        { eventIndex: 0, onsetMs: 500, endMs: 900 },
+        { onsetIndex: 0, onsetMs: 500, endMs: 900 },
       ]);
       audio.enqueue(scoreHandle);
       audio.enqueue(new ControlledHandle(800));
@@ -298,7 +298,7 @@ test.describe("PlayController", () => {
 
       controller.toggle("options:tonic", noteStep);
       expect(scoreHandle.cancelCount).toBe(1);
-      expect(audio.calls).toEqual(["score:48:60", "note:55"]);
+      expect(audio.calls).toEqual(["score:48:60", "notes:55"]);
 
       await timers.advance(550);
       for (const message of messages) controller.update(message);
@@ -306,7 +306,7 @@ test.describe("PlayController", () => {
         status: "playing",
         buttonId: "options:tonic",
       });
-      expect(controller.getState()).not.toHaveProperty("eventIndex");
+      expect(controller.getState()).not.toHaveProperty("onsetIndex");
     } finally {
       timers.restore();
     }

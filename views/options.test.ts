@@ -156,7 +156,7 @@ test.describe("options", () => {
     expect(toggles).toEqual([
       {
         buttonId: "options:low-note",
-        step: { buttonId: "options:low-note", type: "note", note: 52 },
+        step: { buttonId: "options:low-note", type: "notes", notes: [52] },
       },
     ]);
   });
@@ -428,7 +428,7 @@ test.describe("options", () => {
     expect(snapshot.movedTonicLabel).toBe("E3");
     expect(snapshot.tonicToggle).toEqual({
       buttonId: "options:low-note",
-      step: { buttonId: "options:low-note", type: "note", note: 52 },
+      step: { buttonId: "options:low-note", type: "notes", notes: [52] },
     });
   });
 });

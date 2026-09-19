@@ -21,6 +21,8 @@ function profile(id: string): Profile {
     drone: true,
     color: "#123456",
     tonic: 60,
+    lowNote: 53,
+    highNote: 72,
     cadenceSpeed: "medium",
   };
 }
@@ -60,8 +62,12 @@ test.describe("ProfileStore", () => {
 
     const loaded = new ProfileStore(storage).get("a");
 
-    expect(loaded?.cadenceSpeed).toBe("medium");
-    expect(loaded?.drone).toBe(true);
+    expect(loaded).toMatchObject({
+      lowNote: 48,
+      highNote: 72,
+      cadenceSpeed: "medium",
+      drone: true,
+    });
   });
 
   test("persists profiles and the active selection", () => {

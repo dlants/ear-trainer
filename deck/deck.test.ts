@@ -238,6 +238,26 @@ test.describe("DeckStore", () => {
     expect(store.nextDue(now)?.id).toBe(makeCardId(pattern.id, "audiation"));
   });
 
+  test("leastConfident selects the deck card with the lowest retrievability", () => {
+    const store = new DeckStore("a", memoryStorage());
+    store.addPattern(pattern.id, now);
+    store.addPattern(secondPattern.id, now);
+    const cards = Object.values(store.getState().cards);
+    for (const card of cards) {
+      card.fsrs.state = State.Review;
+      card.fsrs.last_review = new Date("2025-12-31T00:00:00Z");
+      card.fsrs.due = new Date("2026-02-01T00:00:00Z");
+      card.fsrs.stability = 100;
+    }
+    const weakest = store.getState().cards[transcription];
+    if (!weakest) throw new Error("missing card");
+    weakest.fsrs.last_review = new Date("2025-01-01T00:00:00Z");
+    weakest.fsrs.stability = 1;
+
+    expect(store.nextDue(now)).toBeUndefined();
+    expect(store.leastConfident(now)?.id).toBe(transcription);
+  });
+
   test("nextDue returns nothing when every card is in the future", () => {
     const store = new DeckStore("a", memoryStorage());
     expect(store.nextDue(now)).toBeUndefined();

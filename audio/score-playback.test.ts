@@ -93,14 +93,37 @@ test.describe("score scheduling", () => {
       [55, 2.5, 1 - SCORE_ARTICULATION_GAP_SECONDS],
     ]);
     expect(schedule.cues).toEqual([
-      { eventIndex: 0, onsetMs: 0, endMs: 220 },
-      { eventIndex: 1, onsetMs: 250, endMs: 470 },
-      { eventIndex: 2, onsetMs: 1000, endMs: 1970 },
-      { eventIndex: 3, onsetMs: 2500, endMs: 2970 },
+      { onsetIndex: 0, onsetMs: 0, endMs: 220 },
+      { onsetIndex: 1, onsetMs: 250, endMs: 470 },
+      { onsetIndex: 2, onsetMs: 500, endMs: 1970 },
+      { onsetIndex: 3, onsetMs: 1000, endMs: 1970 },
+      { onsetIndex: 4, onsetMs: 2500, endMs: 3470 },
     ]);
   });
 
-  test("rebases ranged playback while preserving source melody cue indexes", () => {
+  test("cues once per onset rather than once per voice", () => {
+    expect(scheduleScore(phrase, 60).cues.map((cue) => cue.onsetMs)).toEqual([
+      0, 250, 500, 1000, 2500,
+    ]);
+  });
+
+  test("plays a chord's notes at one time through playNotes", async () => {
+    const instrument = new FakeInstrument();
+    const engine = new SamplerAudioEngine(async () => ({
+      instrument,
+      currentTime: () => 4,
+      drone: { start() {}, stop() {} },
+    }));
+    await engine.unlock();
+    engine.playNotes([60, 64, 67]);
+    expect(instrument.started.map(({ note, time }) => [note, time])).toEqual([
+      [60, 4.05],
+      [64, 4.05],
+      [67, 4.05],
+    ]);
+  });
+
+  test("rebases ranged playback while preserving source onset cue indexes", () => {
     const schedule = scheduleScore(phrase, 60, {
       startTicks: 48,
       endTicks: 144,
@@ -115,8 +138,8 @@ test.describe("score scheduling", () => {
       [55, 1.5, 0.5 - SCORE_ARTICULATION_GAP_SECONDS],
     ]);
     expect(schedule.cues).toEqual([
-      { eventIndex: 2, onsetMs: 0, endMs: 970 },
-      { eventIndex: 3, onsetMs: 1500, endMs: 1970 },
+      { onsetIndex: 3, onsetMs: 0, endMs: 970 },
+      { onsetIndex: 4, onsetMs: 1500, endMs: 1970 },
     ]);
   });
 
@@ -138,7 +161,7 @@ test.describe("score scheduling", () => {
 
       expect(handle.durationMs).toBe(3550);
       expect(handle.cues[0]).toEqual({
-        eventIndex: 0,
+        onsetIndex: 0,
         onsetMs: 50,
         endMs: 270,
       });

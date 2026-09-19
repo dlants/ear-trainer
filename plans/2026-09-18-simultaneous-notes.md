@@ -481,10 +481,16 @@ export function cellResult(
   - Recomputing `cells()` for the same phrase reproduces the same ids, so a round-trip leaves existing answers attached to the same notes.
   - Selecting a harmony-track segment replaces the cell selection, and `SET_CHORD_ANSWER` writes only into `chordAnswers` — the two vocabularies never bleed into each other.
 
-## Playback
+## Playback — DONE
 
 - Goal: whole-onset and single-note playback wired through `PlayController`; cursor tracks onsets.
-- Tests (`audio/score-playback.test.ts` + reducer tests):
+- Implemented: `AudioEngine.playNotes(notes: Midi[])` replaces `playNote` (the single-note case is a one-element array; an empty array is a no-op handle), and `PlayStep`'s `"note"` variant becomes `"notes"`. `PlaybackCue.eventIndex`, `PlayState.eventIndex`, and `CUE_CHANGED.eventIndex` all become `onsetIndex`. `scheduleScore()` now derives cues from `onsets(cells(score))` instead of the melody voice's events. `views/tonic-practice.ts` replaces `PLAY_EVENT` with `PLAY_ONSET { onsetIndex }` (plays `cellsSoundingAt()` at that tick) and `PLAY_CELL { cellId }` (one pitch), both via a `playNotes()` helper on the `"tonic:melody-note"` button; `SYNC_PLAYBACK` reads `playback.onsetIndex` directly. `views/app.ts` gates both new messages behind the audio unlock.
+- Decisions and deviations:
+  - A cue's `endMs` uses the longest cell attacking at that onset, so a held tone keeps the cursor on its onset for its full length.
+  - `PLAY_ONSET`/`PLAY_CELL` sound the notes directly rather than playing a score range, so the sounding set (which spans no single tick range) and a single tone of a chord are both expressible.
+  - The view still dispatches only `PLAY_CELL` when a cell is tapped; the stack button that dispatches `PLAY_ONSET` is Grid UI work.
+  - `views/options.ts` and the trial views now pass `{ type: "notes", notes: [n] }`.
+- Tests (`audio/score-playback.test.ts`, `views/tonic-practice.test.ts`): all four listed below are covered; the cue test asserts one cue per onset on a two-voice score.
   - `PLAY_ONSET` on a chord onset schedules all of its notes at one time — verify against the scheduled note list, since "do they actually sound together" is the substance of this stage.
   - `PLAY_ONSET` on an arpeggio note under a sustained tone sounds both, i.e. it plays the sounding set rather than the attack set.
   - `PLAY_CELL` plays exactly one pitch, the one resolved from that cell's note and the trial tonic.

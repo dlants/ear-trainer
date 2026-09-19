@@ -6,7 +6,10 @@ export type Profile = {
   id: string;
   name: string;
   color: string;
+  /** Legacy fixed tonic retained for older practice flows and profile imports. */
   tonic: Midi;
+  lowNote: Midi;
+  highNote: Midi;
   cadenceSpeed: CadenceSpeed;
   /** Holds the tonic audible under every trial. */
   drone: boolean;
@@ -25,10 +28,16 @@ const PROFILES_KEY = "profiles";
 const ACTIVE_KEY = "profile:active";
 export const DEFAULT_CADENCE_SPEED: CadenceSpeed = "medium";
 export const DEFAULT_DRONE = true;
+export const DEFAULT_LOW_NOTE: Midi = 48;
+export const DEFAULT_HIGH_NOTE: Midi = 72;
 
 function normalizeProfile(profile: Profile): Profile {
+  const legacyTonic = profile.tonic ?? 60;
   return {
     ...profile,
+    tonic: legacyTonic,
+    lowNote: profile.lowNote ?? legacyTonic - 12,
+    highNote: profile.highNote ?? legacyTonic + 12,
     cadenceSpeed: profile.cadenceSpeed ?? DEFAULT_CADENCE_SPEED,
     drone: profile.drone ?? DEFAULT_DRONE,
   };

@@ -20,6 +20,16 @@ I had not been doing representative musical practice. I had removed most of the 
 
 Furthermore, not all note combinations are equally likely to appear in actual music. Some gestures occur frequently, while many combinations are rare. I spent a lot of my time practicing obscure chromatic note combinations that even practiced musicians would probably struggle with.
 
+## The first version
+
+My first attempt at this application fell into much the same trap. It focused on transcription and audiation exercises, but neither was grounded closely enough in the musical situations where I wanted the learning to transfer.
+
+In the transcription exercises, I restricted melodies to the notes being practiced. That made the task approachable, but it also gave away important information: if you know which notes may occur, you can answer partly by elimination. Actual music does not usually announce its pitch vocabulary in advance.
+
+The audiation exercises showed a scale degree and asked the learner to produce it. That may be representative practice for sight-singing, where notation is the information from which a musician must imagine and sing a sound. In isolation, however, seeing `3` and pulling it out of the ether was extremely difficult for me, and it removed much of the melodic and rhythmic context I would ordinarily use to orient myself. It was not clear that getting better at that exercise would transfer to the musical understanding I wanted.
+
+I still think audiation and sight-singing are valuable directions. The challenge is to bring them back in forms that preserve more of the intended performance task: hearing, anticipating, completing, or producing notes within meaningful music rather than recalling disconnected symbols on demand.
+
 # The ecological ear trainer
 
 This application is an experiment in creating more representative ear practice. Can we simplify a listening task while preserving the melodic, rhythmic, registral, and tonal information that gives notes their musical meaning?
@@ -36,7 +46,7 @@ The melody is the main source of tonal context. The key and drone controls are o
 
 ## The melody corpus
 
-The activity draw from a collection of complete public-domain, traditional, and original melodies with authored rhythm, bar structure, phrase boundaries, and source notes. Familiar songs are useful demonstrations because you can compare the task with music you already know, but familiarity is not the point of every exercise. Ordinary corpus material may be less immediately recognizable, and the app does not assume that every melody is new or that recognizing one makes the tonic task trivial.
+The activity draws from a collection of complete public-domain, traditional, and original melodies with authored rhythm, bar structure, phrase boundaries, and source notes. Familiar songs are useful demonstrations because you can compare the task with music you already know, but familiarity is not the point of every exercise. Ordinary corpus material may be less immediately recognizable, and the app does not assume that every melody is new or that recognizing one makes the tonic task trivial.
 
 Only phrases conservatively marked as tonally self-contained are used in this activity. That classification is editable corpus metadata rather than a claim that there is one authoritative hearing of a tune.
 

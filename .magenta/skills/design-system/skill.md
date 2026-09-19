@@ -33,8 +33,8 @@ The brand family is forest green. It communicates familiarity, membership, and e
 - `--color-brand`: foreground and primary brand color.
 - `--color-brand-strong`: dark chrome such as the navigation menu.
 - `--color-brand-active`: active state on dark brand chrome.
-- `--color-brand-surface`: subtle selected or known background.
-- `--color-brand-border`: border for known/selected controls.
+- `--color-brand-surface`: subtle known or membership background.
+- `--color-brand-border`: border for known or membership controls.
 
 ### Practice semantics
 
@@ -45,6 +45,17 @@ Practice states use distinct semantic families rather than a generic warning pal
 - Correct: `--color-correct`, `--color-correct-surface`, `--color-correct-border`. This is a clearer success green; keep it distinct from the softer brand treatment used for confidence and deck membership.
 
 Do not introduce yellow or amber for uncertainty. Color must reinforce the text label, never replace it. Preserve readable foreground/background contrast and a visible `:focus-visible` state when adding new variants.
+
+Reserve green practice treatments for correctness. Generic selection and workflow actions such as start or reveal use neutral controls; selected notes and answer choices use the neutral `--color-selected-*` tokens rather than brand or correct green.
+
+### Buttons
+
+`PlayButtonView` from `views/play-button.ts` owns every page-level button chrome: audible playback controls and non-audible actions alike. It renders a leading trusted icon plus a visible label, so buttons stay the same height, weight, and alignment everywhere. Do not hand-roll a `<button>` in a page view when an action fits one of its variants.
+
+- `variant: "trial"` — a full-width system action inside a half-width row slot: play, from beginning, reveal answers, next melody.
+- `variant: "compact"` — a settings control in the support row: key, change key, drone, situations.
+- Non-audible actions take an `ActionButtonId`, `playing: false`, and `animated: false`; unavailable ones set `disabled` rather than being styled ad hoc.
+- Exception: a control that must gate a browser capability on a real `click` (audio unlock, mic start) stays a plain `<button>` bound with `onActivate`.
 
 ### Audible playback controls
 
@@ -76,6 +87,10 @@ Taps must register on finger-down and look pressed in the same frame.
 - `playIcon()` — play the trial pattern.
 - `questionIcon()` — unsure confidence.
 - `checkIcon()` — known confidence.
+- `gearIcon()` — settings and selection controls.
+- `shuffleIcon()` — pick a different key.
+- `eyeIcon()` — reveal hidden answers.
+- `arrowRightIcon()` — advance to the next item.
 
 Icons use a `24 × 24` view box, are sized to `1em`, and are decorative with `aria-hidden="true"`; the containing button supplies the accessible text label. Outline icons use `stroke="currentColor"` so they inherit the control's semantic color. Keep new icons visually consistent with rounded line caps/joins and approximately `stroke-width="2"`; solid geometry is acceptable when the familiar symbol depends on it, as with play.
 

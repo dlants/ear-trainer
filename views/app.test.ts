@@ -31,7 +31,9 @@ test.describe("activity-only app integration", () => {
         syncs.push(state);
       };
 
-      play.autoplay([{ buttonId: "options:tonic", type: "note", note: 60 }]);
+      play.autoplay([
+        { buttonId: "options:tonic", type: "notes", notes: [60] },
+      ]);
       audio.handles[0].complete();
       await Promise.resolve();
 
@@ -202,7 +204,7 @@ test.describe("activity-only app integration", () => {
         buttonId: "tonic:melody",
         durationMs: 1000,
         queueLength: 0,
-        eventIndex: 2,
+        onsetIndex: 2,
       };
       update(
         state,
@@ -212,7 +214,7 @@ test.describe("activity-only app integration", () => {
             type: "CUE_CHANGED",
             generation: 0,
             playbackId: 0,
-            eventIndex: 2,
+            onsetIndex: 2,
           },
         },
         ctx,

@@ -30,6 +30,8 @@ const DEFAULT_PROFILE: Profile = {
   name: "me",
   color: "#4478ff",
   tonic: 60,
+  lowNote: 48,
+  highNote: 72,
   cadenceSpeed: "medium",
   drone: true,
 };
@@ -58,6 +60,7 @@ function startApp(audio: AudioEngine): void {
       play,
       profile: activeProfile,
       melodies: MELODIES,
+      storage: localStorage,
       random: () => Math.random(),
     },
     options: {

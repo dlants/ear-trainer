@@ -5,6 +5,8 @@ import {
   type Cell,
   type CellId,
   cells,
+  cellsById,
+  cellsSoundingAt,
   type Lane,
   lanes,
   type Melody,
@@ -12,10 +14,9 @@ import {
   onsets,
   type Phrase,
   type RegionId,
-  voice,
 } from "../music/melody.ts";
 import type { Degree } from "../music/note.ts";
-import type { Midi } from "../music/pitch.ts";
+import { type Midi, noteToMidi } from "../music/pitch.ts";
 import {
   phraseMatchesSituation,
   SITUATIONS,
@@ -88,7 +89,8 @@ export type IdentifyNotesMsg =
   | { type: "TOGGLE_DRONE" }
   | { type: "PLAY_PAUSE" }
   | { type: "PLAY_FROM_BEGINNING" }
-  | { type: "PLAY_EVENT"; eventIndex: number }
+  | { type: "PLAY_ONSET"; onsetIndex: number }
+  | { type: "PLAY_CELL"; cellId: CellId }
   | { type: "SELECT_CELL"; cellId: CellId }
   | { type: "SELECT_REGION"; regionId: RegionId }
   | { type: "SET_ANSWER"; answer: CellAnswer }
@@ -251,6 +253,21 @@ function melodyStep(
 
 function playMelody(phrase: Phrase, tonic: Midi, ctx: IdentifyNotesCtx): void {
   ctx.play.autoplay([melodyStep(phrase, tonic)]);
+}
+
+function playNotes(
+  cellIds: readonly CellId[],
+  trial: IdentifyNotesTrial,
+  tonic: Midi,
+  ctx: IdentifyNotesCtx,
+): void {
+  const byId = cellsById(trial.cells);
+  const notes = cellIds.flatMap((cellId) => {
+    const cell = byId.get(cellId);
+    return cell ? [noteToMidi(cell.note, tonic)] : [];
+  });
+  if (notes.length === 0) return;
+  ctx.play.autoplay([{ buttonId: "tonic:melody-note", type: "notes", notes }]);
 }
 
 function playContext(phrase: Phrase, tonic: Midi, ctx: IdentifyNotesCtx): void {
@@ -422,22 +439,27 @@ export function updateIdentifyNotes(
         ]);
       }
       break;
-    case "PLAY_EVENT": {
+    case "PLAY_ONSET": {
       const trial = state.trial;
-      if (!trial) break;
-      const event = voice(trial.phrase, "melody")?.events[msg.eventIndex];
-      if (!event) break;
-      trial.cursorOnsetIndex = onsetIndexAt(trial, event.onsetTicks);
-      ctx.play.autoplay([
-        {
-          ...melodyStep(trial.phrase, state.tonic),
-          buttonId: "tonic:melody-note",
-          range: {
-            startTicks: event.onsetTicks,
-            endTicks: event.onsetTicks + event.durationTicks,
-          },
-        },
-      ]);
+      const onset = trial?.onsets[msg.onsetIndex];
+      if (!trial || !onset) break;
+      trial.cursorOnsetIndex = msg.onsetIndex;
+      playNotes(
+        cellsSoundingAt(trial.cells, onset.onsetTicks),
+        trial,
+        state.tonic,
+        ctx,
+      );
+      break;
+    }
+    case "PLAY_CELL": {
+      const trial = state.trial;
+      const cell = trial?.cells.find(
+        (candidate) => candidate.id === msg.cellId,
+      );
+      if (!trial || !cell) break;
+      trial.cursorOnsetIndex = onsetIndexAt(trial, cell.onsetTicks);
+      playNotes([cell.id], trial, state.tonic, ctx);
       break;
     }
     case "SELECT_CELL": {
@@ -501,17 +523,17 @@ export function updateIdentifyNotes(
         !trial ||
         playback.status !== "playing" ||
         !playback.buttonId.startsWith("tonic:melody") ||
-        playback.eventIndex === undefined
+        playback.onsetIndex === undefined
       ) {
         break;
       }
-      const event = voice(trial.phrase, "melody")?.events[playback.eventIndex];
-      if (!event) break;
-      trial.cursorOnsetIndex = onsetIndexAt(trial, event.onsetTicks);
+      const onset = trial.onsets[playback.onsetIndex];
+      if (!onset) break;
+      trial.cursorOnsetIndex = playback.onsetIndex;
       const measureIndex = trial.phrase.measures.findIndex(
         (measure) =>
-          event.onsetTicks >= measure.startTicks &&
-          event.onsetTicks < measure.endTicks,
+          onset.onsetTicks >= measure.startTicks &&
+          onset.onsetTicks < measure.endTicks,
       );
       if (measureIndex < trial.firstVisibleMeasureIndex) {
         trial.firstVisibleMeasureIndex = measureIndex;

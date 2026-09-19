@@ -1,5 +1,10 @@
 import { Soundfont } from "smplr";
-import { type Score, TICKS_PER_QUARTER } from "../music/melody.ts";
+import {
+  cells,
+  onsets,
+  type Score,
+  TICKS_PER_QUARTER,
+} from "../music/melody.ts";
 import type { Context, Pattern } from "../music/note.ts";
 import { cadenceMidi, type Midi, noteToMidi } from "../music/pitch.ts";
 
@@ -10,8 +15,13 @@ export type ScheduledNote = {
   velocity: number;
 };
 
+export type InstrumentStartEvent = Omit<ScheduledNote, "duration"> & {
+  ampRelease: number;
+  stopId: number;
+};
+
 export type PlaybackCue = {
-  eventIndex: number;
+  onsetIndex: number;
   onsetMs: number;
   endMs: number;
 };
@@ -20,6 +30,11 @@ export type ScoreSchedule = {
   notes: ScheduledNote[];
   cues: PlaybackCue[];
   durationSeconds: number;
+};
+
+export type ScorePlaybackRange = {
+  startTicks: number;
+  endTicks: number;
 };
 
 /** Seconds. `spacing` is onset-to-onset; `duration` is how long each note rings. */
@@ -69,39 +84,69 @@ export function patternMidi(pattern: Pattern, tonic: Midi): Midi[][] {
   return pattern.events.map((e) => e.notes.map((n) => noteToMidi(n, tonic)));
 }
 
-export function scheduleScore(score: Score, tonic: Midi): ScoreSchedule {
+export function scheduleScore(
+  score: Score,
+  tonic: Midi,
+  range: ScorePlaybackRange = { startTicks: 0, endTicks: score.durationTicks },
+): ScoreSchedule {
+  const startTicks = Math.max(
+    0,
+    Math.min(score.durationTicks, range.startTicks),
+  );
+  const endTicks = Math.max(
+    startTicks,
+    Math.min(score.durationTicks, range.endTicks),
+  );
   const secondsPerTick = 60 / score.tempoBpm / TICKS_PER_QUARTER;
+  const inRange = (event: { onsetTicks: number }) =>
+    event.onsetTicks >= startTicks && event.onsetTicks < endTicks;
   const notes = score.voices.flatMap((scoreVoice) =>
-    scoreVoice.events.flatMap((event) => {
+    scoreVoice.events.filter(inRange).flatMap((event) => {
+      const durationTicks = Math.min(
+        event.durationTicks,
+        endTicks - event.onsetTicks,
+      );
       const duration = Math.max(
         0,
-        event.durationTicks * secondsPerTick - SCORE_ARTICULATION_GAP_SECONDS,
+        durationTicks * secondsPerTick - SCORE_ARTICULATION_GAP_SECONDS,
       );
       return event.notes.map((note) => ({
         note: noteToMidi(note, tonic),
-        time: event.onsetTicks * secondsPerTick,
+        time: (event.onsetTicks - startTicks) * secondsPerTick,
         duration,
         velocity: DEFAULT_VELOCITY,
       }));
     }),
   );
-  const melody = score.voices.find((candidate) => candidate.id === "melody");
-  const cues = (melody?.events ?? []).map((event, eventIndex) => {
-    const onsetSeconds = event.onsetTicks * secondsPerTick;
+  const scoreCells = cells(score);
+  const cellDurations = new Map(
+    scoreCells.map((cell) => [cell.id, cell.durationTicks]),
+  );
+  const cues = onsets(scoreCells).flatMap((onset, onsetIndex) => {
+    if (!inRange(onset)) return [];
+    const onsetSeconds = (onset.onsetTicks - startTicks) * secondsPerTick;
+    const durationTicks = Math.min(
+      Math.max(
+        ...onset.cellIds.map((cellId) => cellDurations.get(cellId) ?? 0),
+      ),
+      endTicks - onset.onsetTicks,
+    );
     const soundingSeconds = Math.max(
       0,
-      event.durationTicks * secondsPerTick - SCORE_ARTICULATION_GAP_SECONDS,
+      durationTicks * secondsPerTick - SCORE_ARTICULATION_GAP_SECONDS,
     );
-    return {
-      eventIndex,
-      onsetMs: Math.round(onsetSeconds * 1000),
-      endMs: Math.round((onsetSeconds + soundingSeconds) * 1000),
-    };
+    return [
+      {
+        onsetIndex,
+        onsetMs: Math.round(onsetSeconds * 1000),
+        endMs: Math.round((onsetSeconds + soundingSeconds) * 1000),
+      },
+    ];
   });
   return {
     notes,
     cues,
-    durationSeconds: score.durationTicks * secondsPerTick,
+    durationSeconds: (endTicks - startTicks) * secondsPerTick,
   };
 }
 
@@ -117,12 +162,7 @@ export type PlaybackHandle = {
 /** The slice of an smplr instrument this engine depends on. */
 export interface Instrument {
   /** Returns a stopper for just the voices this call started. */
-  start(event: {
-    note: number;
-    time: number;
-    duration: number;
-    velocity: number;
-  }): () => void;
+  start(event: InstrumentStartEvent): () => void;
 }
 
 /** A sustained tonic reference that outlives any individual playback. */
@@ -141,8 +181,13 @@ export interface AudioEngine {
     speed: CadenceSpeed,
   ): PlaybackHandle;
   playPattern(pattern: Pattern, tonic: Midi): PlaybackHandle;
-  playScore(score: Score, tonic: Midi): PlaybackHandle;
-  playNote(note: Midi): PlaybackHandle;
+  playScore(
+    score: Score,
+    tonic: Midi,
+    range?: ScorePlaybackRange,
+  ): PlaybackHandle;
+  /** Sounds every note together; the single-note case is one-element `notes`. */
+  playNotes(notes: Midi[]): PlaybackHandle;
   /** `undefined` silences the drone. */
   setDrone(tonic: Midi | undefined): void;
 }
@@ -161,6 +206,7 @@ const NOOP_HANDLE: PlaybackHandle = {
 export class SamplerAudioEngine implements AudioEngine {
   private instrument: Instrument | undefined;
   private current: PlaybackHandle | undefined;
+  private nextStopId = 0;
 
   constructor(
     private readonly loadInstrument: () => Promise<{
@@ -203,8 +249,12 @@ export class SamplerAudioEngine implements AudioEngine {
     return this.play(patternMidi(pattern, tonic), PATTERN_TIMING);
   }
 
-  playScore(score: Score, tonic: Midi): PlaybackHandle {
-    const schedule = scheduleScore(score, tonic);
+  playScore(
+    score: Score,
+    tonic: Midi,
+    range?: ScorePlaybackRange,
+  ): PlaybackHandle {
+    const schedule = scheduleScore(score, tonic, range);
     return this.startPlayback(
       schedule.notes,
       schedule.durationSeconds,
@@ -212,8 +262,8 @@ export class SamplerAudioEngine implements AudioEngine {
     );
   }
 
-  playNote(note: Midi): PlaybackHandle {
-    return this.play([[note]], NOTE_TIMING);
+  playNotes(notes: Midi[]): PlaybackHandle {
+    return this.play(notes.length === 0 ? [] : [notes], NOTE_TIMING);
   }
 
   setDrone(tonic: Midi | undefined): void {
@@ -247,9 +297,21 @@ export class SamplerAudioEngine implements AudioEngine {
 
     this.current?.cancel();
     const startTime = clock() + SCHEDULING_LEAD_SECONDS;
-    const stoppers = notes.map((note) =>
-      instrument.start({ ...note, time: startTime + note.time }),
-    );
+    const voices = notes.map(({ duration, ...note }) => {
+      const stop = instrument.start({
+        ...note,
+        time: startTime + note.time,
+        ampRelease: 0,
+        stopId: this.nextStopId++,
+      });
+      return {
+        stop,
+        releaseTimer: setTimeout(
+          stop,
+          Math.round((SCHEDULING_LEAD_SECONDS + note.time + duration) * 1000),
+        ),
+      };
+    });
     const durationMs = Math.round(
       (SCHEDULING_LEAD_SECONDS + durationSeconds) * 1000,
     );
@@ -276,7 +338,10 @@ export class SamplerAudioEngine implements AudioEngine {
         if (settled) return;
         settled = true;
         clearTimeout(completionTimer);
-        for (const stop of stoppers) stop();
+        for (const voice of voices) {
+          clearTimeout(voice.releaseTimer);
+          voice.stop();
+        }
         if (this.current === handle) this.current = undefined;
         resolveEnded("cancelled");
       },

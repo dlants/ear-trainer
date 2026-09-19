@@ -1,7 +1,7 @@
 /**
  * INVARIANT: All DOM updates must flow through the Binder (bindText, bindClass,
  * bindVisible, bindStyle, bindDisabled, bindAttr, bindContainerAttr,
- * bindChecked, bindSlot, bindList) or through child views composed via
+ * bindChecked, bindCanvas, bindSlot, bindList) or through child views composed via
  * show / showKeyed.
  *
  * Do NOT:
@@ -238,6 +238,22 @@ export class Binder<State> {
     const binding = (s: State) => {
       el.disabled = fn(s);
     };
+    this.bindings.push(binding);
+    binding(this.state);
+  }
+
+  bindCanvas(
+    ref: Ref,
+    draw: (
+      context: CanvasRenderingContext2D,
+      canvas: HTMLCanvasElement,
+      state: State,
+    ) => void,
+  ): void {
+    const canvas = this.ref<HTMLCanvasElement>(ref);
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D context unavailable");
+    const binding = (state: State) => draw(context, canvas, state);
     this.bindings.push(binding);
     binding(this.state);
   }

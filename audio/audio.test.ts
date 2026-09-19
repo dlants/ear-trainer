@@ -4,9 +4,9 @@ import { fakeTimers } from "../test/support.ts";
 import {
   CADENCE_TIMINGS,
   type Instrument,
+  type InstrumentStartEvent,
   PATTERN_TIMING,
   SamplerAudioEngine,
-  type ScheduledNote,
   scheduleDuration,
   scheduleGroups,
 } from "./engine.ts";
@@ -16,6 +16,9 @@ import {
   frequencyToMidi,
   meterLevel,
   peakLevel,
+  SPECTROGRAM_MAX_MIDI,
+  SPECTROGRAM_MIN_MIDI,
+  spectrumLevels,
 } from "./mic-pitch.ts";
 
 function n(degree: number, octave = 0) {
@@ -27,9 +30,9 @@ function n(degree: number, octave = 0) {
 }
 
 class FakeInstrument implements Instrument {
-  readonly started: ScheduledNote[] = [];
+  readonly started: InstrumentStartEvent[] = [];
   readonly calls: string[] = [];
-  start(event: ScheduledNote) {
+  start(event: InstrumentStartEvent) {
     this.started.push(event);
     this.calls.push(`start:${event.note}`);
     return () => this.calls.push(`stop:${event.note}`);
@@ -69,6 +72,7 @@ test.describe("pitch detection", () => {
       level: 0,
       meter: 0,
       pitch: undefined,
+      spectrum: [],
     });
   });
   test("auto-ranges the meter against the loudest recent window", () => {
@@ -80,6 +84,17 @@ test.describe("pitch detection", () => {
   test("measures how sharp or flat the reading is", () => {
     expect(centsOff(frequencyToMidi(440))).toBe(0);
     expect(centsOff(frequencyToMidi(448))).toBe(31);
+  });
+  test("maps FFT energy onto semitone rows", () => {
+    const fftSize = 4096;
+    const sampleRate = 44100;
+    const decibels = new Float32Array(fftSize / 2).fill(-100);
+    decibels[Math.round(440 / (sampleRate / fftSize))] = -30;
+    const levels = spectrumLevels(decibels, sampleRate, fftSize);
+    expect(levels).toHaveLength(
+      SPECTROGRAM_MAX_MIDI - SPECTROGRAM_MIN_MIDI + 1,
+    );
+    expect(levels[69 - SPECTROGRAM_MIN_MIDI]).toBe(1);
   });
 });
 test.describe("scheduleGroups", () => {
@@ -120,7 +135,7 @@ test.describe("playback", () => {
     await engine.unlock();
     const timers = fakeTimers();
     try {
-      const handle = engine.playNote(62);
+      const handle = engine.playNotes([62]);
       let end: string | undefined;
       void handle.ended.then((result) => {
         end = result;
@@ -128,13 +143,19 @@ test.describe("playback", () => {
 
       expect(handle.durationMs).toBe(800);
       expect(inst.started).toEqual([
-        { note: 62, time: 20.05, duration: 0.75, velocity: 100 },
+        {
+          note: 62,
+          time: 20.05,
+          velocity: 100,
+          ampRelease: 0,
+          stopId: 0,
+        },
       ]);
       await timers.advance(799);
       expect(end).toBeUndefined();
       await timers.advance(1);
       expect(end).toBe("completed");
-      expect(inst.calls).not.toContain("stop");
+      expect(inst.calls).toEqual(["start:62", "stop:62"]);
     } finally {
       timers.restore();
     }
@@ -159,20 +180,23 @@ test.describe("playback", () => {
         {
           note: 60,
           time: 100.05,
-          duration: PATTERN_TIMING.duration,
           velocity: 100,
+          ampRelease: 0,
+          stopId: 0,
         },
         {
           note: 64,
           time: 100.05 + PATTERN_TIMING.spacing,
-          duration: PATTERN_TIMING.duration,
           velocity: 100,
+          ampRelease: 0,
+          stopId: 1,
         },
         {
           note: 67,
           time: 100.05 + PATTERN_TIMING.spacing,
-          duration: PATTERN_TIMING.duration,
           velocity: 100,
+          ampRelease: 0,
+          stopId: 2,
         },
       ]);
       await timers.runAll();
@@ -197,7 +221,7 @@ test.describe("playback", () => {
     engine.playContext("major-cadence", 60, "fast");
 
     expect(inst.started[3]?.time).toBe(10.05 + CADENCE_TIMINGS.fast.spacing);
-    expect(inst.started[3]?.duration).toBe(CADENCE_TIMINGS.fast.duration);
+    expect(inst.started[3]).not.toHaveProperty("duration");
   });
 
   test("emphasizes the bass note in each context chord", async () => {
@@ -223,7 +247,7 @@ test.describe("playback", () => {
     const inst = new FakeInstrument();
     const engine = engineWith(inst);
     await engine.unlock();
-    const handle = engine.playNote(60);
+    const handle = engine.playNotes([60]);
 
     handle.cancel();
     handle.cancel();

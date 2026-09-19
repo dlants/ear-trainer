@@ -44,8 +44,8 @@ export class FakeAudio implements AudioEngine {
     return completedHandle();
   }
 
-  playNote(note: number): PlaybackHandle {
-    this.played.push(note);
+  playNotes(notes: number[]): PlaybackHandle {
+    this.played.push(...notes);
     return completedHandle();
   }
 }
