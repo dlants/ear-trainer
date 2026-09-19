@@ -490,27 +490,25 @@ export type ScoreGridMode =
       cellAnswers: Record<CellId, CellAnswer>;
       chordAnswers: Record<RegionId, ChordAnswer>;
       selection: Selection | undefined;
-      cursorOnsetIndex: number;
     };
 
 function cellAnnotation(
   mode: ScoreGridMode,
   cell: Cell,
   onsets: Onset[],
+  cursorOnsetIndex: number | undefined,
 ): Pick<CellState, "answer" | "selected" | "cursor" | "revealed"> {
+  const cursor =
+    cursorOnsetIndex !== undefined &&
+    onsets[cursorOnsetIndex]?.onsetTicks === cell.onsetTicks;
   if (mode.kind === "reveal") {
-    return {
-      answer: undefined,
-      selected: false,
-      cursor: false,
-      revealed: true,
-    };
+    return { answer: undefined, selected: false, cursor, revealed: true };
   }
   return {
     answer: mode.cellAnswers[cell.id],
     selected:
       mode.selection?.kind === "cell" && mode.selection.cellId === cell.id,
-    cursor: onsets[mode.cursorOnsetIndex]?.onsetTicks === cell.onsetTicks,
+    cursor,
     revealed: mode.revealed,
   };
 }
@@ -547,6 +545,7 @@ type MeasureState = {
   hasHarmony: boolean;
   promptDegrees: Degree[];
   mode: ScoreGridMode;
+  cursorOnsetIndex: number | undefined;
 };
 
 type MeasureMsg = CellMsg | StackMsg | RegionMsg;
@@ -600,7 +599,12 @@ class MeasureView implements View<MeasureState, MeasureMsg> {
             cellIndex,
             measure: state.measure,
             promptDegrees: state.promptDegrees,
-            ...cellAnnotation(state.mode, cell, state.onsets),
+            ...cellAnnotation(
+              state.mode,
+              cell,
+              state.onsets,
+              state.cursorOnsetIndex,
+            ),
           },
           {},
           dispatch,
@@ -646,6 +650,8 @@ export type ScoreGridState = {
   measureCount: number;
   promptDegrees: Degree[];
   mode: ScoreGridMode;
+  /** Onset to outline: the answer cursor while practicing, the playhead while playing. */
+  cursorOnsetIndex: number | undefined;
 };
 
 export type ScoreGridMsg = MeasureMsg;
@@ -708,6 +714,7 @@ export class ScoreGridView implements View<ScoreGridState, ScoreGridMsg> {
               laneCount: state.laneCount,
               hasHarmony: state.score.harmony.length > 0,
               promptDegrees: state.promptDegrees,
+              cursorOnsetIndex: state.cursorOnsetIndex,
               mode: state.mode,
             },
             {},

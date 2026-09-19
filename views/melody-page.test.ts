@@ -6,6 +6,50 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("the melody page", () => {
+  test("outlines the onset the engine is currently sounding", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async () => {
+      const { appContext, RecordingPlay } = await import(
+        "/test/app-harness.ts"
+      );
+      const { cells, onsets } = await import("/music/melody.ts");
+      const { initialState, MelodyPageView } = await import(
+        "/views/melody-page.ts"
+      );
+      const play = new RecordingPlay();
+      const ctx = appContext(play.asController(), {
+        page: "melody",
+        melodyId: "twinkle",
+      }).melodyPage;
+      const melody = ctx.melodies.find((m) => m.id === "twinkle");
+      if (!melody) throw new Error("no twinkle");
+      const state = initialState("twinkle");
+      const container = document.createElement("div");
+      const view = new MelodyPageView(container, () => {}, state, ctx);
+      const idle = container.querySelectorAll('[aria-current="true"]').length;
+      play.state = {
+        status: "playing",
+        buttonId: "melodies:twinkle",
+        durationMs: 1000,
+        queueLength: 0,
+        onsetIndex: 2,
+      };
+      view.sync(state);
+      const melodyCells = cells(melody);
+      const third = onsets(melodyCells)[2];
+      return {
+        idle,
+        current: Array.from(
+          container.querySelectorAll<HTMLElement>('[aria-current="true"]'),
+        ).map((cell) => cell.dataset.cellId ?? ""),
+        expected: third?.cellIds ?? [],
+      };
+    });
+    expect(result.idle).toBe(0);
+    expect(result.current).toEqual(result.expected);
+    expect(result.expected.length).toBeGreaterThan(0);
+  });
   test("shows the whole melody revealed, with no guess chrome", async ({
     page,
   }) => {

@@ -35,6 +35,7 @@ test.describe("the score grid in reveal mode", () => {
         firstMeasureIndex: 0,
         measureCount: melody.measures.length,
         promptDegrees: [1, 2, 3, 4, 5, 6, 7],
+        cursorOnsetIndex: undefined,
         mode: { kind: "reveal" },
       });
 
@@ -115,6 +116,7 @@ test.describe("the score grid in reveal mode", () => {
         firstMeasureIndex: 1,
         measureCount: 2,
         promptDegrees: [1, 2, 3, 4, 5, 6, 7],
+        cursorOnsetIndex: undefined,
         mode: { kind: "reveal" },
       });
 
@@ -154,6 +156,7 @@ test.describe("the score grid in reveal mode", () => {
         firstMeasureIndex: 0,
         measureCount: melody.measures.length,
         promptDegrees: [1, 2, 3, 4, 5, 6, 7],
+        cursorOnsetIndex: undefined,
         mode: { kind: "reveal" },
       });
       const regions = Array.from(

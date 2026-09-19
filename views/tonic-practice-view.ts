@@ -573,6 +573,7 @@ export class IdentifyNotesView
           firstMeasureIndex: trial.firstVisibleMeasureIndex,
           measureCount: VISIBLE_MEASURE_COUNT,
           promptDegrees: trial.promptDegrees,
+          cursorOnsetIndex: trial.cursorOnsetIndex,
           mode: {
             kind: "guess",
             revealed: trial.phase === "revealed",
@@ -580,7 +581,6 @@ export class IdentifyNotesView
             cellAnswers: trial.cellAnswers,
             chordAnswers: trial.chordAnswers,
             selection: trial.selection,
-            cursorOnsetIndex: trial.cursorOnsetIndex,
           },
         },
         {},

@@ -49,6 +49,13 @@ function melodyButtonId(melodyId: string): `melodies:${string}` {
 }
 
 const NOTE_BUTTON_ID = "melodies:note" as const;
+/** The onset the engine is currently sounding, so the grid can show a playhead. */
+function playheadOnsetIndex(
+  ctx: Pick<MelodyPageCtx, "play">,
+): number | undefined {
+  const playback = ctx.play.getState();
+  return playback.status === "playing" ? playback.onsetIndex : undefined;
+}
 
 function playNotes(
   ctx: MelodyPageCtx,
@@ -223,6 +230,7 @@ export class MelodyPageView implements View<State, Msg, MelodyPageCtx> {
           firstMeasureIndex: 0,
           measureCount: melody.measures.length,
           promptDegrees: ALL_DEGREES,
+          cursorOnsetIndex: playheadOnsetIndex(ctx),
           mode: { kind: "reveal" },
         },
         {},
