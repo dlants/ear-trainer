@@ -7,7 +7,7 @@ Use the project-local design-system skill at `.magenta/skills/design-system/skil
 
 ## Corpus melodies
 
-Read `docs/harmonizing.md` before adding or changing harmony on a melody in `inventory/melodies/`.
+Read `inventory/melodies/context.md` before adding or changing harmony on a melody in `inventory/melodies/`.
 
 ## Versioning
 

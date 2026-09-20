@@ -580,6 +580,8 @@ export class IdentifyNotesView
             chordAnswerable: chordAnswerable(trial.phrase),
             cellAnswers: trial.cellAnswers,
             chordAnswers: trial.chordAnswers,
+            revealedCells: trial.revealedCells,
+            revealedRegions: trial.revealedRegions,
             selection: trial.selection,
           },
         },
@@ -596,6 +598,12 @@ export class IdentifyNotesView
             case "REGION":
               dispatch({ type: "PLAY_REGION", regionId: msg.regionId });
               dispatch({ type: "SELECT_REGION", regionId: msg.regionId });
+              break;
+            case "PEEK_CELL":
+              dispatch({ type: "REVEAL_CELL", cellId: msg.cellId });
+              break;
+            case "PEEK_REGION":
+              dispatch({ type: "REVEAL_REGION", regionId: msg.regionId });
               break;
           }
         },

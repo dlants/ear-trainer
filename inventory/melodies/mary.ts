@@ -45,6 +45,7 @@ export const mary: CorpusMelody = melody(
       ],
       "context-required",
       "The opening touches 1 only in passing and closes on 5, so the local tonic evidence is weak.",
+      "context-required",
     ),
     phrase(
       [
@@ -61,6 +62,7 @@ export const mary: CorpusMelody = melody(
       ],
       "independent",
       "The descent 3–2–1 is restated and the phrase resolves to a full-measure 1.",
+      "independent",
     ),
   ],
 );

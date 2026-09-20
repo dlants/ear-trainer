@@ -59,6 +59,9 @@ export type IdentifyNotesTrial = {
   promptDegrees: Degree[];
   cellAnswers: Record<CellId, CellAnswer>;
   chordAnswers: Record<RegionId, ChordAnswer>;
+  /** Cells and harmony regions revealed one at a time, before the whole trial. */
+  revealedCells: Record<CellId, true>;
+  revealedRegions: Record<RegionId, true>;
   selection?: Selection;
   cursorOnsetIndex: number;
   firstVisibleMeasureIndex: number;
@@ -96,6 +99,8 @@ export type IdentifyNotesMsg =
   | { type: "PLAY_REGION"; regionId: RegionId }
   | { type: "SET_ANSWER"; answer: CellAnswer }
   | { type: "SET_CHORD_ANSWER"; answer: ChordAnswer }
+  | { type: "REVEAL_CELL"; cellId: CellId }
+  | { type: "REVEAL_REGION"; regionId: RegionId }
   | { type: "REVEAL" }
   | { type: "SCROLL"; delta: -1 | 1 }
   | { type: "SYNC_PLAYBACK" }
@@ -298,6 +303,8 @@ function identifyTrial(selection: PhraseSelection): IdentifyNotesTrial {
     promptDegrees: [...IDENTIFY_NOTE_DEGREES],
     cellAnswers: {},
     chordAnswers: {},
+    revealedCells: {},
+    revealedRegions: {},
     cursorOnsetIndex: 0,
     firstVisibleMeasureIndex: 0,
   };
@@ -305,9 +312,7 @@ function identifyTrial(selection: PhraseSelection): IdentifyNotesTrial {
 
 /** Harmony is answerable only where the author marked it independent. */
 export function chordAnswerable(phrase: Phrase): boolean {
-  return (
-    phrase.harmony.length > 0 && phrase.chordIdentification === "independent"
-  );
+  return phrase.chordIdentification === "independent";
 }
 
 function selectedCellIndex(trial: IdentifyNotesTrial): number | undefined {
@@ -526,6 +531,33 @@ export function updateIdentifyNotes(
       const selection = trial.selection;
       if (selection?.kind !== "chord" || !answerable(trial, msg.answer)) break;
       setAnswer(trial.chordAnswers, selection.regionId, msg.answer);
+      break;
+    }
+    case "REVEAL_CELL": {
+      const trial = state.trial;
+      if (trial?.phase !== "answering") break;
+      if (!trial.cells.some((cell) => cell.id === msg.cellId)) break;
+      trial.revealedCells[msg.cellId] = true;
+      if (
+        trial.selection?.kind === "cell" &&
+        trial.selection.cellId === msg.cellId
+      ) {
+        trial.selection = undefined;
+      }
+      break;
+    }
+    case "REVEAL_REGION": {
+      const trial = state.trial;
+      if (trial?.phase !== "answering") break;
+      if (!trial.phrase.harmony.some((region) => region.id === msg.regionId))
+        break;
+      trial.revealedRegions[msg.regionId] = true;
+      if (
+        trial.selection?.kind === "chord" &&
+        trial.selection.regionId === msg.regionId
+      ) {
+        trial.selection = undefined;
+      }
       break;
     }
     case "REVEAL":

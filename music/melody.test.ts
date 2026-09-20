@@ -597,6 +597,7 @@ test.describe("harmony track", () => {
           index === harmonies.length - 1
             ? {
                 noteIdentification: "independent" as const,
+                chordIdentification: "independent" as const,
                 rationale: "The tonic is explicit.",
               }
             : undefined,
@@ -637,6 +638,16 @@ test.describe("harmony track", () => {
     expect(
       errorFor(harmonized([[{ durationTicks: 96, chord: chord(1, "major") }]])),
     ).toContain("overfilled");
+  });
+
+  test("requires a chordIdentification on a phrase that states harmony", () => {
+    const entry = harmonized([
+      [{ durationTicks: 48, chord: chord(1, "major") }],
+    ]);
+    const phraseEnd = entry.measures.at(-1)?.phraseEnd;
+    if (!phraseEnd) throw new Error("missing phrase boundary");
+    delete phraseEnd.chordIdentification;
+    expect(errorFor(entry)).toContain("must declare chordIdentification");
   });
 
   test("collapses a chord repeated across measures", () => {

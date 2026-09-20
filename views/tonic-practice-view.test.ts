@@ -738,6 +738,56 @@ test("combined answer controls fit a narrow mobile viewport", async ({
   expect(result.buttonsWithinViewport).toBe(true);
 });
 
+test("the eye on a cell reveals only that cell", async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const harness = await import("/test/tonic-practice-harness.ts");
+    const env = harness.mountIdentify(2);
+    env.dispatch({
+      type: "SELECT_CELL",
+      cellId: harness.cellIdAt(env.state, 1),
+    });
+    env.dispatch({ type: "SET_ANSWER", answer: 1 });
+    const peeks = Array.from(
+      env.container.querySelectorAll<HTMLElement>('[data-part="peek"]'),
+    );
+    const hiddenPeeks = peeks.filter((peek) => peek.style.display === "none");
+    peeks[0]?.click();
+    peeks[1]?.click();
+    const cells = Array.from(
+      env.container.querySelectorAll<HTMLButtonElement>(
+        "button[data-cell-index]",
+      ),
+    ).map((cell) => ({
+      text: cell.textContent?.trim(),
+      result: cell.dataset.result,
+    }));
+    return {
+      peekCount: peeks.length,
+      hiddenPeekCount: hiddenPeeks.length,
+      cells,
+      peeksAfter: Array.from(
+        env.container.querySelectorAll<HTMLElement>('[data-part="peek"]'),
+      ).filter((peek) => peek.style.display !== "none").length,
+      selectedIndex: env.state.trial?.cells.findIndex(
+        (cell) =>
+          env.state.trial?.selection?.kind === "cell" &&
+          cell.id === env.state.trial.selection.cellId,
+      ),
+      phase: env.state.trial?.phase,
+    };
+  });
+  expect(result.peekCount).toBe(4);
+  expect(result.hiddenPeekCount).toBe(0);
+  expect(result.cells).toEqual([
+    { text: "1↓", result: "unanswered" },
+    { text: "13", result: "incorrect" },
+    { text: "?", result: undefined },
+    { text: "?", result: undefined },
+  ]);
+  expect(result.peeksAfter).toBe(2);
+  expect(result.selectedIndex).toBe(2);
+  expect(result.phase).toBe("answering");
+});
 test("reveal shows the note, the check, and the struck wrong guess", async ({
   page,
 }) => {

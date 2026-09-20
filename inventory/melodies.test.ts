@@ -98,18 +98,23 @@ test.describe("timed melody corpus", () => {
     }
   });
 
-  test("fills every voice of every multi-voice entry", () => {
-    const multiVoice = MELODIES.filter((entry) => entry.voices.length > 1);
+  test("fills every voice of every multi-voice measure", () => {
+    const multiVoice = MELODY_CORPUS.filter((entry) =>
+      entry.measures.some((measure) => measure.voices.length > 1),
+    );
     expect(multiVoice.length).toBeGreaterThan(0);
     for (const entry of multiVoice) {
-      for (const entryVoice of entry.voices) {
-        const sounded = entryVoice.events.reduce(
-          (total, event) => total + event.durationTicks,
-          0,
-        );
-        expect(sounded, `${entry.id}/${entryVoice.id}`).toBe(
-          entry.durationTicks,
-        );
+      for (const [measureIndex, measure] of entry.measures.entries()) {
+        for (const measureVoice of measure.voices) {
+          const filled = measureVoice.events.reduce(
+            (total, event) => total + event.durationTicks,
+            0,
+          );
+          expect(
+            filled,
+            `${entry.id} measure ${measureIndex + 1}/${measureVoice.voiceId}`,
+          ).toBe(measure.durationTicks);
+        }
       }
     }
   });

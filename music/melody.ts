@@ -73,8 +73,11 @@ export type Phrase = Score & {
   melodyId: string;
   phraseIndex: number;
   noteIdentification: IdentificationPhraseSuitability;
-  /** Suitability of this phrase's stated harmony for chord identification. */
-  chordIdentification?: IdentificationPhraseSuitability;
+  /**
+   * Suitability of this phrase's stated harmony for chord identification.
+   * Phrases without stated harmony are "exclude".
+   */
+  chordIdentification: IdentificationPhraseSuitability;
   rationale: string;
 };
 
@@ -123,8 +126,7 @@ type PhraseBoundary = {
   firstMeasureIndex: number;
   lastMeasureIndex: number;
   noteIdentification: IdentificationPhraseSuitability;
-  chordIdentification?: IdentificationPhraseSuitability;
-  rationale: string;
+  chordIdentification: IdentificationPhraseSuitability;  rationale: string;
 };
 
 function failure<T>(melodyId: string, detail: string): Result<T> {
@@ -174,6 +176,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
   const harmony: HarmonyRegion[] = [];
   let scoreCursor = 0;
   let firstPhraseMeasureIndex = 0;
+  let phraseHasHarmony = false;
 
   for (const [measureIndex, authoredMeasure] of entry.measures.entries()) {
     const measureNumber = measureIndex + 1;
@@ -278,6 +281,7 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
     }
 
     if (authoredMeasure.harmony) {
+      phraseHasHarmony = true;
       let harmonyCursor = measureStart;
       for (const [regionIndex, region] of authoredMeasure.harmony.entries()) {
         if (!isPositiveInteger(region.durationTicks)) {
@@ -327,6 +331,12 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
           `phrase ending at measure ${measureNumber} has unsupported noteIdentification "${String(noteIdentification)}"`,
         );
       }
+      if (phraseHasHarmony && chordIdentification === undefined) {
+        return failure(
+          entry.id,
+          `phrase ending at measure ${measureNumber} states harmony, so it must declare chordIdentification`,
+        );
+      }
       if (
         chordIdentification !== undefined &&
         !isSuitability(chordIdentification)
@@ -346,10 +356,11 @@ export function normalizeMelody(entry: CorpusMelody): Result<Melody> {
         firstMeasureIndex: firstPhraseMeasureIndex,
         lastMeasureIndex: measureIndex,
         noteIdentification,
-        chordIdentification,
+        chordIdentification: chordIdentification ?? "exclude",
         rationale,
       });
       firstPhraseMeasureIndex = measureIndex + 1;
+      phraseHasHarmony = false;
     }
   }
 

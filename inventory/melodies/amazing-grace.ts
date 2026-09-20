@@ -29,56 +29,60 @@ export const amazingGrace: CorpusMelody = melody(
         polyBar3(
           [
             voiceOf("melody", ev(q, [5, -1]), ev(h, [1])),
-            voiceOf("harmony", ev(dh, [1, -2])),
+            voiceOf("harmony", ev(dh, [1, -1])),
           ],
           [region(dh, 1)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(e, [3]), ev(e, [1]), ev(h, [3])),
-            voiceOf("harmony", ev(dh, [1, -2])),
+            voiceOf("harmony", ev(dh, [1, -1])),
           ],
           [region(dh, 1)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [1]), ev(q, [6, -1])),
-            voiceOf("harmony", ev(q, [1, -2]), ev(h, [4, -2], [6, -2])),
+            voiceOf("harmony", ev(q, [1, -1]), ev(h, [4, -1], [6, -1])),
           ],
           [region(q, 1), region(h, 4)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(q, [5, -1]), ev(h, [1])),
-            voiceOf("harmony", ev(q, [5, -2]), ev(h, [1, -2], [3, -2], [5, -2])),
+            voiceOf(
+              "harmony",
+              ev(q, [5, -1]),
+              ev(h, [1, -1], [3, -1], [5, -1]),
+            ),
           ],
           [region(q, 5), region(h, 1)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(e, [3]), ev(e, [1]), ev(h, [3])),
-            voiceOf("harmony", ev(dh, [1, -2])),
+            voiceOf("harmony", ev(dh, [1, -1])),
           ],
           [region(dh, 1)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(h, [2]), ev(q, [3])),
-            voiceOf("harmony", ev(h, [5, -2], [7, -2]), ev(q, [1, -2])),
+            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(q, [1, -1])),
           ],
           [region(h, 5), region(q, 1)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(h, [5]), ev(q, [3])),
-            voiceOf("harmony", ev(h, [5, -2], [7, -2]), ev(q, [1, -2])),
+            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(q, [1, -1])),
           ],
           [region(h, 5), region(q, 1)],
         ),
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -2], [5, -2])),
+            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
           ],
           [region(dh, 1)],
         ),

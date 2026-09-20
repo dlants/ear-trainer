@@ -49,6 +49,7 @@ function phrase(
     melodyId,
     phraseIndex,
     noteIdentification: suitability,
+    chordIdentification: "exclude",
     rationale: "Test rationale.",
     context: "major-cadence",
     harmony: [],

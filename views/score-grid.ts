@@ -1,4 +1,11 @@
-import { checkIcon, chordIcon, noteIcon, playIcon, xIcon } from "../icons.ts";
+import {
+  checkIcon,
+  chordIcon,
+  eyeIcon,
+  noteIcon,
+  playIcon,
+  xIcon,
+} from "../icons.ts";
 import type {
   Cell,
   CellId,
@@ -115,6 +122,7 @@ const measureClass = cls("score-measure");
 const stackTrackClass = cls("score-stack-track");
 const stackButtonClass = cls("score-stack-button");
 const cellTrackClass = cls("score-cell-track");
+const peekClass = cls("score-peek");
 const cellButtonClass = cls("score-cell-button");
 const harmonyTrackClass = cls("score-harmony-track");
 const harmonySegmentClass = cls("score-harmony-segment");
@@ -126,7 +134,9 @@ const selectedClass = cls("score-slot-selected");
 const correctClass = cls("score-slot-correct");
 const incorrectClass = cls("score-slot-incorrect");
 mountStyle(`
-.${scoreGridClass} { display: grid; gap: 8px; }
+.${scoreGridClass} { display: grid; gap: 16px; }
+/** A rule between bars, so stacked melody lanes read as one bar, not many. */
+.${scoreGridClass} > * + * { border-top: 1px solid var(--color-border); padding-top: 16px; }
 .${scoreGridClass} .${measureClass} { display: grid; grid-template-columns: 22px 1fr; gap: 4px; }
 .${scoreGridClass} .${stackTrackClass},
 .${scoreGridClass} .${cellTrackClass},
@@ -146,6 +156,17 @@ mountStyle(`
   font-size: 12px;
 }
 .${scoreGridClass} .${cellTrackClass} { position: relative; overflow: hidden; }
+.${scoreGridClass} .${peekClass} {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+}
 .${scoreGridClass} .${cellButtonClass} {
   position: absolute;
   min-width: 26px;
@@ -197,6 +218,17 @@ mountStyle(`
 const LANE_HEIGHT_PX = 34;
 const LANE_GAP_PX = 4;
 
+/**
+ * The reveal affordance sits inside the cell button, so its press must not also
+ * select and play the cell.
+ */
+function onPeek(el: HTMLElement, handler: () => void): void {
+  for (const type of ["pointerdown", "click"] as const) {
+    el.addEventListener(type, (event) => event.stopPropagation());
+  }
+  onPress(el, handler);
+}
+
 function spanStyle(
   measure: Measure,
   onsetTicks: number,
@@ -220,9 +252,13 @@ type CellState = {
   selected: boolean;
   cursor: boolean;
   revealed: boolean;
+  /** Whether this cell offers its own reveal affordance. */
+  peekable: boolean;
 };
 
-type CellMsg = { type: "CELL"; cellId: CellId };
+type CellMsg =
+  | { type: "CELL"; cellId: CellId }
+  | { type: "PEEK_CELL"; cellId: CellId };
 
 function cellStyle(state: CellState): Record<string, string> {
   return {
@@ -260,19 +296,29 @@ class CellView implements View<CellState, CellMsg> {
     initial: CellState,
   ) {
     const buttonRef = ref("cell");
+    const peekRef = ref("cellPeek");
     const wrongIconRef = ref("wrongIcon");
     const wrongGuessRef = ref("wrongGuess");
     const textRef = ref("cellText");
     const correctIconRef = ref("correctIcon");
     this.container = container;
     container.innerHTML = sanitize`
-      <button type="button" data-ref="${buttonRef}"><span class="${resultIconClass}" data-ref="${wrongIconRef}" data-result-icon="incorrect">${xIcon()}</span><span class="${struckClass}" data-ref="${wrongGuessRef}" data-part="guess"></span><span data-ref="${textRef}" data-part="note"></span><span class="${resultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span></button>
+      <button type="button" data-ref="${buttonRef}"><span class="${resultIconClass}" data-ref="${wrongIconRef}" data-result-icon="incorrect">${xIcon()}</span><span class="${struckClass}" data-ref="${wrongGuessRef}" data-part="guess"></span><span data-ref="${textRef}" data-part="note"></span><span class="${resultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span><span class="${peekClass}" data-ref="${peekRef}" data-part="peek" role="button" tabindex="0">${eyeIcon()}</span></button>
     `;
     this.b = new Binder(container, initial);
     onPress(this.b.ref(buttonRef), () =>
       dispatch({ type: "CELL", cellId: initial.cell.id }),
     );
+    onPeek(this.b.ref(peekRef), () =>
+      dispatch({ type: "PEEK_CELL", cellId: initial.cell.id }),
+    );
     this.b.bindStyle(buttonRef, cellStyle);
+    this.b.bindVisible(peekRef, (state) => state.peekable && !state.revealed);
+    this.b.bindAttr(
+      peekRef,
+      "aria-label",
+      (state) => `reveal melody note ${state.cellIndex + 1}`,
+    );
     this.b.bindClass(buttonRef, (state) =>
       [
         cellButtonClass,
@@ -390,9 +436,13 @@ type RegionState = {
   answerable: boolean;
   selected: boolean;
   revealed: boolean;
+  /** Whether this region offers its own reveal affordance. */
+  peekable: boolean;
 };
 
-type RegionMsg = { type: "REGION"; regionId: RegionId };
+type RegionMsg =
+  | { type: "REGION"; regionId: RegionId }
+  | { type: "PEEK_REGION"; regionId: RegionId };
 
 function revealedRegionResult(state: RegionState): CellResult | undefined {
   return state.revealed
@@ -410,17 +460,30 @@ class HarmonyRegionView implements View<RegionState, RegionMsg> {
     initial: RegionState,
   ) {
     const buttonRef = ref("region");
+    const peekRef = ref("regionPeek");
     const wrongIconRef = ref("regionWrongIcon");
     const wrongGuessRef = ref("regionWrongGuess");
     const textRef = ref("regionText");
     const correctIconRef = ref("regionCorrectIcon");
     this.container = container;
     container.innerHTML = sanitize`
-      <button type="button" data-ref="${buttonRef}"><span class="${resultIconClass}" data-ref="${wrongIconRef}" data-result-icon="incorrect">${xIcon()}</span><span class="${struckClass}" data-ref="${wrongGuessRef}" data-part="guess"></span><span data-ref="${textRef}" data-part="chord"></span><span class="${resultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span></button>
+      <button type="button" data-ref="${buttonRef}"><span class="${resultIconClass}" data-ref="${wrongIconRef}" data-result-icon="incorrect">${xIcon()}</span><span class="${struckClass}" data-ref="${wrongGuessRef}" data-part="guess"></span><span data-ref="${textRef}" data-part="chord"></span><span class="${resultIconClass}" data-ref="${correctIconRef}" data-result-icon="correct">${checkIcon()}</span><span class="${peekClass}" data-ref="${peekRef}" data-part="peek" role="button" tabindex="0">${eyeIcon()}</span></button>
     `;
     this.b = new Binder(container, initial);
     onPress(this.b.ref(buttonRef), () =>
       dispatch({ type: "REGION", regionId: initial.region.id }),
+    );
+    onPeek(this.b.ref(peekRef), () =>
+      dispatch({ type: "PEEK_REGION", regionId: initial.region.id }),
+    );
+    this.b.bindVisible(
+      peekRef,
+      (state) => state.peekable && state.answerable && !state.revealed,
+    );
+    this.b.bindAttr(
+      peekRef,
+      "aria-label",
+      (state) => `reveal harmony from tick ${state.region.startTicks}`,
     );
     this.b.bindStyle(buttonRef, (state) =>
       spanStyle(
@@ -501,6 +564,9 @@ export type ScoreGridMode =
       chordAnswerable: boolean;
       cellAnswers: Record<CellId, CellAnswer>;
       chordAnswers: Record<RegionId, ChordAnswer>;
+      /** Cells revealed individually while the rest stay hidden. */
+      revealedCells: Record<CellId, true>;
+      revealedRegions: Record<RegionId, true>;
       selection: Selection | undefined;
     };
 
@@ -509,32 +575,43 @@ function cellAnnotation(
   cell: Cell,
   onsets: Onset[],
   cursorOnsetIndex: number | undefined,
-): Pick<CellState, "answer" | "selected" | "cursor" | "revealed"> {
+): Pick<CellState, "answer" | "selected" | "cursor" | "revealed" | "peekable"> {
   const cursor =
     cursorOnsetIndex !== undefined &&
     onsets[cursorOnsetIndex]?.onsetTicks === cell.onsetTicks;
   if (mode.kind === "reveal") {
-    return { answer: undefined, selected: false, cursor, revealed: true };
+    return {
+      answer: undefined,
+      selected: false,
+      cursor,
+      revealed: true,
+      peekable: false,
+    };
   }
   return {
     answer: mode.cellAnswers[cell.id],
     selected:
       mode.selection?.kind === "cell" && mode.selection.cellId === cell.id,
     cursor,
-    revealed: mode.revealed,
+    revealed: mode.revealed || mode.revealedCells[cell.id] === true,
+    peekable: true,
   };
 }
 
 function regionAnnotation(
   mode: ScoreGridMode,
   region: HarmonyRegion,
-): Pick<RegionState, "answer" | "answerable" | "selected" | "revealed"> {
+): Pick<
+  RegionState,
+  "answer" | "answerable" | "selected" | "revealed" | "peekable"
+> {
   if (mode.kind === "reveal") {
     return {
       answer: undefined,
       answerable: false,
       selected: false,
       revealed: true,
+      peekable: false,
     };
   }
   return {
@@ -542,7 +619,8 @@ function regionAnnotation(
     answerable: mode.chordAnswerable,
     selected:
       mode.selection?.kind === "chord" && mode.selection.regionId === region.id,
-    revealed: mode.revealed,
+    revealed: mode.revealed || mode.revealedRegions[region.id] === true,
+    peekable: true,
   };
 }
 
