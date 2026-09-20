@@ -5,6 +5,10 @@
 Use the project-local Vamp skill at `.magenta/skills/vamp/skill.md` whenever changing views, components, state management, or routing. Treat `vamp.ts` as authoritative when the skill and implementation differ.
 Use the project-local design-system skill at `.magenta/skills/design-system/skill.md` whenever changing frontend colors, controls, icons, or other visual styling.
 
+## Searching this repo
+
+Use the project-local pkb-search skill at `.magenta/skills/pkb-search/skill.md` for orientation questions ("where is X handled?", "how does Y work?"). The `pkb` binary is checked in at the repo root and the index lives in `.pkb/index`; `hooks/pre-commit` keeps it fresh. Reserve `rg` for exact symbol/string lookups.
+
 ## Corpus melodies
 
 Read `inventory/melodies/context.md` before adding or changing harmony on a melody in `inventory/melodies/`.

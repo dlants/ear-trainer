@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refresh the pkb search index for the content being committed and include it in
+# the same commit. `pkb reindex --staged` indexes the staging area, so the blob
+# shas it records match the ones this commit will contain. The derived SQLite
+# cache (.pkb/cache.db) is gitignored and never committed.
+set -e
+root=$(git rev-parse --show-toplevel)
+[ -x "$root/pkb" ] || { printf >&2 "pkb binary not found at repo root; skipping index refresh\n"; exit 0; }
+"$root/pkb" reindex --staged
+git add "$root/.pkb/index" "$root/.pkb/state.toml"
