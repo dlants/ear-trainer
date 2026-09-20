@@ -11,49 +11,6 @@ import {
   voiceOf,
 } from "../melody-builders.ts";
 
-/**
- * The Greensleeves tune is supported by a single sustained bass root while the
- * harmony holds on i, thickening to a dyad only where it turns away (III, VII,
- * VI) and at the v–i cadences.
- */
-const tonicBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar3(
-    [voiceOf("melody", ...events), voiceOf("harmony", ev(dh, [1, -1]))],
-    [region(dh, 1, "minor")],
-  );
-const mediantToDominantBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar3(
-    [
-      voiceOf("melody", ...events),
-      voiceOf("harmony", ev(h, [3, -1], [5, -1]), ev(q, [5, -1], [2])),
-    ],
-    [region(h, 3), region(q, 5, "minor")],
-  );
-const subtonicToDominantBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar3(
-    [
-      voiceOf("melody", ...events),
-      voiceOf("harmony", ev(h, [7, -1], [2]), ev(q, [5, -1])),
-    ],
-    [region(h, 7), region(q, 5, "minor")],
-  );
-const submediantCadenceBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar3(
-    [
-      voiceOf("melody", ...events),
-      voiceOf("harmony", ev(q, [6, -1]), ev(h, [5, -1], [7, -1])),
-    ],
-    [region(q, 6), region(h, 5, "minor")],
-  );
-const finalBar = () =>
-  polyBar3(
-    [
-      voiceOf("melody", ev(dh, [1])),
-      voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
-    ],
-    [region(dh, 1, "minor")],
-  );
-
 export const whatChildIsThis: CorpusMelody = melody(
   "what-child-is-this",
   "What Child Is This?",
@@ -63,14 +20,78 @@ export const whatChildIsThis: CorpusMelody = melody(
   [
     phrase(
       [
-        tonicBar(ev(q, [5, -1]), ev(h, [1])),
-        tonicBar(ev(q, [2]), ev(q, [3]), ev(q, [4])),
-        mediantToDominantBar(ev(h, [3]), ev(q, [2])),
-        subtonicToDominantBar(ev(h, [7, -1]), ev(q, [5, -1])),
-        tonicBar(ev(q, [1]), ev(q, [2]), ev(q, [3])),
-        tonicBar(ev(q, [2]), ev(q, [1]), ev(q, [7, -1])),
-        submediantCadenceBar(ev(q, [6, -1]), ev(q, [7, -1]), ev(q, [2])),
-        finalBar(),
+        // The tune rises from 5 to a held 1, stating i itself, so a single
+        // sustained bass root is support enough.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [5, -1]), ev(h, [1])),
+            voiceOf("harmony", ev(dh, [1, -1])),
+          ],
+          [region(dh, 1, "minor")],
+        ),
+        // The melody climbs 2-3-4 over the same held i; the lone root keeps the
+        // bass still while the line moves.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(q, [4])),
+            voiceOf("harmony", ev(dh, [1, -1])),
+          ],
+          [region(dh, 1, "minor")],
+        ),
+        // Here the harmony turns away to III, which the melody's 3 alone would
+        // not pin down, so root and fifth sound before the bar leans back to v.
+        polyBar3(
+          [
+            voiceOf("melody", ev(h, [3]), ev(q, [2])),
+            voiceOf("harmony", ev(h, [3, -1], [5, -1]), ev(q, [5, -1], [2])),
+          ],
+          [region(h, 3), region(q, 5, "minor")],
+        ),
+        // The melody's lower 7 is the root of VII, but the turn away from i is
+        // the surprise, so the harmony doubles it with 2 before falling to v.
+        polyBar3(
+          [
+            voiceOf("melody", ev(h, [7, -1]), ev(q, [5, -1])),
+            voiceOf("harmony", ev(h, [7, -1], [2]), ev(q, [5, -1])),
+          ],
+          [region(h, 7), region(q, 5, "minor")],
+        ),
+        // Back on i, the melody states 1 outright and the single held root
+        // carries the bar.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3])),
+            voiceOf("harmony", ev(dh, [1, -1])),
+          ],
+          [region(dh, 1, "minor")],
+        ),
+        // The descent 2-1-7 still sits on i; the lone root holds under it
+        // without competing with the falling line.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [2]), ev(q, [1]), ev(q, [7, -1])),
+            voiceOf("harmony", ev(dh, [1, -1])),
+          ],
+          [region(dh, 1, "minor")],
+        ),
+        // VI passes by on a bare root, and the cadential v takes the raised 7
+        // beside its root so the pull to the final i is audible.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [6, -1]), ev(q, [7, -1]), ev(q, [2])),
+            voiceOf("harmony", ev(q, [6, -1]), ev(h, [5, -1], [7, -1])),
+          ],
+          [region(q, 6), region(h, 5, "minor")],
+        ),
+        // The tune arrives on a sustained 1; a root-fifth beneath it closes the
+        // phrase without adding a third the melody has already implied.
+        polyBar3(
+          [
+            voiceOf("melody", ev(dh, [1])),
+            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+          ],
+          [region(dh, 1, "minor")],
+        ),
       ],
       "context-required",
       "The minor-mode cadence reaches 1, but its lower-7 and lower-6 emphasis makes it a contextual example.",

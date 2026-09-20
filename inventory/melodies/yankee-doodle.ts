@@ -12,19 +12,6 @@ import {
   w,
 } from "../melody-builders.ts";
 
-/**
- * The left hand is a mostly single-note bass that thickens only at the turns:
- * the half cadence on V, the first move to IV, and the closing V–I.
- */
-const tonicRiseBar = () =>
-  polyBar(
-    [
-      voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
-      voiceOf("harmony", ev(w, [1, -1])),
-    ],
-    [region(w, 1)],
-  );
-
 export const yankeeDoodle: CorpusMelody = melody(
   "yankee-doodle",
   "Yankee Doodle",
@@ -34,7 +21,18 @@ export const yankeeDoodle: CorpusMelody = melody(
   [
     phrase(
       [
-        tonicRiseBar(),
+        // The melody climbs 1-1-2-3, spelling I well enough that the bass only
+        // plants the root.
+        polyBar(
+          [
+            voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
+            voiceOf("harmony", ev(w, [1, -1])),
+          ],
+          [region(w, 1)],
+        ),
+        // I is plain from the melody's 1 and 3, so a lone root holds it; the
+        // half cadence on the melody's 2 leaves V open, so the leading tone
+        // sounds where the harmony turns.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [3]), ev(h, [2])),
@@ -42,7 +40,18 @@ export const yankeeDoodle: CorpusMelody = melody(
           ],
           [region(h, 1), region(h, 5)],
         ),
-        tonicRiseBar(),
+        // The same ascent returns; the bass again supplies only the root the
+        // melody does not state below itself.
+        polyBar(
+          [
+            voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
+            voiceOf("harmony", ev(w, [1, -1])),
+          ],
+          [region(w, 1)],
+        ),
+        // The melody's lower 7 is the leading tone itself, so V is named in the
+        // tune; the harmony doubles it and closes with root and fifth under the
+        // arrival on 1.
         polyBar(
           [
             voiceOf("melody", ev(h, [1]), ev(q, [7, -1]), ev(q, [1])),
@@ -62,7 +71,18 @@ export const yankeeDoodle: CorpusMelody = melody(
     ),
     phrase(
       [
-        tonicRiseBar(),
+        // The ascent opens the second phrase the same way, over its single
+        // tonic root.
+        polyBar(
+          [
+            voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
+            voiceOf("harmony", ev(w, [1, -1])),
+          ],
+          [region(w, 1)],
+        ),
+        // The melody's 4 is the root of IV, so the chordal third is what names
+        // the chord at the turn; the descent to 1 then only needs the tonic
+        // root held under it.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [3]), ev(q, [2]), ev(q, [1])),
@@ -70,6 +90,8 @@ export const yankeeDoodle: CorpusMelody = melody(
           ],
           [region(q, 4), region(dh, 1)],
         ),
+        // The melody sits on lower 7-5-6-7, all chord tones and the leading
+        // tone of V, so a bare dominant root is support enough.
         polyBar(
           [
             voiceOf(
@@ -83,6 +105,8 @@ export const yankeeDoodle: CorpusMelody = melody(
           ],
           [region(w, 5)],
         ),
+        // The tune holds 1 alone, so the close adds the fifth for a full,
+        // settled final sound.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),

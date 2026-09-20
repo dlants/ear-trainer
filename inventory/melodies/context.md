@@ -21,4 +21,8 @@ There is no formula here. Read each phrase, decide what the melody already tells
 
 Useful instincts, not rules: spend the extra note where the harmony turns rather than where it is holding; when you do add a second note, the third says far more than the fifth; a root-fifth dyad is a drone-like effect rather than a cheap third; and a bass that moves by small intervals sounds better than one that leaps octaves chasing the melody.
 
+## The house style
+
+Every melody file carries inline comments recording its voicing decisions, bar by bar: what the melody already gives the listener and what the harmony therefore supplies. Those comments are the corpus's record of how we voice things, so before harmonizing a new tune, search them for precedent — `./pkb search "voicing a cadence under a descending melody"` and similar queries turn up the bars that already solved the problem. Match what the corpus does; deviate only when the tune calls for it, and say why in the comment.
+
 `inventory/melodies/twinkle.ts` is the reference example.

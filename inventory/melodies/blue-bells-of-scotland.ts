@@ -11,41 +11,6 @@ import {
   w,
 } from "../melody-builders.ts";
 
-/**
- * A single-note left hand holds the tonic through the rising figures and
- * thickens to a dyad only where the harmony turns: the 6 that needs a 4 under
- * it to read as IV, and the V–I cadences.
- */
-const tonicBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar(
-    [voiceOf("melody", ...events), voiceOf("harmony", ev(w, [1, -1]))],
-    [region(w, 1)],
-  );
-const subdominantBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar(
-    [
-      voiceOf("melody", ...events),
-      voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
-    ],
-    [region(h, 4), region(h, 1)],
-  );
-const cadenceBar = (...events: ReturnType<typeof ev>[]) =>
-  polyBar(
-    [
-      voiceOf("melody", ...events),
-      voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
-    ],
-    [region(h, 1), region(h, 5)],
-  );
-const closeBar = () =>
-  polyBar(
-    [
-      voiceOf("melody", ev(w, [1])),
-      voiceOf("harmony", ev(w, [1, -1], [5, -1])),
-    ],
-    [region(w, 1)],
-  );
-
 export const blueBellsOfScotland: CorpusMelody = melody(
   "blue-bells-of-scotland",
   "The Blue Bells of Scotland",
@@ -55,10 +20,49 @@ export const blueBellsOfScotland: CorpusMelody = melody(
   [
     phrase(
       [
-        tonicBar(ev(q, [5, -1]), ev(q, [1]), ev(q, [3]), ev(q, [5])),
-        subdominantBar(ev(h, [6]), ev(h, [5])),
-        tonicBar(ev(q, [3]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
-        closeBar(),
+        // The rising 5–1–3–5 figure spells I on its own, so a single bass root
+        // holds under it.
+        polyBar(
+          [
+            voiceOf(
+              "melody",
+              ev(q, [5, -1]),
+              ev(q, [1]),
+              ev(q, [3]),
+              ev(q, [5]),
+            ),
+            voiceOf("harmony", ev(w, [1, -1])),
+          ],
+          [region(w, 1)],
+        ),
+        // The held 6 will not read as IV by itself, so the 4 sounds under it
+        // with its third before the bass steps back to the tonic root.
+        polyBar(
+          [
+            voiceOf("melody", ev(h, [6]), ev(h, [5])),
+            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+          ],
+          [region(h, 4), region(h, 1)],
+        ),
+        // The tune turns around 3–1–2–3 within I; the lone root is enough.
+        polyBar(
+          [
+            voiceOf("melody", ev(q, [3]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
+            voiceOf("harmony", ev(w, [1, -1])),
+          ],
+          [region(w, 1)],
+        ),
+        // The melody rests on 1 at the half close; root and fifth mark the
+        // arrival.
+        polyBar(
+          [
+            voiceOf("melody", ev(w, [1])),
+            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+          ],
+          [region(w, 1)],
+        ),
+        // The upper neighbour 6 is the only turn in this bar, so IV takes the
+        // one quarter it needs and the tonic root resumes immediately.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [5]), ev(q, [6]), ev(q, [5])),
@@ -71,9 +75,38 @@ export const blueBellsOfScotland: CorpusMelody = melody(
           ],
           [region(h, 1), region(q, 4), region(q, 1)],
         ),
-        cadenceBar(ev(h, [3]), ev(h, [2])),
-        cadenceBar(ev(q, [1]), ev(q, [2]), ev(q, [7, -1]), ev(q, [2])),
-        closeBar(),
+        // The melody's 2 leaves V open, so the leading tone joins the root on
+        // the second half after a bare tonic root.
+        polyBar(
+          [
+            voiceOf("melody", ev(h, [3]), ev(h, [2])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+          ],
+          [region(h, 1), region(h, 5)],
+        ),
+        // The same shape returns with a lower-7 in the tune; the dominant dyad
+        // again supplies the pull into the close.
+        polyBar(
+          [
+            voiceOf(
+              "melody",
+              ev(q, [1]),
+              ev(q, [2]),
+              ev(q, [7, -1]),
+              ev(q, [2]),
+            ),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+          ],
+          [region(h, 1), region(h, 5)],
+        ),
+        // The strain closes on a long 1; root and fifth settle it.
+        polyBar(
+          [
+            voiceOf("melody", ev(w, [1])),
+            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+          ],
+          [region(w, 1)],
+        ),
       ],
       "independent",
       "The pickup reaches 1, the first half cadences there, and the complete strain closes again on tonic.",

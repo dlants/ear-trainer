@@ -13,25 +13,6 @@ import {
   voiceOf,
 } from "../melody-builders.ts";
 
-/**
- * The left hand holds a single root under the tonic bars and thickens into a
- * dyad only where the harmony turns: the first move to V, and the IV-V-I
- * cadence that closes the carol.
- */
-const openingBar = () =>
-  polyBar3(
-    [
-      voiceOf("melody", ev(dq, [5]), ev(e, [6]), ev(q, [5])),
-      voiceOf("harmony", ev(dh, [1, -1])),
-    ],
-    [region(dh, 1)],
-  );
-const restingBar = () =>
-  polyBar3(
-    [voiceOf("melody", ev(dh, [3])), voiceOf("harmony", ev(dh, [1, -1]))],
-    [region(dh, 1)],
-  );
-
 export const silentNight: CorpusMelody = melody(
   "silent-night",
   "Silent Night",
@@ -41,10 +22,36 @@ export const silentNight: CorpusMelody = melody(
   [
     phrase(
       [
-        openingBar(),
-        restingBar(),
-        openingBar(),
-        restingBar(),
+        // The melody's 5-6-5 sits over I, so a single held root is all the
+        // harmony supplies.
+        polyBar3(
+          [
+            voiceOf("melody", ev(dq, [5]), ev(e, [6]), ev(q, [5])),
+            voiceOf("harmony", ev(dh, [1, -1])),
+          ],
+          [region(dh, 1)],
+        ),
+        // The tune rests on 3, the chordal third, so the root beneath it
+        // completes I without thickening.
+        polyBar3(
+          [voiceOf("melody", ev(dh, [3])), voiceOf("harmony", ev(dh, [1, -1]))],
+          [region(dh, 1)],
+        ),
+        // The opening figure returns over the same held tonic root.
+        polyBar3(
+          [
+            voiceOf("melody", ev(dq, [5]), ev(e, [6]), ev(q, [5])),
+            voiceOf("harmony", ev(dh, [1, -1])),
+          ],
+          [region(dh, 1)],
+        ),
+        // The resting 3 again takes a bare root under it.
+        polyBar3(
+          [voiceOf("melody", ev(dh, [3])), voiceOf("harmony", ev(dh, [1, -1]))],
+          [region(dh, 1)],
+        ),
+        // The melody's 2 leaves V open, and this is the first turn away from
+        // I, so the leading tone joins the root to name the chord.
         polyBar3(
           [
             voiceOf("melody", ev(h, [2]), ev(q, [2])),
@@ -52,6 +59,8 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 5)],
         ),
+        // The tune sings the leading tone itself, so a bare 5 underneath is
+        // enough to hold V.
         polyBar3(
           [
             voiceOf("melody", ev(h, [7, -1]), ev(q, [7, -1])),
@@ -59,6 +68,7 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 5)],
         ),
+        // The melody states 1, so the harmony just doubles the root below it.
         polyBar3(
           [
             voiceOf("melody", ev(h, [1]), ev(q, [1])),
@@ -66,6 +76,8 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
+        // A long lower 5 is open between I and V; the held tonic root fixes it
+        // as I.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [5, -1])),
@@ -73,6 +85,8 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
+        // The tune holds 4, the chordal root, so the harmony adds the third to
+        // make the move to IV audible.
         polyBar3(
           [
             voiceOf("melody", ev(h, [4]), ev(q, [4])),
@@ -80,6 +94,8 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 4)],
         ),
+        // The melody's high 1 falls to 7; root and leading tone underneath
+        // point the cadence back home.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1, 1]), ev(h, [7])),
@@ -87,6 +103,7 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 5)],
         ),
+        // The 6-5-3 descent spells I on its own, so one held root suffices.
         polyBar3(
           [
             voiceOf("melody", ev(q, [6]), ev(q, [5]), ev(q, [3])),
@@ -94,6 +111,8 @@ export const silentNight: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
+        // The closing long 1 gets root and fifth so the final tonic sounds
+        // settled.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
