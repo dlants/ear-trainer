@@ -1,5 +1,55 @@
 import type { CorpusMelody } from "../../music/melody.ts";
-import { bar3, dh, h, melody, phrase, q } from "../melody-builders.ts";
+import {
+  dh,
+  ev,
+  h,
+  melody,
+  phrase,
+  polyBar3,
+  q,
+  region,
+  voiceOf,
+} from "../melody-builders.ts";
+
+/**
+ * A waltz accompaniment held to one sustained bass note per bar, thickened to a
+ * dyad only where the harmony turns: the move to IV and the V bars that lead
+ * back home.
+ */
+const tonicBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(dh, [1, -1]))],
+    [region(dh, 1)],
+  );
+const subdominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(dh, [4, -1], [6, -1])),
+    ],
+    [region(dh, 4)],
+  );
+const dominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
+    ],
+    [region(dh, 5)],
+  );
+const dominantHoldBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(dh, [5, -1]))],
+    [region(dh, 5)],
+  );
+const cadenceBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+    ],
+    [region(dh, 1)],
+  );
 
 export const homeOnTheRange: CorpusMelody = melody(
   "home-on-the-range",
@@ -10,17 +60,18 @@ export const homeOnTheRange: CorpusMelody = melody(
   [
     phrase(
       [
-        bar3([1, q], [2, q], [3, q]),
-        bar3([5, h], [3, q]),
-        bar3([2, q], [1, q], [6, q, -1]),
-        bar3([5, dh, -1]),
-        bar3([1, q], [2, q], [3, q]),
-        bar3([5, q], [6, q], [5, q]),
-        bar3([3, q], [2, q], [7, q, -1]),
-        bar3([1, dh]),
+        tonicBar(ev(q, [1]), ev(q, [2]), ev(q, [3])),
+        tonicBar(ev(h, [5]), ev(q, [3])),
+        dominantBar(ev(q, [2]), ev(q, [1]), ev(q, [6, -1])),
+        dominantHoldBar(ev(dh, [5, -1])),
+        tonicBar(ev(q, [1]), ev(q, [2]), ev(q, [3])),
+        subdominantBar(ev(q, [5]), ev(q, [6]), ev(q, [5])),
+        dominantBar(ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
+        cadenceBar(ev(dh, [1])),
       ],
       "independent",
       "The range opens from 1 and the second sentence closes lower 7 to a sustained tonic.",
+      "independent",
     ),
   ],
 );

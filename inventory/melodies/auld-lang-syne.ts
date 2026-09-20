@@ -1,5 +1,47 @@
 import type { CorpusMelody } from "../../music/melody.ts";
-import { bar4, h, melody, phrase, q, w } from "../melody-builders.ts";
+import {
+  ev,
+  h,
+  melody,
+  phrase,
+  polyBar,
+  q,
+  region,
+  voiceOf,
+  w,
+} from "../melody-builders.ts";
+
+/**
+ * The tune sits on I for most of its length, so the accompaniment is a single
+ * held bass root there, thickening to a dyad only at the half cadence, at the
+ * turn to IV, and at the final close.
+ */
+const tonicBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(w, [1, -1]))],
+    [region(w, 1)],
+  );
+const halfCadenceBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+    ],
+    [region(w, 5)],
+  );
+const approachBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [5, -1])),
+    ],
+    [region(h, 4), region(h, 5)],
+  );
+const finalBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(w, [1, -1], [5, -1]))],
+    [region(w, 1)],
+  );
 
 export const auldLangSyne: CorpusMelody = melody(
   "auld-lang-syne",
@@ -10,17 +52,18 @@ export const auldLangSyne: CorpusMelody = melody(
   [
     phrase(
       [
-        bar4([5, q, -1], [1, q], [1, q], [1, q]),
-        bar4([3, q], [2, q], [1, h]),
-        bar4([2, q], [3, q], [2, q], [1, q]),
-        bar4([2, h], [5, h]),
-        bar4([5, q], [3, q], [1, q], [1, q]),
-        bar4([3, q], [2, q], [1, h]),
-        bar4([6, q, -1], [5, q, -1], [6, q, -1], [1, q]),
-        bar4([1, w]),
+        tonicBar(ev(q, [5, -1]), ev(q, [1]), ev(q, [1]), ev(q, [1])),
+        tonicBar(ev(q, [3]), ev(q, [2]), ev(h, [1])),
+        tonicBar(ev(q, [2]), ev(q, [3]), ev(q, [2]), ev(q, [1])),
+        halfCadenceBar(ev(h, [2]), ev(h, [5])),
+        tonicBar(ev(q, [5]), ev(q, [3]), ev(q, [1]), ev(q, [1])),
+        tonicBar(ev(q, [3]), ev(q, [2]), ev(h, [1])),
+        approachBar(ev(q, [6, -1]), ev(q, [5, -1]), ev(q, [6, -1]), ev(q, [1])),
+        finalBar(ev(w, [1])),
       ],
       "independent",
       "The tune repeatedly returns to 1, and the closing lower-neighbor ascent settles on a long tonic.",
+      "independent",
     ),
   ],
 );

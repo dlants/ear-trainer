@@ -1,5 +1,46 @@
 import type { CorpusMelody } from "../../music/melody.ts";
-import { bar4, h, melody, phrase, q, w } from "../melody-builders.ts";
+import {
+  ev,
+  h,
+  melody,
+  phrase,
+  polyBar,
+  q,
+  region,
+  voiceOf,
+  w,
+} from "../melody-builders.ts";
+
+/**
+ * A swinging I–V support: a single bass root holds the tonic bars, thickened to
+ * a 5–7 dyad where the tune first turns to V and again at the closing cadence.
+ */
+const tonicBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(w, [1, -1]))],
+    [region(w, 1)],
+  );
+const dominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+    ],
+    [region(w, 5)],
+  );
+const plainDominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(w, [5, -1]))],
+    [region(w, 5)],
+  );
+const halfCadenceBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+    ],
+    [region(h, 1), region(h, 5)],
+  );
 
 export const mulberryBush: CorpusMelody = melody(
   "mulberry-bush",
@@ -10,17 +51,24 @@ export const mulberryBush: CorpusMelody = melody(
   [
     phrase(
       [
-        bar4([5, q], [5, q], [3, q], [3, q]),
-        bar4([4, q], [4, q], [2, h]),
-        bar4([1, q], [2, q], [3, q], [4, q]),
-        bar4([5, h], [5, h]),
-        bar4([5, q], [3, q], [1, q], [3, q]),
-        bar4([4, q], [2, q], [7, h, -1]),
-        bar4([1, q], [3, q], [2, q], [7, q, -1]),
-        bar4([1, w]),
+        tonicBar(ev(q, [5]), ev(q, [5]), ev(q, [3]), ev(q, [3])),
+        dominantBar(ev(q, [4]), ev(q, [4]), ev(h, [2])),
+        tonicBar(ev(q, [1]), ev(q, [2]), ev(q, [3]), ev(q, [4])),
+        dominantBar(ev(h, [5]), ev(h, [5])),
+        tonicBar(ev(q, [5]), ev(q, [3]), ev(q, [1]), ev(q, [3])),
+        plainDominantBar(ev(q, [4]), ev(q, [2]), ev(h, [7, -1])),
+        halfCadenceBar(ev(q, [1]), ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
+        polyBar(
+          [
+            voiceOf("melody", ev(w, [1])),
+            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+          ],
+          [region(w, 1)],
+        ),
       ],
       "independent",
       "The closing strain uses 1 twice and resolves lower 7 to a sustained tonic.",
+      "independent",
     ),
   ],
 );

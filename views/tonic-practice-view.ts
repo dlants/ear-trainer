@@ -1,5 +1,5 @@
 import type { PlayState } from "../audio/play-controller.ts";
-import { arrowDownIcon, arrowUpIcon } from "../icons.ts";
+import { arrowDownIcon, arrowUpIcon, chordIcon, noteIcon } from "../icons.ts";
 import { SITUATIONS, type SituationDefinition } from "../music/situations.ts";
 import {
   Binder,
@@ -28,6 +28,7 @@ import {
   type IdentifyNotesMsg,
   type IdentifyNotesState,
   type IdentifyNotesTrial,
+  type PreviewTab,
   VISIBLE_MEASURE_COUNT,
 } from "./tonic-practice.ts";
 
@@ -61,6 +62,7 @@ const viewportClass = cls("tonic-viewport");
 const viewportControlsClass = cls("tonic-viewport-controls");
 const sourceClass = cls("tonic-source");
 const selectedClass = cls("tonic-slot-selected");
+const previewTabsClass = cls("tonic-preview-tabs");
 const paletteClass = cls("tonic-palette");
 const emptyClass = cls("tonic-empty");
 const activityClass = cls("tonic-activity");
@@ -132,6 +134,8 @@ mountStyle(`
 .${pageClass} .${activityClass} .${actionRowClass} { margin-top: auto; }
 .${pageClass} .${viewportClass} { display: grid; gap: 8px; }
 .${pageClass} .${selectedClass} { border: 2px solid var(--color-selected-border); background: var(--color-selected-surface); color: var(--color-text); }
+.${pageClass} .${previewTabsClass} { display: flex; justify-content: center; gap: 8px; }
+.${pageClass} .${previewTabsClass} button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: var(--radius-control); font-weight: 700; }
 .${pageClass} .${paletteClass} { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; min-height: 46px; }
 .${pageClass} .${paletteClass} button { min-width: 72px; padding: 10px 12px; border-radius: var(--radius-control); font-weight: 700; }
 .${pageClass} .${viewportControlsClass} { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
@@ -311,6 +315,11 @@ function answerChoices(trial: IdentifyNotesTrial): AnswerChoiceState[] {
   ];
 }
 
+/** Harmony has nothing to sound out when the phrase states no chords. */
+function previewTab(trial: IdentifyNotesTrial): PreviewTab {
+  return trial.phrase.harmony.length > 0 ? trial.previewTab : "melody";
+}
+
 export class IdentifyNotesView
   implements View<IdentifyNotesState, IdentifyNotesMsg, IdentifyNotesCtx>
 {
@@ -343,6 +352,9 @@ export class IdentifyNotesView
     const previousRef = ref("previousBars");
     const rangeRef = ref("barRange");
     const nextBarsRef = ref("nextBars");
+    const previewTabsRef = ref("previewTabs");
+    const melodyTabRef = ref("melodyTab");
+    const harmonyTabRef = ref("harmonyTab");
     const paletteRef = ref("palette");
     const revealRef = ref("reveal");
     const nextRef = ref("next");
@@ -384,6 +396,10 @@ export class IdentifyNotesView
             <button type="button" data-ref="${previousRef}">${arrowUpIcon()} previous bar</button>
             <span data-ref="${rangeRef}"></span>
             <button type="button" data-ref="${nextBarsRef}">next bar ${arrowDownIcon()}</button>
+          </div>
+          <div class="${previewTabsClass}" data-ref="${previewTabsRef}" role="tablist" aria-label="preview vocabulary">
+            <button type="button" role="tab" data-ref="${melodyTabRef}">${noteIcon()} melody</button>
+            <button type="button" role="tab" data-ref="${harmonyTabRef}">${chordIcon()} harmony</button>
           </div>
           <div class="${paletteClass}" data-ref="${paletteRef}" aria-label="answer choices"></div>
           <div class="${actionRowClass}">
@@ -611,6 +627,22 @@ export class IdentifyNotesView
     });
     this.b.bindList(paletteRef, "span", (state) => {
       const trial = state.trial;
+      if (trial?.phase === "revealed") {
+        const tab = previewTab(trial);
+        return trial.promptDegrees.map((degree) =>
+          showKeyed(
+            `preview:${tab}:${degree}`,
+            AnswerChoiceView,
+            {
+              answer: degree,
+              label: tab === "harmony" ? diatonicRoman(degree) : String(degree),
+              selected: false,
+            },
+            {},
+            () => dispatch({ type: "PREVIEW_DEGREE", degree, tab }),
+          ),
+        );
+      }
       if (trial?.phase !== "answering" || trial.selection === undefined) {
         return [];
       }
@@ -630,6 +662,26 @@ export class IdentifyNotesView
         ),
       );
     });
+    for (const [tabRef, tab] of [
+      [melodyTabRef, "melody"],
+      [harmonyTabRef, "harmony"],
+    ] as const) {
+      onPress(this.b.ref(tabRef), () =>
+        dispatch({ type: "SET_PREVIEW_TAB", tab }),
+      );
+      this.b.bindClass(tabRef, (state) =>
+        state.trial && previewTab(state.trial) === tab ? selectedClass : "",
+      );
+      this.b.bindAttr(tabRef, "aria-selected", (state) =>
+        String(state.trial !== undefined && previewTab(state.trial) === tab),
+      );
+    }
+    this.b.bindVisible(
+      previewTabsRef,
+      (state) =>
+        state.trial?.phase === "revealed" &&
+        state.trial.phrase.harmony.length > 0,
+    );
     this.b.bindText(rangeRef, (state) => {
       const trial = state.trial;
       if (!trial) return "";

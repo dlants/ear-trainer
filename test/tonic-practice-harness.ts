@@ -294,6 +294,7 @@ export function mountIdentifyPhrase(selected: Phrase): {
       targetSituationId: "tonic",
       phase: "answering",
       promptDegrees: [...IDENTIFY_NOTE_DEGREES],
+      previewTab: "melody",
       cells: cells(selected),
       onsets: onsets(cells(selected)),
       lanes: lanes(selected),

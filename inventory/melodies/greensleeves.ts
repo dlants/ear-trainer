@@ -1,5 +1,25 @@
 import type { CorpusMelody } from "../../music/melody.ts";
-import { bar3, dh, h, melody, phrase, q } from "../melody-builders.ts";
+import {
+  dh,
+  ev,
+  h,
+  melody,
+  phrase,
+  polyBar3,
+  q,
+  region,
+  voiceOf,
+} from "../melody-builders.ts";
+
+/**
+ * A modal minor support: a single bass root while the harmony just holds on i,
+ * thickened to a dyad where the tune turns to III, VII and the v–i cadence.
+ */
+const tonicBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(dh, [1, -1]))],
+    [region(dh, 1, "minor")],
+  );
 
 export const greensleeves: CorpusMelody = melody(
   "greensleeves",
@@ -10,17 +30,42 @@ export const greensleeves: CorpusMelody = melody(
   [
     phrase(
       [
-        bar3([5, q, -1], [1, h]),
-        bar3([2, q], [3, q], [4, q]),
-        bar3([3, h], [2, q]),
-        bar3([7, h, -1], [5, q, -1]),
-        bar3([5, q, -1], [1, h]),
-        bar3([2, q], [3, q], [2, q]),
-        bar3([7, q, -1], [6, q, -1], [7, q, -1]),
-        bar3([1, dh]),
+        tonicBar(ev(q, [5, -1]), ev(h, [1])),
+        tonicBar(ev(q, [2]), ev(q, [3]), ev(q, [4])),
+        polyBar3(
+          [
+            voiceOf("melody", ev(h, [3]), ev(q, [2])),
+            voiceOf("harmony", ev(h, [3, -1], [5, -1]), ev(q, [5, -1], [2])),
+          ],
+          [region(h, 3), region(q, 5, "minor")],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(h, [7, -1]), ev(q, [5, -1])),
+            voiceOf("harmony", ev(h, [7, -1], [2]), ev(q, [5, -1])),
+          ],
+          [region(h, 7), region(q, 5, "minor")],
+        ),
+        tonicBar(ev(q, [5, -1]), ev(h, [1])),
+        tonicBar(ev(q, [2]), ev(q, [3]), ev(q, [2])),
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [7, -1]), ev(q, [6, -1]), ev(q, [7, -1])),
+            voiceOf("harmony", ev(h, [7, -1]), ev(q, [5, -1], [2])),
+          ],
+          [region(h, 7), region(q, 5, "minor")],
+        ),
+        polyBar3(
+          [
+            voiceOf("melody", ev(dh, [1])),
+            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+          ],
+          [region(dh, 1, "minor")],
+        ),
       ],
       "context-required",
       "The minor-mode tune frames 1 with lower 7 and 6; its tonic is clear in context but conservative practice should defer it.",
+      "context-required",
     ),
   ],
   "minor-cadence",

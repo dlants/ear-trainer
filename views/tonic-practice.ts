@@ -15,7 +15,7 @@ import {
   type Phrase,
   type RegionId,
 } from "../music/melody.ts";
-import type { Degree } from "../music/note.ts";
+import type { Degree, Note } from "../music/note.ts";
 import { type Midi, noteToMidi } from "../music/pitch.ts";
 import {
   phraseMatchesSituation,
@@ -30,6 +30,8 @@ export type IdentifyNotesPhase = "answering" | "revealed";
 export type CellAnswer = Degree | "other" | "skip" | undefined;
 /** Diatonic triad of the context, by root degree. */
 export type ChordAnswer = Degree | "other" | "skip" | undefined;
+/** Which vocabulary the reveal keypad sounds out. */
+export type PreviewTab = "melody" | "harmony";
 export type Selection =
   | { kind: "cell"; cellId: CellId }
   | { kind: "chord"; regionId: RegionId };
@@ -59,6 +61,7 @@ export type IdentifyNotesTrial = {
   promptDegrees: Degree[];
   cellAnswers: Record<CellId, CellAnswer>;
   chordAnswers: Record<RegionId, ChordAnswer>;
+  previewTab: PreviewTab;
   /** Cells and harmony regions revealed one at a time, before the whole trial. */
   revealedCells: Record<CellId, true>;
   revealedRegions: Record<RegionId, true>;
@@ -99,6 +102,8 @@ export type IdentifyNotesMsg =
   | { type: "PLAY_REGION"; regionId: RegionId }
   | { type: "SET_ANSWER"; answer: CellAnswer }
   | { type: "SET_CHORD_ANSWER"; answer: ChordAnswer }
+  | { type: "PREVIEW_DEGREE"; degree: Degree; tab: PreviewTab }
+  | { type: "SET_PREVIEW_TAB"; tab: PreviewTab }
   | { type: "REVEAL_CELL"; cellId: CellId }
   | { type: "REVEAL_REGION"; regionId: RegionId }
   | { type: "REVEAL" }
@@ -276,6 +281,37 @@ function playNotes(
   ctx.play.autoplay([{ buttonId: "tonic:melody-note", type: "notes", notes }]);
 }
 
+/**
+ * The tone in the home register, or the diatonic triad rooted on it in that
+ * same register.
+ */
+function degreeNotes(degree: Degree, tab: PreviewTab): Note[] {
+  const steps = tab === "harmony" ? [0, 2, 4] : [0];
+  return steps.map((step) => {
+    const raw = degree - 1 + step;
+    return {
+      degree: ((raw % 7) + 1) as Degree,
+      alteration: 0,
+      octave: Math.floor(raw / 7),
+    };
+  });
+}
+
+function previewDegree(
+  degree: Degree,
+  tab: PreviewTab,
+  tonic: Midi,
+  ctx: IdentifyNotesCtx,
+): void {
+  ctx.play.autoplay([
+    {
+      buttonId: "tonic:preview",
+      type: "notes",
+      notes: degreeNotes(degree, tab).map((note) => noteToMidi(note, tonic)),
+    },
+  ]);
+}
+
 function playContext(phrase: Phrase, tonic: Midi, ctx: IdentifyNotesCtx): void {
   ctx.play.toggle("trial:context", {
     buttonId: "trial:context",
@@ -305,6 +341,7 @@ function identifyTrial(selection: PhraseSelection): IdentifyNotesTrial {
     chordAnswers: {},
     revealedCells: {},
     revealedRegions: {},
+    previewTab: "melody",
     cursorOnsetIndex: 0,
     firstVisibleMeasureIndex: 0,
   };
@@ -533,6 +570,12 @@ export function updateIdentifyNotes(
       setAnswer(trial.chordAnswers, selection.regionId, msg.answer);
       break;
     }
+    case "PREVIEW_DEGREE":
+      previewDegree(msg.degree, msg.tab, state.tonic, ctx);
+      break;
+    case "SET_PREVIEW_TAB":
+      if (state.trial) state.trial.previewTab = msg.tab;
+      break;
     case "REVEAL_CELL": {
       const trial = state.trial;
       if (trial?.phase !== "answering") break;

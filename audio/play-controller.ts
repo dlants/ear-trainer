@@ -16,6 +16,7 @@ export type PlayButtonId =
   | "tonic:melody"
   | "tonic:melody-restart"
   | "tonic:melody-note"
+  | "tonic:preview"
   | "tonic:answer"
   | "options:tonic"
   | "options:low-note"

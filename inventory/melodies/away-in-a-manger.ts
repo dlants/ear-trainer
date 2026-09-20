@@ -1,5 +1,58 @@
 import type { CorpusMelody } from "../../music/melody.ts";
-import { bar3, dh, h, melody, phrase, q } from "../melody-builders.ts";
+import {
+  dh,
+  ev,
+  h,
+  melody,
+  phrase,
+  polyBar3,
+  q,
+  region,
+  voiceOf,
+} from "../melody-builders.ts";
+
+/**
+ * A waltz-style support: a single bass root while the harmony holds, thickened
+ * to a dyad where the tune turns (the V of each half and the reach to IV) and
+ * at the closing cadence.
+ */
+const tonicBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [voiceOf("melody", ...events), voiceOf("harmony", ev(dh, [1, -1]))],
+    [region(dh, 1)],
+  );
+const tonicToDominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(h, [1, -1]), ev(q, [5, -1], [7, -1])),
+    ],
+    [region(h, 1), region(q, 5)],
+  );
+const dominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
+    ],
+    [region(dh, 5)],
+  );
+const tonicToSubdominantBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(h, [1, -1]), ev(q, [4, -1], [6, -1])),
+    ],
+    [region(h, 1), region(q, 4)],
+  );
+const finalBar = (...events: ReturnType<typeof ev>[]) =>
+  polyBar3(
+    [
+      voiceOf("melody", ...events),
+      voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+    ],
+    [region(dh, 1)],
+  );
 
 export const awayInAManger: CorpusMelody = melody(
   "away-in-a-manger",
@@ -10,17 +63,18 @@ export const awayInAManger: CorpusMelody = melody(
   [
     phrase(
       [
-        bar3([1, q], [1, q], [4, q]),
-        bar3([3, h], [2, q]),
-        bar3([1, q], [1, q], [5, q]),
-        bar3([4, dh]),
-        bar3([3, q], [3, q], [6, q]),
-        bar3([5, h], [4, q]),
-        bar3([3, q], [2, q], [7, q, -1]),
-        bar3([1, dh]),
+        tonicBar(ev(q, [1]), ev(q, [1]), ev(q, [4])),
+        tonicToDominantBar(ev(h, [3]), ev(q, [2])),
+        tonicBar(ev(q, [1]), ev(q, [1]), ev(q, [5])),
+        dominantBar(ev(dh, [4])),
+        tonicToSubdominantBar(ev(q, [3]), ev(q, [3]), ev(q, [6])),
+        tonicToDominantBar(ev(h, [5]), ev(q, [4])),
+        dominantBar(ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
+        finalBar(ev(dh, [1])),
       ],
       "independent",
       "Repeated opening 1s and the final 3–2–lower-7–1 descent provide clear tonic evidence.",
+      "independent",
     ),
   ],
 );
