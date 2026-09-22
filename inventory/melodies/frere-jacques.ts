@@ -21,17 +21,19 @@ export const frereJacques: CorpusMelody = melody(
   [
     phrase(
       [
-        // The tune climbs 1–2–3 and returns to 1, so it states I on its own; a
-        // single held root is all the harmony needs to supply.
+        // The opening bar has to set the key: the tune climbs 1–2–3 and back
+        // to 1, so it spells the triad itself, but nothing has been heard yet.
+        // Root and third sound on the downbeat and then step aside, leaving the
+        // second half to the melody.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3]), ev(q, [1])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(h, [1, -1], [3, -1]), ev(h)),
           ],
           [region(w, 1)],
         ),
-        // The repeat of the statement keeps the same lone root: nothing has
-        // turned, so there is no reason to spend a second note.
+        // The statement repeats note for note and nothing has turned, so the
+        // harmony thins to a held root rather than restating the same pair.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3]), ev(q, [1])),
@@ -46,22 +48,24 @@ export const frereJacques: CorpusMelody = melody(
     ),
     phrase(
       [
-        // The melody's held 5 is open between I and V, so the harmony turns
-        // here: a bare root under the 3–4 rise, then the leading tone joins 5
-        // to name the dominant.
+        // The 3–4 rise gives I its third, so the tonic half takes a bare root,
+        // up in the melody's own octave since the line never drops below 3. The
+        // held 5 is open between I and V, so the turn is where the extra note
+        // goes: the leading tone names the dominant.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [4]), ev(h, [5])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [5, -1], [7, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The repeat states the same turn to V with the same leading tone, so
-        // the arrival is heard twice rather than taken on trust.
+        // The same turn repeated. The leading tone has already been heard once
+        // and the cadence still wants it, so the dominant is bare here and the
+        // tonic half keeps its root.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [4]), ev(h, [5])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
@@ -72,9 +76,9 @@ export const frereJacques: CorpusMelody = melody(
     ),
     phrase(
       [
-        // The melody's 6 over IV is the chordal sixth of the scale, not the
-        // root, so the harmony supplies 4 with its third; the return to I needs
-        // only the root, since the tune lands on 1.
+        // The melody's 5–6–5–4 circles above IV without naming it, so the
+        // subdominant gets root and third; the descent then lands on 3 and 1
+        // and spells I by itself, leaving the tonic half a bare root.
         polyBar(
           [
             voiceOf(
@@ -90,8 +94,9 @@ export const frereJacques: CorpusMelody = melody(
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The second descent is voiced the same way: the subdominant is where
-        // the harmony moves, and the tonic half is carried by the melody.
+        // The descent repeats, and the weight shifts: IV is known from the
+        // previous bar and takes a lone root, while the tonic return gets its
+        // third, so a full sound is not something only IV and V do.
         polyBar(
           [
             voiceOf(
@@ -103,7 +108,7 @@ export const frereJacques: CorpusMelody = melody(
               ev(q, [3]),
               ev(q, [1]),
             ),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1, -1], [3, -1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
@@ -114,31 +119,28 @@ export const frereJacques: CorpusMelody = melody(
     ),
     phrase(
       [
-        // The tune arpeggiates 1–lower 5–1 and so says little about the
-        // dominant passing chord; the leading tone marks it, and the final
-        // tonic gets root and fifth to close.
+        // The melody states 1 on the downbeat, so the harmony waits; on the
+        // passing V the tune itself sings the dominant root down low, so a lone
+        // leading tone above it is all that is needed. The arrival takes root
+        // and third rather than a hollow fifth.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [5, -1]), ev(h, [1])),
-            voiceOf(
-              "harmony",
-              ev(q, [1, -1]),
-              ev(q, [5, -1], [7, -1]),
-              ev(h, [1, -1], [5, -1]),
-            ),
+            voiceOf("harmony", ev(q), ev(q, [7, -1]), ev(h, [1, -1], [3, -1])),
           ],
           [region(q, 1), region(q, 5), region(h, 1)],
         ),
-        // The closing repeat cadences the same way, so the last thing heard is
-        // the leading tone resolving into a root-and-fifth tonic.
+        // The closing repeat fills in: the root doubles the melody's opening 1,
+        // and the dominant adds its fifth above the leading tone over the
+        // melody's low root, so the last cadence is the fullest in the tune.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [5, -1]), ev(h, [1])),
             voiceOf(
               "harmony",
               ev(q, [1, -1]),
-              ev(q, [5, -1], [7, -1]),
-              ev(h, [1, -1], [5, -1]),
+              ev(q, [7, -1], [2]),
+              ev(h, [1, -1], [3, -1]),
             ),
           ],
           [region(q, 1), region(q, 5), region(h, 1)],

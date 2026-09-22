@@ -44,6 +44,13 @@ export function sortEventNotes(notes: Note[]): Note[] {
   );
 }
 
+/** Highest first, for displays that stack an event's notes top to bottom. */
+export function notesHighestFirst(notes: Note[]): Note[] {
+  return [...notes].sort(
+    (a, b) => noteOffset(b) - noteOffset(a) || b.degree - a.degree,
+  );
+}
+
 function canonicalNote(note: Note): string {
   const accidental =
     note.alteration === 1 ? "#" : note.alteration === -1 ? "b" : "";

@@ -20,55 +20,57 @@ export const weWishYouAMerryChristmas: CorpusMelody = melody(
   [
     phrase(
       [
-        // The pickup climbs to repeated 1s, which state the tonic outright, so
-        // a single held root is all the waltz bass needs here.
+        // The pickup and the repeated 1s give the listener the root but never
+        // the third, so the opening bar supplies it beside the root to fix the
+        // mode before anything else happens.
         polyBar3(
           [
             voiceOf("melody", ev(q, [5, -1]), ev(q, [1]), ev(q, [1])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1)],
         ),
-        // The melody's 2-1-7 leaves V open, so the harmony adds the leading
-        // tone beside the root to fix the dominant at its first appearance.
+        // The tune's 2-1-7 already sings the fifth and third of V, so the
+        // harmony only has to put the dominant root underneath them.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [1]), ev(q, [7, -1])),
-            voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(dh, [5, -1])),
           ],
           [region(dh, 5)],
         ),
-        // IV arrives under the melody's lower 6, which is the chord's third,
-        // so the harmony sounds root and third to make the turn plain before
-        // stepping down to a bare dominant root.
+        // The melody's repeated lower 6 is IV's own third, so the new chord
+        // needs just its root; the extra note goes to the turn back to V on
+        // beat three, where the leading tone marks where the harmony moves.
         polyBar3(
           [
             voiceOf("melody", ev(q, [6, -1]), ev(q, [6, -1]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(q, [5, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(q, [5, -1], [7, -1])),
           ],
           [region(h, 4), region(q, 5)],
         ),
-        // The tune's 2-3-2 hovers without naming the chord, so the dominant
-        // again takes root and leading tone.
+        // V is holding rather than turning here, and the previous bar has just
+        // sounded its leading tone, so the sustained root is context enough
+        // under the melody's hovering 2-3-2.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(q, [2])),
-            voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(dh, [5, -1])),
           ],
           [region(dh, 5)],
         ),
-        // The melody states 1 on the downbeat, so I takes a lone root; the
-        // dominant that follows needs only its root, the leading tone having
-        // been sounded already.
+        // I takes a plain root on the downbeat, and then the melody's own
+        // 7-lower-5 spells the dominant outright down where a bass note would
+        // only crowd it, so the harmony steps aside for the rest of the bar.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [7, -1]), ev(q, [5, -1])),
-            voiceOf("harmony", ev(q, [1, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(q, [1, -1]), ev(h)),
           ],
           [region(q, 1), region(h, 5)],
         ),
-        // The melody's 3 is the chordal third of I, so a lone root underneath
-        // completes the chord without thickening.
+        // The melody circles its 3, giving I the chordal third with the 4 as a
+        // neighbor, so a single held root completes the chord.
         polyBar3(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [4]), ev(q, [3])),
@@ -76,21 +78,23 @@ export const weWishYouAMerryChristmas: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
-        // The approach to the final cadence turns to V once more, and the
-        // leading tone in the bass supplies the pull into the last bar.
+        // The last dominant: the tune sings the leading tone itself between its
+        // 2s, so doubling it would add nothing and the bare root carries the
+        // approach to the cadence.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [7, -1]), ev(q, [2])),
-            voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(dh, [5, -1])),
           ],
           [region(dh, 5)],
         ),
-        // The final sustained 1 is stated by the tune; the root-fifth beneath
-        // it closes the carol without adding a note the melody already gives.
+        // The carol ends on a sustained 1 in the melody's own octave, so the
+        // third joins the root below to close on the chord's quality; the fifth
+        // would only thicken what the tune already states.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1)],
         ),

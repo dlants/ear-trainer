@@ -19,26 +19,28 @@ export const minuetInG: CorpusMelody = melody(
   [
     phrase(
       [
-        // The melody opens from 5 up to 1, stating the tonic itself, so the
-        // left hand only holds a single root for the measure.
+        // The melody climbs 5–1–2 and names the tonic itself, but nothing has
+        // established the key yet, so root and third sound together in the
+        // melody's own octave rather than down in the mud.
         polyBar3(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [1, 1]), ev(q, [2, 1])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh, [1], [3])),
           ],
           [region(dh, 1)],
         ),
-        // The scalar run still belongs to I; one held root keeps the texture
-        // out of the melody's way.
+        // The run 3–4–5 keeps climbing over an unchanged I. The harmony is
+        // holding rather than turning, so the root alone carries the bar.
         polyBar3(
           [
             voiceOf("melody", ev(q, [3, 1]), ev(q, [4, 1]), ev(q, [5, 1])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh, [1])),
           ],
           [region(dh, 1)],
         ),
-        // The tune rises 1–2–3 through the tonic triad, so the bare root is
-        // enough support.
+        // The tune drops an octave and arpeggiates 1–2–3, spelling I on its
+        // own; the bass follows it down to the octave below and holds a bare
+        // root, since the melody is forcing the register, not the voicing.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3])),
@@ -46,8 +48,9 @@ export const minuetInG: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
-        // The first turn away from home: the melody's 4–5–6 leaves IV open, so
-        // root and third together mark the change.
+        // The first move away from home: 4–5–6 could still be heard over I, so
+        // the harmony spends its extra note at the turn and gives IV both its
+        // root and its third.
         polyBar3(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [5]), ev(q, [6])),
@@ -55,8 +58,8 @@ export const minuetInG: CorpusMelody = melody(
           ],
           [region(dh, 4)],
         ),
-        // The melody descends the tonic triad 5–3–1, stating I on its own; a
-        // lone root sits beneath it.
+        // The melody descends the tonic triad 5–3–1 and states I outright, so
+        // the return home needs no more than its root.
         polyBar3(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [3]), ev(q, [1])),
@@ -64,30 +67,32 @@ export const minuetInG: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
-        // An interior dominant on a bare root; the cadence that follows is
-        // where the leading tone will matter.
+        // The turn to V, which the melody's 2–3–4 leaves open: root and leading
+        // tone together name the dominant as it arrives.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(q, [4])),
-            voiceOf("harmony", ev(dh, [5, -1])),
-          ],
-          [region(dh, 5)],
-        ),
-        // The melody falls to the lower 7, and the harmony doubles that leading
-        // tone above its root to sharpen the pull into the close.
-        polyBar3(
-          [
-            voiceOf("melody", ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
             voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
           ],
           [region(dh, 5)],
         ),
-        // The sustained 1 arrives; the root–fifth dyad under it settles the
-        // cadence without doubling the melody's tonic as a third.
+        // V holds, and the melody falls to the lower 7 and sings the leading
+        // tone for itself, so doubling it would add nothing; the bare dominant
+        // root keeps the pull in the tune where it belongs.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
+            voiceOf("harmony", ev(dh, [5, -1])),
+          ],
+          [region(dh, 5)],
+        ),
+        // The sustained 1 closes the tune. This is the ending rather than a way
+        // station, so the chordal third joins the root; a fifth here would only
+        // drone under a tonic the melody already states.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1)],
         ),

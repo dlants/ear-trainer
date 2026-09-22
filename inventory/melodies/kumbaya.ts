@@ -20,8 +20,9 @@ export const kumbaya: CorpusMelody = melody(
   [
     phrase(
       [
-        // The tune opens 1 to 3, stating I itself; this is a slow spiritual,
-        // so a single held bass root is all the support it wants.
+        // The tune opens 1 to 3, spelling I itself; this is a slow spiritual,
+        // so a single bass root, an octave under the melody's own 1, is all
+        // the support it wants.
         polyBar(
           [
             voiceOf("melody", ev(h, [1]), ev(h, [3])),
@@ -29,17 +30,19 @@ export const kumbaya: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The melody sits on 5 over I, with 1 and 3 still in the ear from the
-        // bar before, so the bass keeps to its root.
+        // The melody parks on 5, which belongs to I and V alike, so the
+        // harmony names the chord for it: root plus the chordal third, still
+        // well under the held 5.
         polyBar(
           [
             voiceOf("melody", ev(h, [5]), ev(h, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),
-        // The harmony turns to IV, so the bass thickens to root and third
-        // there and thins back to a lone root for the return to I.
+        // The harmony turns to IV while the melody's 6-5 stays common to both
+        // chords, so root and third make the turn audible; the return to I
+        // needs only its root.
         polyBar(
           [
             voiceOf("melody", ev(h, [6]), ev(h, [5])),
@@ -47,32 +50,36 @@ export const kumbaya: CorpusMelody = melody(
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody holds 3, the chordal third, so the held bass root
-        // completes I without any extra voice.
+        // The melody holds 3, the chordal third, and never drops below it, so
+        // a lone root up in the melody's own octave completes I and keeps the
+        // bass out of the mud.
         polyBar(
-          [voiceOf("melody", ev(w, [3])), voiceOf("harmony", ev(w, [1, -1]))],
+          [voiceOf("melody", ev(w, [3])), voiceOf("harmony", ev(w, [1]))],
           [region(w, 1)],
         ),
-        // The second statement restates 1 to 3 over I, again needing only the
-        // held bass root.
+        // The second statement restates 1 to 3 over I. The key is long since
+        // established and the tune spells the chord itself, so the harmony
+        // steps aside rather than repeating the opening bar.
         polyBar(
           [
             voiceOf("melody", ev(h, [1]), ev(h, [3])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w)),
           ],
           [region(w, 1)],
         ),
-        // The melody's 5-4 is open, so IV takes root and third at the turn and
-        // the arrival on 3 is supported by the bare tonic root.
+        // The same turn to IV, bare this time: the melody sings 4 as the root
+        // and the earlier IV has already been spelled out, so a single root
+        // suffices, and the arrival on 3 takes the plain tonic root.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [4]), ev(h, [3])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1, -1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The whole bar is V and the melody leans on lower 7, so the leading
-        // tone sounds first and the root alone carries the second half.
+        // The whole bar is V and the melody leans onto the leading tone
+        // itself, so doubling it would add nothing: a sustained dominant root
+        // carries the bar.
         polyBar(
           [
             voiceOf(
@@ -82,16 +89,17 @@ export const kumbaya: CorpusMelody = melody(
               ev(q, [2]),
               ev(q, [7, -1]),
             ),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(w, [5, -1])),
           ],
           [region(w, 5)],
         ),
-        // The melody holds 1 alone, so the closing chord fills out with root
-        // and fifth under the cadence.
+        // The melody holds 1 alone at the ending, so the chordal third joins
+        // the root to close the chord rather than a fifth that would only
+        // thicken what the tune already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

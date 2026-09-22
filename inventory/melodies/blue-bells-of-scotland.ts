@@ -35,12 +35,13 @@ export const blueBellsOfScotland: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The held 6 will not read as IV by itself, so the 4 sounds under it
-        // with its third before the bass steps back to the tonic root.
+        // The melody holds 6 for half the bar, and a bare 4 beneath it already
+        // spells IV root and third between the two parts; the bass then steps
+        // down to the tonic root under the 5.
         polyBar(
           [
             voiceOf("melody", ev(h, [6]), ev(h, [5])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1, -1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
@@ -52,17 +53,16 @@ export const blueBellsOfScotland: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The melody rests on 1 at the half close; root and fifth mark the
-        // arrival.
+        // The melody rests on 1 in its own octave, so the octave below is a
+        // full sound on its own. This is a half-way arrival rather than the
+        // ending, so the third is saved for the last bar.
         polyBar(
-          [
-            voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
-          ],
+          [voiceOf("melody", ev(w, [1])), voiceOf("harmony", ev(w, [1, -1]))],
           [region(w, 1)],
         ),
-        // The upper neighbour 6 is the only turn in this bar, so IV takes the
-        // one quarter it needs and the tonic root resumes immediately.
+        // The upper neighbour 6 goes by in a single quarter, too fast for a
+        // lone root to land, so this IV — unlike the held one earlier — gets
+        // its third with the root before the tonic resumes.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [5]), ev(q, [6]), ev(q, [5])),
@@ -84,8 +84,9 @@ export const blueBellsOfScotland: CorpusMelody = melody(
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The same shape returns with a lower-7 in the tune; the dominant dyad
-        // again supplies the pull into the close.
+        // The tune sings the leading tone itself on the way into the close, so
+        // the dominant needs no more than its root here; the previous bar has
+        // already spelled V out.
         polyBar(
           [
             voiceOf(
@@ -95,15 +96,17 @@ export const blueBellsOfScotland: CorpusMelody = melody(
               ev(q, [7, -1]),
               ev(q, [2]),
             ),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The strain closes on a long 1; root and fifth settle it.
+        // The strain closes on a long 1. This is the ending, so the chordal
+        // third joins the root; the fifth would only thicken what the melody's
+        // own 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

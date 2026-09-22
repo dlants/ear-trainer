@@ -20,8 +20,9 @@ export const ringAroundTheRosie: CorpusMelody = melody(
   [
     phrase(
       [
-        // The repeated 1s and 3s spell I outright, so a single held bass root
-        // is all the support the opening needs.
+        // The repeated 1s and 3s spell I outright, so a single held root is
+        // all the support the opening needs; the melody touching its own 1
+        // forces that root into the octave below.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [3]), ev(q, [3])),
@@ -29,8 +30,9 @@ export const ringAroundTheRosie: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The melody's 2 and 5 leave V open, so the leading tone sounds at the
-        // turn and then drops away to a bare root.
+        // The tune's 2 and 5 belong to V but never say which chord it is, so
+        // the harmony spends its extra note at the turn with the leading tone
+        // and then holds the bare dominant root.
         polyBar(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [2]), ev(h, [5])),
@@ -38,9 +40,9 @@ export const ringAroundTheRosie: CorpusMelody = melody(
           ],
           [region(w, 5)],
         ),
-        // The first half states I in the tune, so the bass holds its root; the
-        // move to IV is the turn, and the melody's 4 is only the chordal root,
-        // so the third joins it there.
+        // The melody's 3–1 states I by itself, so the first half takes a lone
+        // root; the move to IV is the turn, and the tune's 4 is only that
+        // chord's root, so the third joins it there.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [1]), ev(q, [3]), ev(q, [4])),
@@ -48,39 +50,38 @@ export const ringAroundTheRosie: CorpusMelody = melody(
           ],
           [region(h, 1), region(h, 4)],
         ),
-        // Melody 2 leaves the dominant open, so the leading tone carries the
-        // pull; the resolution to 1 is stated by the tune and needs one root.
+        // The leading tone has already sounded over V once, so the dominant
+        // takes a plain root here; the half-close on 1 gets the chordal third
+        // instead, which keeps the thicker sound from marking V alone.
         polyBar(
           [
             voiceOf("melody", ev(h, [2]), ev(h, [1])),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [5, -1]), ev(h, [1, -1], [3, -1])),
           ],
           [region(h, 5), region(h, 1)],
         ),
-        // The tune's 5 and 3 outline I, so the second strain opens on a single
-        // held root, matching the first strain's opening.
+        // The second strain opens high on 5–5–3, which outlines I on its own,
+        // and the melody has left the bottom of its octave, so the root comes
+        // up beside it rather than staying in the mud.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1)],
         ),
-        // Both halves turn away from tonic and the melody's 4 and 2 are bare
-        // chordal roots, so each gets root and third underneath.
+        // Both halves leave tonic, and the melody's 4 is only IV's root, so
+        // the third sounds where the harmony turns away from home; V follows a
+        // step below with its bare root, the dominant already being familiar.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [4]), ev(h, [2])),
-            voiceOf(
-              "harmony",
-              ev(h, [4, -1], [6, -1]),
-              ev(h, [5, -1], [7, -1]),
-            ),
+            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [5, -1])),
           ],
           [region(h, 4), region(h, 5)],
         ),
-        // The melody spells I in the first half, so a lone root serves; the
-        // dominant that follows takes root and third to drive the cadence.
+        // The melody spells I with 1–3 and then sings the leading tone itself
+        // on the last beat, so both halves need nothing beyond their roots.
         polyBar(
           [
             voiceOf(
@@ -90,16 +91,17 @@ export const ringAroundTheRosie: CorpusMelody = melody(
               ev(q, [2]),
               ev(q, [7, -1]),
             ),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The long 1 closes the game; root and fifth beneath make the arrival
-        // final.
+        // The long 1 closes the game. This is the ending rather than a way
+        // station, so the chordal third joins the root; the fifth would only
+        // thicken what the melody's own 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

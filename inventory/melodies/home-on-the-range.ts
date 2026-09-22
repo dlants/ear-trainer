@@ -20,8 +20,9 @@ export const homeOnTheRange: CorpusMelody = melody(
   [
     phrase(
       [
-        // The tune climbs 1-2-3 and states the tonic itself, so one sustained
-        // low root per bar is all the harmony this waltz needs to start.
+        // The tune climbs 1-2-3 and spells the tonic itself; the harmony only
+        // has to place the key, so a single sustained root does it, sitting an
+        // octave down because the melody starts on 1.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3])),
@@ -29,8 +30,8 @@ export const homeOnTheRange: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
-        // The held 5 over 3 is open between I and V; the bass root holding
-        // still is what keeps it tonic, so it stays a single note.
+        // 5 over 3 is open between I and V, but the harmony is holding rather
+        // than turning, so the same root simply stays put and keeps it tonic.
         polyBar3(
           [
             voiceOf("melody", ev(h, [5]), ev(q, [3])),
@@ -38,57 +39,58 @@ export const homeOnTheRange: CorpusMelody = melody(
           ],
           [region(dh, 1)],
         ),
-        // The harmony turns here and the melody's 2-1-6 says nothing about V,
-        // so the leading tone joins the root to make the turn audible.
+        // The first turn of the tune, and 2-1-6 says nothing about V, so the
+        // leading tone sounds with the root where the change happens and the
+        // bar thins to the bare dominant once it has been heard.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [1]), ev(q, [6, -1])),
-            voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(q, [5, -1])),
           ],
           [region(dh, 5)],
         ),
-        // The melody holds 5 itself, doubling the chordal root, so the bass
-        // thins back to a lone 5 while the harmony simply sits.
+        // The melody holds the dominant root itself, down in the lower octave;
+        // anything the harmony could add would either double that note or sink
+        // into the mud, so V is left to the tune for a bar.
+        polyBar3(
+          [voiceOf("melody", ev(dh, [5, -1])), voiceOf("harmony", ev(dh))],
+          [region(dh, 5)],
+        ),
+        // The second sentence restarts the climb from 1. This is where the
+        // harmony turns back to I after a silent bar, so the chordal third
+        // joins the root on the downbeat before the root holds alone.
         polyBar3(
           [
-            voiceOf("melody", ev(dh, [5, -1])),
+            voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3])),
+            voiceOf("harmony", ev(q, [1, -1], [3, -1]), ev(h, [1, -1])),
+          ],
+          [region(dh, 1)],
+        ),
+        // 5-6-5 hands IV its own third in the melody, so the subdominant needs
+        // nothing but its root; the bass steps 1-4 rather than leaping.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [5]), ev(q, [6]), ev(q, [5])),
+            voiceOf("harmony", ev(dh, [4, -1])),
+          ],
+          [region(dh, 4)],
+        ),
+        // The melody falls 3-2-7 and sings the leading tone itself, so the
+        // cadential dominant takes a plain root; the earlier V has already
+        // spelled out what this chord is.
+        polyBar3(
+          [
+            voiceOf("melody", ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
             voiceOf("harmony", ev(dh, [5, -1])),
           ],
           [region(dh, 5)],
         ),
-        // The second sentence restarts from 1 with the same bare tonic root;
-        // the climbing tune carries the chord on its own.
-        polyBar3(
-          [
-            voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(q, [3])),
-            voiceOf("harmony", ev(dh, [1, -1])),
-          ],
-          [region(dh, 1)],
-        ),
-        // 5-6-5 is shared between I and IV, so the move to IV needs its own
-        // evidence: root plus the chordal third.
-        polyBar3(
-          [
-            voiceOf("melody", ev(q, [5]), ev(q, [6]), ev(q, [5])),
-            voiceOf("harmony", ev(dh, [4, -1], [6, -1])),
-          ],
-          [region(dh, 4)],
-        ),
-        // The melody falls 3-2-7 into the cadence; the leading tone over the
-        // dominant root sharpens the pull home.
-        polyBar3(
-          [
-            voiceOf("melody", ev(q, [3]), ev(q, [2]), ev(q, [7, -1])),
-            voiceOf("harmony", ev(dh, [5, -1], [7, -1])),
-          ],
-          [region(dh, 5)],
-        ),
-        // The tune lands on a sustained 1; root and fifth underneath give the
-        // arrival the weight of an ending rather than another passing tonic.
+        // The close: the tune holds 1, so the third under it says far more
+        // than a fifth would, and the root stays in the lowest slot.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1)],
         ),

@@ -20,28 +20,30 @@ export const lightlyRow: CorpusMelody = melody(
   [
     phrase(
       [
-        // The tune opens on 5 falling to 3, which spells I between them, so a
-        // single held bass root is all the harmony needs to supply.
+        // The held 5 is open between I and V, so root and chordal third sound
+        // under it to set the key; once the tune falls to 3 and spells I
+        // itself, the harmony steps aside. The melody never goes below 2 here,
+        // so the root sits in its own octave rather than the muddy one below.
         polyBar(
           [
             voiceOf("melody", ev(h, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(h, [1], [3]), ev(h)),
           ],
           [region(w, 1)],
         ),
-        // The bar turns to V on 4–2, which the melody leaves open, so the
-        // harmony holds a lone root through I and widens to root plus leading
-        // tone where the turn happens.
+        // The melody's 3 holds I on its own, so a bare root carries the first
+        // half; the turn to V, which 4–2 leaves open, gets root and leading
+        // tone, since the dominant is about to sit still for a bar and a half.
         polyBar(
           [
             voiceOf("melody", ev(h, [3]), ev(q, [4]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [5, -1], [7, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // V holds here rather than turning, and the previous bar has already
-        // sounded the leading tone, so a single sustained root is context
-        // enough under the melody's 2–1–2.
+        // V holds rather than turning, and the previous bar has already sounded
+        // the leading tone, so a single sustained root is context enough under
+        // the melody's 2–1–2.
         polyBar(
           [
             voiceOf("melody", ev(h, [2]), ev(q, [1]), ev(q, [2])),
@@ -50,35 +52,38 @@ export const lightlyRow: CorpusMelody = melody(
           [region(w, 5)],
         ),
         // The melody rises 3–4–5 over I, giving the chord its third itself, so
-        // the bass simply holds the root.
+        // the bass simply holds the root, back up in the melody's octave.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [4]), ev(h, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1)],
         ),
-        // The opening returns unchanged: 5 down to 3 states I, and the held
-        // root supports it.
+        // The opening returns, and this time the harmony leaves it alone: the
+        // key is established and 5–3 states I by itself, so repeating the first
+        // bar's root and third would only teach the voicing rather than the
+        // tune.
         polyBar(
           [
             voiceOf("melody", ev(h, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w)),
           ],
           [region(w, 1)],
         ),
-        // The same turn to V as before, voiced the same way: bare root under I,
-        // root and leading tone where the harmony moves.
+        // The same turn to V, voiced bare this time. The phrase has sounded the
+        // leading tone once already, and saving it for the cadence keeps a
+        // thicker dominant from becoming the signal that V has arrived.
         polyBar(
           [
             voiceOf("melody", ev(h, [3]), ev(q, [4]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
         // The cadence bar: the melody's 2 hangs over V, so the leading tone
-        // sounds with the root there, and the resolution to I takes a plain
-        // root as the tune states 1 and 3 itself.
+        // sounds with the root there, and the resolution takes a plain root as
+        // the tune states 1 and 3 itself.
         polyBar(
           [
             voiceOf("melody", ev(h, [2]), ev(q, [1]), ev(q, [3])),
@@ -86,13 +91,10 @@ export const lightlyRow: CorpusMelody = melody(
           ],
           [region(h, 5), region(h, 1)],
         ),
-        // The held 1 closes the tune; the root-fifth dyad gives the ending its
-        // weight without stacking a third on top.
+        // The melody holds 1 in its own octave, so the octave below it is
+        // already a full sound; the ending needs no fifth stacked on top.
         polyBar(
-          [
-            voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
-          ],
+          [voiceOf("melody", ev(w, [1])), voiceOf("harmony", ev(w, [1, -1]))],
           [region(w, 1)],
         ),
       ],

@@ -409,7 +409,7 @@ test.describe("trial flow", () => {
       };
     });
     expect(result.count).toBe(3);
-    expect(result.texts).toEqual(["5↑", "3↓", "135"]);
+    expect(result.texts).toEqual(["5↑", "3↓", "531"]);
     expect(result.lastNoteCount).toBe(3);
     expect(result.firstSup).toBe("↑");
     expect(result.secondSub).toBe("↓");

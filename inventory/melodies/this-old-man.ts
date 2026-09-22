@@ -20,39 +20,44 @@ export const thisOldMan: CorpusMelody = melody(
   [
     phrase(
       [
-        // The melody's 5–3–5 outlines I, so the left hand holds a single bass
-        // root for the measure.
+        // The melody's 5–3–5 spells the tonic triad outright, so the harmony
+        // only has to name the root. The tune stays at 3 and above, so that
+        // root sounds in its own octave rather than down in the mud.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [3]), ev(h, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1)],
         ),
-        // The figure repeats, and so does the lone root: nothing in the harmony
-        // has moved yet.
+        // The bar repeats note for note and the harmony has not moved, so the
+        // accompaniment steps aside instead of restating the root: the melody
+        // is still arpeggiating I on its own.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [3]), ev(h, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w)),
           ],
           [region(w, 1)],
         ),
-        // The first move to IV in the strain is where the harmony turns, so the
-        // bass widens to root and third before settling back onto I.
+        // The descent 6–5–4–3 is the first place the harmony turns, and 6 over
+        // IV is the chord's sixth rather than its root, so IV gets root and
+        // third; the return to I is left to the melody's own 3 over a plain
+        // root back up in its octave.
         polyBar(
           [
             voiceOf("melody", ev(q, [6]), ev(q, [5]), ev(q, [4]), ev(q, [3])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody pauses on 4, the chordal root of IV, so single bass roots
-        // carry both halves of the bar.
+        // The strain pauses on 4, the root of IV, and the previous bar has
+        // already spelled that chord with its third, so bare roots carry both
+        // halves and the bass moves by step rather than reaching.
         polyBar(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(h, [4])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [4, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [4, -1])),
           ],
           [region(h, 1), region(h, 4)],
         ),
@@ -63,7 +68,9 @@ export const thisOldMan: CorpusMelody = melody(
     ),
     phrase(
       [
-        // Repeated 1s state the tonic outright; one held bass root supports them.
+        // Repeated 1s state the tonic outright; the melody occupying its own 1
+        // pushes the bass into the octave below, where a single held root is
+        // plenty under a line that is already climbing 1–2–3.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [2]), ev(q, [3])),
@@ -71,17 +78,19 @@ export const thisOldMan: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The strain's first turn to IV again takes the root-and-third dyad,
-        // then returns to a lone tonic root.
+        // IV comes back, but the melody now sings its root on the downbeat and
+        // the first strain has already sounded the chord's third, so a bare 4
+        // is enough; the tune's held 3 supplies I's third over a plain root.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1, -1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody's own lower 7 sits over V; the harmony adds the leading
-        // tone there to sharpen the approach to the cadence.
+        // The melody sings the leading tone itself on the way to the cadence,
+        // so doubling it would tell the listener nothing new: the dominant
+        // takes a bare root, and the bass steps 1–5 below the low line.
         polyBar(
           [
             voiceOf(
@@ -91,16 +100,17 @@ export const thisOldMan: CorpusMelody = melody(
               ev(q, [7, -1]),
               ev(q, [2]),
             ),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The long 1 closes the tune; a root-fifth under it gives the arrival
-        // weight without adding a third.
+        // The long 1 ends the tune rather than passing through, so the chordal
+        // third joins the root to close it; a fifth would only thicken what
+        // the melody's own 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

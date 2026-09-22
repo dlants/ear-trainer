@@ -31,11 +31,16 @@ export const goTellItOnTheMountain: CorpusMelody = melody(
           [region(w, 1)],
         ),
         // The melody's 2 leaves V open, so the leading tone sounds under it;
-        // the answering 1 needs nothing but the root beneath it.
+        // the answering 1 is a real resolution, so the chordal third joins the
+        // root there rather than leaving every tonic a bare root.
         polyBar(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(h, [1])),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [1, -1])),
+            voiceOf(
+              "harmony",
+              ev(h, [5, -1], [7, -1]),
+              ev(h, [1, -1], [3, -1]),
+            ),
           ],
           [region(h, 5), region(h, 1)],
         ),
@@ -97,12 +102,13 @@ export const goTellItOnTheMountain: CorpusMelody = melody(
           ],
           [region(w, 5)],
         ),
-        // The final held 1 gets root and fifth: the cadence is the one place
-        // worth sounding fuller, and the open fifth lets the melody ring on top.
+        // The final held 1. The melody states the root itself, so the harmony
+        // closes with root and third; the fifth would only thicken what is
+        // already there.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

@@ -36,12 +36,13 @@ export const godRestYeMerryGentlemen: CorpusMelody = melody(
           ],
           [region(w, 1, "minor")],
         ),
-        // The melody's held 3 is the chordal root of III, so the harmony just
-        // steps the bass 1–3 under it; one note reads the turn clearly.
+        // The melody's held 3 could still be sitting inside i, so this is where
+        // the harmony turns and where the extra note is worth spending: the
+        // bass steps 1–3 and III takes its third alongside the root.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [2]), ev(h, [3])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [3, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [3, -1], [5, -1])),
           ],
           [region(h, 1, "minor"), region(h, 3)],
         ),
@@ -55,12 +56,13 @@ export const godRestYeMerryGentlemen: CorpusMelody = melody(
           ],
           [region(h, 4, "minor"), region(h, 1, "minor")],
         ),
-        // The mid-point rest on lower 5 is open, so the leading tone joins the
-        // dominant root on its arrival and the bass then holds bare.
+        // The melody sings the subtonic itself on its way down to lower 5, so
+        // doubling it would add nothing; the dominant takes a bare sustained
+        // root, dropped an octave to stay clear of the melody down here.
         polyBar(
           [
             voiceOf("melody", ev(h, [7, -1]), ev(h, [5, -1])),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(w, [5, -2])),
           ],
           [region(w, 5, "minor")],
         ),
@@ -82,9 +84,10 @@ export const godRestYeMerryGentlemen: CorpusMelody = melody(
           ],
           [region(w, 1, "minor")],
         ),
-        // The melody circles lower 7 and 6 around the subtonic, so the bass
-        // takes 7 plainly first and adds the chordal third as the melody leaps
-        // to 2, marking the VII that drives the cadence.
+        // The melody circles lower 7 and 6 around the subtonic in its own low
+        // register, so the bass takes 7 plainly an octave under it and adds the
+        // chordal third as the melody leaps to 2, marking the VII that drives
+        // the cadence.
         polyBar(
           [
             voiceOf(
@@ -94,16 +97,17 @@ export const godRestYeMerryGentlemen: CorpusMelody = melody(
               ev(q, [7, -1]),
               ev(q, [2]),
             ),
-            voiceOf("harmony", ev(h, [7, -1]), ev(h, [7, -1], [2, -1])),
+            voiceOf("harmony", ev(h, [7, -2]), ev(h, [7, -2], [2, -1])),
           ],
           [region(w, 7)],
         ),
-        // The final held 1 closes with root and fifth: the cadence is worth the
-        // fuller sound, and the open fifth leaves the mode to the melody.
+        // The final held 1 tells the listener nothing about the mode on its
+        // own, so the close is where the minor third is worth sounding beside
+        // the root; the fifth would only thicken what 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1, "minor")],
         ),

@@ -29,21 +29,27 @@ export const whatChildIsThis: CorpusMelody = melody(
           ],
           [region(dh, 1, "minor")],
         ),
-        // The melody climbs 2-3-4 over the same held i; the lone root keeps the
-        // bass still while the line moves.
+        // The climb 2-3-4 wanders outside the triad, so the downbeat takes the
+        // minor third beside the root to fix the mode, and the bass then holds
+        // alone while the line moves.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(q, [4])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(q, [1, -1], [3, -1]), ev(h, [1, -1])),
           ],
           [region(dh, 1, "minor")],
         ),
         // Here the harmony turns away to III, which the melody's 3 alone would
-        // not pin down, so root and fifth sound before the bar leans back to v.
+        // not pin down, so root and chordal third sound; the lean back to v
+        // takes its own third, the leading tone, above the dominant root.
         polyBar3(
           [
             voiceOf("melody", ev(h, [3]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [3, -1], [5, -1]), ev(q, [5, -1], [2])),
+            voiceOf(
+              "harmony",
+              ev(h, [3, -1], [5, -1]),
+              ev(q, [5, -1], [7, -1]),
+            ),
           ],
           [region(h, 3), region(q, 5, "minor")],
         ),
@@ -65,12 +71,13 @@ export const whatChildIsThis: CorpusMelody = melody(
           ],
           [region(dh, 1, "minor")],
         ),
-        // The descent 2-1-7 still sits on i; the lone root holds under it
-        // without competing with the falling line.
+        // The descent 2-1-7 still sits on i, which the previous bar has just
+        // placed, so the harmony drops out rather than restating a root the
+        // melody is already spelling.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [1]), ev(q, [7, -1])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh)),
           ],
           [region(dh, 1, "minor")],
         ),
@@ -83,12 +90,13 @@ export const whatChildIsThis: CorpusMelody = melody(
           ],
           [region(q, 6), region(h, 5, "minor")],
         ),
-        // The tune arrives on a sustained 1; a root-fifth beneath it closes the
-        // phrase without adding a third the melody has already implied.
+        // The tune arrives on a sustained 1, so the root below it adds nothing
+        // new by itself; the minor third joins it to close the phrase in the
+        // mode, where a fifth would only be drone-like.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1, "minor")],
         ),

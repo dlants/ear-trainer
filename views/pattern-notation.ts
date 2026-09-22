@@ -2,7 +2,7 @@ import {
   type Event,
   type Note,
   type Pattern,
-  sortEventNotes,
+  notesHighestFirst,
 } from "../music/note.ts";
 import {
   Binder,
@@ -157,7 +157,7 @@ class NotationEventView implements View<Event> {
         : notationEventClass,
     );
     this.b.bindList(notesRef, "li", (event) =>
-      sortEventNotes(event.notes).map((note, index) =>
+      notesHighestFirst(event.notes).map((note, index) =>
         showKeyed(
           `${index}:${note.alteration}:${note.degree}:${note.octave}`,
           NotationNoteView,

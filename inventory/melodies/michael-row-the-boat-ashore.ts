@@ -48,40 +48,39 @@ export const michaelRowTheBoatAshore: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The melody's 2 leaves V open, so the leading tone sounds at the
-        // cadence and the resolution takes a root–fifth dyad under the sung 1.
+        // The melody's held 2 leaves V open, so the leading tone joins the
+        // dominant root at the turn; the resolution is a way station rather
+        // than the ending, so the sung 1 gets a plain root under it.
         polyBar(
           [
             voiceOf("melody", ev(h, [2]), ev(h, [1])),
-            voiceOf(
-              "harmony",
-              ev(h, [5, -1], [7, -1]),
-              ev(h, [1, -1], [5, -1]),
-            ),
+            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [1, -1])),
           ],
           [region(h, 5), region(h, 1)],
         ),
-        // The second half opens as the first did: the arpeggiated 1–3–5 states
-        // I, so the harmony holds the bare root.
+        // The opening returns note for note. The key is set and the melody
+        // arpeggiates I by itself, so the harmony stands aside rather than
+        // restating a root the tune is already spelling.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [3]), ev(h, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w)),
           ],
           [region(w, 1)],
         ),
-        // The same turn to IV and back, voiced the same way, so the thicker
-        // sound reads as the harmonic move rather than as a pattern.
+        // The same turn to IV and back, bare this time: the first half already
+        // sounded IV with its third, and the melody's 6 supplies that third
+        // here, so a root stepping 4–1 is context enough.
         polyBar(
           [
             voiceOf("melody", ev(q, [6]), ev(q, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1, -1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody circles 2 and 3 and falls to the lower 7, so the harmony
-        // sounds the dominant's leading tone first and then holds its root to
-        // keep the pull toward the close.
+        // The melody circles 2–3–2 and sings the leading tone itself on the
+        // last beat, so V is already leaning home; the harmony just holds its
+        // root, which also has to stay below that low 7.
         polyBar(
           [
             voiceOf(
@@ -91,16 +90,17 @@ export const michaelRowTheBoatAshore: CorpusMelody = melody(
               ev(q, [2]),
               ev(q, [7, -1]),
             ),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(w, [5, -1])),
           ],
           [region(w, 5)],
         ),
-        // The tune arrives on a long 1; the root–fifth dyad beneath it settles
-        // the final tonic without adding a third the melody does not need.
+        // The tune arrives on a long 1. This is the ending, so the chordal
+        // third joins the root to close it; a fifth would only thicken what the
+        // melody's own 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

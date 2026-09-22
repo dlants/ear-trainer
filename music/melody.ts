@@ -6,6 +6,7 @@ import {
   type Event,
   type Note,
   noteOffset,
+  notesHighestFirst,
 } from "./note.ts";
 
 export const TICKS_PER_QUARTER = 24;
@@ -64,9 +65,7 @@ export type Score = {
 };
 
 export type IdentificationPhraseSuitability =
-  | "independent"
-  | "context-required"
-  | "exclude";
+  "independent" | "context-required" | "exclude";
 
 export type Phrase = Score & {
   id: string;
@@ -126,7 +125,8 @@ type PhraseBoundary = {
   firstMeasureIndex: number;
   lastMeasureIndex: number;
   noteIdentification: IdentificationPhraseSuitability;
-  chordIdentification: IdentificationPhraseSuitability;  rationale: string;
+  chordIdentification: IdentificationPhraseSuitability;
+  rationale: string;
 };
 
 function failure<T>(melodyId: string, detail: string): Result<T> {
@@ -471,13 +471,6 @@ export type Lane = {
 
 function laneKey(lane: Lane): string {
   return `${lane.voiceId}:${lane.slot}`;
-}
-
-/** Highest first, so slot 0 is the top note of a chord. */
-function notesHighestFirst(notes: Note[]): Note[] {
-  return [...notes].sort(
-    (a, b) => noteOffset(b) - noteOffset(a) || b.degree - a.degree,
-  );
 }
 
 type LaneStats = { lane: Lane; offsetTotal: number; noteCount: number };

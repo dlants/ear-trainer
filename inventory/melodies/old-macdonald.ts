@@ -20,8 +20,9 @@ export const oldMacdonald: CorpusMelody = melody(
   [
     phrase(
       [
-        // The tune hammers 1 on its own, so the bass just holds a single root
-        // under it for the whole bar.
+        // The tune hammers 1 and never touches 3, so nothing has told the
+        // listener the mode yet; root and third open the strain, and the bass
+        // thins to the bare root once the melody drops to 5 below.
         polyBar(
           [
             voiceOf(
@@ -31,32 +32,32 @@ export const oldMacdonald: CorpusMelody = melody(
               ev(q, [1]),
               ev(q, [5, -1]),
             ),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(h, [1, -1], [3, -1]), ev(h, [1, -1])),
           ],
           [region(w, 1)],
         ),
-        // The first turn away from tonic: the melody's 6 is the chordal third
-        // of IV, but this is where the harmony moves, so the extra note goes
-        // here. V then takes a bare root, the bass stepping 4-5.
+        // The melody's own 6 is already IV's chordal third, so doubling it
+        // would add nothing; bare roots stepping 4-5 are what the tune cannot
+        // supply for itself here.
         polyBar(
           [
             voiceOf("melody", ev(q, [6, -1]), ev(q, [6, -1]), ev(h, [5, -1])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [5, -1])),
           ],
           [region(h, 4), region(h, 5)],
         ),
-        // The melody's 3 states I and its 2 leaves V open, but the descent is
-        // quick and the phrase has already sounded IV-V, so single roots carry
-        // both halves.
+        // The melody has climbed back into its own octave, so the tonic root
+        // comes up with it rather than staying in the mud. Its 3 states I
+        // outright and the turn to V is only a passing one, so bare roots do.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [3]), ev(q, [2]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
         // The half cadence: the melody rises to 5, which V shares with I, so
-        // the leading tone sounds here to mark the open ending.
+        // the leading tone sounds here to mark the ending as open.
         polyBar(
           [
             voiceOf("melody", ev(h, [1]), ev(h, [5])),
@@ -71,8 +72,9 @@ export const oldMacdonald: CorpusMelody = melody(
     ),
     phrase(
       [
-        // The repeated 1s state the key again; a lone root under them is all
-        // the support the bar needs.
+        // The same hammered 1s, but the key is settled now and the melody is
+        // stating it unaccompanied; the bass waits and enters only under the
+        // fall to 5, where it sets up the step to IV.
         polyBar(
           [
             voiceOf(
@@ -82,34 +84,37 @@ export const oldMacdonald: CorpusMelody = melody(
               ev(q, [1]),
               ev(q, [5, -1]),
             ),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(h), ev(h, [1, -1])),
           ],
           [region(w, 1)],
         ),
-        // Same refrain turn as before, voiced the same way: the dyad marks the
-        // move to IV, and V follows on a bare root.
+        // The same 6-6-5 turn. IV is the one thing the melody cannot spell, so
+        // its root sounds; V is left to the melody's own 5, the strain having
+        // put a sounded dominant under this spot already.
         polyBar(
           [
             voiceOf("melody", ev(q, [6, -1]), ev(q, [6, -1]), ev(h, [5, -1])),
-            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h)),
           ],
           [region(h, 4), region(h, 5)],
         ),
-        // The 3-2 descent again over stepping roots; the leading tone is saved
-        // for the cadence bars rather than spent here.
+        // The 3-2 descent again, tonic root up in the melody's octave; this
+        // time the dominant takes the leading tone, since the strain is about
+        // to close and the pull home is the point.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [3]), ev(q, [2]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [5, -1], [7, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The melody holds 1 for the whole close. The fifth joins the root so
-        // the final bar sounds settled rather than thinner than what preceded.
+        // The melody holds 1 alone for the close. The chordal third joins the
+        // root to end in the major the opening bar promised; the fifth would
+        // only thicken what the melody's 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

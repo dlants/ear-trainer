@@ -1,5 +1,6 @@
 import type { CorpusMelody } from "../../music/melody.ts";
 import {
+  dh,
   e,
   ev,
   h,
@@ -21,9 +22,11 @@ export const drunkenSailor: CorpusMelody = melody(
   [
     phrase(
       [
-        // The call sits on 5, which is open between i and other chords, but the
-        // shanty only ever rocks between i and VII, so a single held root is
-        // all the harmony the tonic side needs.
+        // The call rocks on 5 and brushes 6, so it gives the ear the fifth and
+        // a neighbour but never the quality of the chord. The downbeat supplies
+        // root and third to fix the minor tonic, then thins to the bare root;
+        // the melody stays at 5 and above, so the root sits in its own octave
+        // rather than down in the mud.
         polyBar(
           [
             voiceOf(
@@ -34,22 +37,22 @@ export const drunkenSailor: CorpusMelody = melody(
               ev(e, [6]),
               ev(q, [5]),
             ),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(h, [1], [3]), ev(h, [1])),
           ],
           [region(w, 1, "minor")],
         ),
-        // The answer turns to VII, where the harmony actually moves, so the
-        // extra note is spent here: 7 with 2 above it marks the turn, then
-        // thins back to the bare root once the ear has it.
+        // The answer turns to VII, and the melody's 4 and 2 spell that chord
+        // above its root, so the extra note is spent on the downbeat to mark
+        // the turn and the rest of the bar holds a root just under the tonic.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [2]), ev(h, [2])),
-            voiceOf("harmony", ev(h, [7, -2], [2, -1]), ev(h, [7, -2])),
+            voiceOf("harmony", ev(q, [7, -1], [2]), ev(dh, [7, -1])),
           ],
           [region(w, 7)],
         ),
-        // The call repeats, and so does its lone tonic root; the melody's
-        // insistent 5 needs nothing more under it.
+        // The call comes back with the key already set, so this time the tonic
+        // takes a single held root instead of restating its third.
         polyBar(
           [
             voiceOf(
@@ -60,16 +63,17 @@ export const drunkenSailor: CorpusMelody = melody(
               ev(e, [6]),
               ev(q, [5]),
             ),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1, "minor")],
         ),
-        // The answering VII again takes the dyad on its downbeat, keeping the
-        // alternation audible as a real harmonic rocking rather than a pedal.
+        // The answering VII, voiced bare: the rocking has been heard once with
+        // its third, and keeping the dyad off every VII stops thickness from
+        // becoming the signal that the harmony has moved.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [2]), ev(h, [2])),
-            voiceOf("harmony", ev(h, [7, -2], [2, -1]), ev(h, [7, -2])),
+            voiceOf("harmony", ev(w, [7, -1])),
           ],
           [region(w, 7)],
         ),
@@ -99,8 +103,9 @@ export const drunkenSailor: CorpusMelody = melody(
           ],
           [region(w, 7)],
         ),
-        // The melody arpeggiates VII across the whole bar, so one sustained
-        // root under it is enough.
+        // The melody arpeggiates 6-5-7-2 and lays VII out on its own, so a
+        // single sustained root is all the bar wants; the bass stays where the
+        // previous bar left it rather than chasing the line.
         polyBar(
           [
             voiceOf(
@@ -114,8 +119,10 @@ export const drunkenSailor: CorpusMelody = melody(
           ],
           [region(w, 7)],
         ),
-        // The melody holds a bare 1, which alone says little after so much VII,
-        // so the close gets root and fifth to land the modal tonic firmly.
+        // The melody holds a bare 1 after two bars of VII, so the close needs
+        // more than a doubled root; root and fifth land the modal tonic, and
+        // the fifth rather than the third keeps the ending from arguing with
+        // the tune's own modal colour.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),

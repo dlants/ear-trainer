@@ -23,6 +23,5 @@ Useful instincts, not rules: spend the extra note where the harmony turns rather
 
 ## The house style
 
-Every melody file carries inline comments recording its voicing decisions, bar by bar: what the melody already gives the listener and what the harmony therefore supplies. Those comments are the corpus's record of how we voice things, so before harmonizing a new tune, search them for precedent — `./pkb search "voicing a cadence under a descending melody"` and similar queries turn up the bars that already solved the problem. Match what the corpus does; deviate only when the tune calls for it, and say why in the comment.
+Every melody file carries inline comments recording its voicing decisions, bar by bar: what the melody already gives the listener and what the harmony therefore supplies. Those comments are the corpus's record of how we voice things, so before harmonizing a new tune, search them for precedent — `./pkb search "voicing a cadence under a descending melody"` and similar queries turn up the bars that already faced the problem. Every tune in `inventory/melodies/` has been voiced under the current goals, so any of them is usable as precedent.
 
-`inventory/melodies/twinkle.ts` is the reference example.

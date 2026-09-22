@@ -20,17 +20,18 @@ export const goodKingWenceslas: CorpusMelody = melody(
   [
     phrase(
       [
-        // The tune states 1 outright, so the harmony only holds a single bass
-        // root under it.
+        // The tune hammers 1 but never touches its third, so the opening
+        // supplies the quality: root and third at the downbeat, thinning to
+        // the root once the key is placed.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(q, [1]), ev(q, [2])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(h, [1, -1], [3, -1]), ev(h, [1, -1])),
           ],
           [region(w, 1)],
         ),
-        // The melody's held 5 is open between I and V, but the phrase has just
-        // stated the key, so a bare root moving 1 to 5 is enough.
+        // The held 5 is shared between I and V, but the key has just been
+        // spelled out, so a bass stepping 1 to 5 is enough to mark the turn.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [1]), ev(h, [5])),
@@ -38,8 +39,9 @@ export const goodKingWenceslas: CorpusMelody = melody(
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The turn to IV is the first move away from home, so the bass widens
-        // to root and third there while I keeps its lone root.
+        // The melody's 3 holds I by itself, so the first half takes a lone
+        // root; IV is the first move away from home and the melody's 4 is only
+        // its root, so the third sounds there to name the chord.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [3]), ev(q, [4]), ev(q, [3])),
@@ -47,9 +49,9 @@ export const goodKingWenceslas: CorpusMelody = melody(
           ],
           [region(h, 1), region(h, 4)],
         ),
-        // The melody sits on 2 and 1 over V, which says little about the
-        // chord, so the leading tone sounds at the half cadence before the
-        // bass settles back to a bare 5.
+        // The melody's 2 and 1 hang over V without naming it, so the half
+        // cadence gets the leading tone as the chord arrives and settles to a
+        // bare root while the dominant holds.
         polyBar(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [1]), ev(h, [2])),
@@ -57,30 +59,30 @@ export const goodKingWenceslas: CorpusMelody = melody(
           ],
           [region(w, 5)],
         ),
-        // The melody outlines 5 and 3 of I on its own; one held bass root
-        // supports it.
+        // The tune spells I outright with 5 and 3, so one root is all it
+        // needs, and with the line up at 3 the bass comes back into the
+        // melody's own octave rather than staying in the mud.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [5]), ev(q, [3]), ev(q, [3])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1)],
         ),
-        // Both chords turn here and the melody's 4 and 2 are shared between
-        // them, so IV takes its third and V takes the leading tone.
+        // Both chords turn in this bar. The melody's repeated 4 is only IV's
+        // root, so the third joins it there; V then takes a plain root, since
+        // the leading tone has already been heard at the half cadence and is
+        // being saved for the close.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [4]), ev(h, [2])),
-            voiceOf(
-              "harmony",
-              ev(h, [4, -1], [6, -1]),
-              ev(h, [5, -1], [7, -1]),
-            ),
+            voiceOf("harmony", ev(h, [4, -1], [6, -1]), ev(h, [5, -1])),
           ],
           [region(h, 4), region(h, 5)],
         ),
-        // The tune itself supplies the leading tone on the last beat, so plain
-        // roots are enough under the approach to the cadence.
+        // The melody arpeggiates I and then sings the leading tone itself on
+        // the last beat, leaning home, so plain roots carry the approach to
+        // the cadence.
         polyBar(
           [
             voiceOf(
@@ -94,12 +96,13 @@ export const goodKingWenceslas: CorpusMelody = melody(
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The final 1 is doubled by a root-fifth below, giving the close its
-        // weight.
+        // The tune holds 1 alone, so the ending adds the third rather than the
+        // fifth: it closes the quality of the key the opening bar announced,
+        // where a root-fifth would only drone.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

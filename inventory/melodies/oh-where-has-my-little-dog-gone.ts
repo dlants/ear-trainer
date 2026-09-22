@@ -39,8 +39,9 @@ export const ohWhereHasMyLittleDogGone: CorpusMelody = melody(
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody's 4 is the root of IV, so a lone 4 suffices; the turn to
-        // V under 2 is open, so the leading tone joins the root there.
+        // The melody's repeated 4 is the root of IV, so a lone 4 under it
+        // suffices; the turn to V is the tune's first, and 2 leaves its
+        // quality open, so the leading tone joins the root to spell it once.
         polyBar(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [4]), ev(q, [2]), ev(q, [2])),
@@ -48,36 +49,39 @@ export const ohWhereHasMyLittleDogGone: CorpusMelody = melody(
           ],
           [region(h, 4), region(h, 5)],
         ),
-        // The tune holds 1 alone, so root and fifth fill out the midpoint
-        // arrival.
+        // The tune holds 1 alone with nothing of the chord but its root, so
+        // the harmony supplies the chordal third at the midpoint arrival; the
+        // fifth would only thicken what the melody already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),
-        // Repeated 5s sit comfortably over the tonic root; when the melody
-        // reaches 6 the bass moves to 4 with its third, keeping the IV clear.
+        // Repeated 5s sit comfortably over the tonic root; the melody's 6
+        // turns to IV again, but the earlier bar has already sounded that
+        // chord's third, so the bass moving to a bare 4 is context enough.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [5]), ev(q, [6]), ev(q, [5])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [4, -1], [6, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [4, -1])),
           ],
           [region(h, 1), region(h, 4)],
         ),
-        // 3 and 1 state I on their own, so a bare root holds; the melody's 2
-        // leaves V open, so the leading tone sounds under it.
+        // 3 and 1 spell I outright, so the harmony stays silent there rather
+        // than restating it, and enters on the bass root as the melody's 2
+        // turns the phrase toward V.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [1]), ev(h, [2])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The tune rises 1–3 over the tonic root, then turns toward the
-        // cadence on 2 and 7; the bass doubles that leading tone to drive the
-        // resolution.
+        // The tune rises 1–3 over the tonic root, then sings the leading tone
+        // itself into the cadence; doubling it would add nothing, so the
+        // dominant takes a plain root under the second half.
         polyBar(
           [
             voiceOf(
@@ -87,16 +91,15 @@ export const ohWhereHasMyLittleDogGone: CorpusMelody = melody(
               ev(q, [2]),
               ev(q, [7, -1]),
             ),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1], [7, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(h, [5, -1])),
           ],
           [region(h, 1), region(h, 5)],
         ),
-        // The held 1 is alone in the melody, so root and fifth close the tune.
+        // The melody holds 1 in its own octave, and the root an octave below
+        // it is already a full sound after the leading tone has resolved; the
+        // midpoint arrival took the third, so the close keeps the bare octave.
         polyBar(
-          [
-            voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
-          ],
+          [voiceOf("melody", ev(w, [1])), voiceOf("harmony", ev(w, [1, -1]))],
           [region(w, 1)],
         ),
       ],

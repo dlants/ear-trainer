@@ -29,13 +29,13 @@ export const scarboroughFair: CorpusMelody = melody(
           ],
           [region(dh, 1, "minor")],
         ),
-        // The melody's 2 says nothing about the turn away from i, so the bass
-        // thickens here: lower 7 with its fifth names VII before settling to a
-        // bare root.
+        // The melody's 2 belongs to VII but says nothing about it on its own,
+        // so the harmony spends its extra note on the turn: root and third a
+        // step down from the opening bass, then the bare root.
         polyBar3(
           [
             voiceOf("melody", ev(h, [2]), ev(q, [1])),
-            voiceOf("harmony", ev(h, [7, -2], [2, -1]), ev(q, [7, -2])),
+            voiceOf("harmony", ev(h, [7, -1], [2, -1]), ev(q, [7, -1])),
           ],
           [region(dh, 7)],
         ),
@@ -48,8 +48,9 @@ export const scarboroughFair: CorpusMelody = melody(
           ],
           [region(dh, 3)],
         ),
-        // The held 2 leaves the minor dominant open, so the bass sounds 5 with
-        // lower 7 above it before thinning to the root.
+        // The held 2 is the dominant's fifth and leaves the chord otherwise
+        // open, so the harmony names v with root and third before thinning to
+        // the root for the rest of the held note.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [2])),
@@ -57,39 +58,43 @@ export const scarboroughFair: CorpusMelody = melody(
           ],
           [region(dh, 5, "minor")],
         ),
-        // The melody outlines 1 and lower 5 around the tonic, so again a lone
-        // sustained bass root carries the bar.
+        // The melody arpeggiates the minor tonic itself, 1 down to lower 5 and
+        // back, so the harmony stays out of the way rather than restating a
+        // root the tune has already framed — and avoids chasing it downward.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [5, -1]), ev(q, [1])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh)),
           ],
           [region(dh, 1, "minor")],
         ),
-        // The tune leans on 2 and 3; a single bass 3 lets III be heard without
-        // crowding the modal line.
+        // The tune leans on 2 and only brushes 3, and this is where the modal
+        // line turns away from the tonic, so III gets root and third on the
+        // downbeat before thinning to its root.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [3]), ev(q, [2])),
-            voiceOf("harmony", ev(dh, [3, -1])),
+            voiceOf("harmony", ev(h, [3, -1], [5, -1]), ev(q, [3, -1])),
           ],
           [region(dh, 3)],
         ),
-        // The melody's lower 7 and 2 spell VII loosely, and the dyad voices it
-        // the same way as its first appearance so the turn stays recognizable.
+        // Here the melody spells VII outright with its own lower 7 and 2, so
+        // unlike its first appearance the chord needs nothing but a root; the
+        // melody's dip forces that root into the octave below.
         polyBar3(
           [
             voiceOf("melody", ev(q, [7, -1]), ev(q, [2]), ev(q, [7, -1])),
-            voiceOf("harmony", ev(h, [7, -2], [2, -1]), ev(q, [7, -2])),
+            voiceOf("harmony", ev(dh, [7, -2])),
           ],
           [region(dh, 7)],
         ),
-        // The line arrives on a long 1; a root-and-fifth dyad closes the
-        // cadence with weight without adding a third to the modal colour.
+        // The line arrives on a long 1. This is the ending, so the chordal
+        // third joins the root and names the tonic as minor; a fifth would only
+        // drone under a degree the melody is already holding.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1, "minor")],
         ),

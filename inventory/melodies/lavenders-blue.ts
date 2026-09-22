@@ -29,12 +29,13 @@ export const lavendersBlue: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // Still I: the melody's 5 and 3 give the chord its colour, so one held
-        // root is support enough.
+        // Still I: the melody's 5 and 3 spell the chord themselves, so one held
+        // root serves, and with the tune up at 3 and above the root can sound
+        // in its own octave instead of down in the mud.
         polyBar(
           [
             voiceOf("melody", ev(q, [5]), ev(q, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1)],
         ),
@@ -47,21 +48,21 @@ export const lavendersBlue: CorpusMelody = melody(
           ],
           [region(w, 5)],
         ),
-        // The held 1 in the tune resolves the cadence; the root-fifth dyad
-        // underneath gives the arrival its weight without adding a third.
+        // The held 1 in the tune resolves the midpoint cadence, and the melody
+        // reaching its own root forces the bass into the octave below. That
+        // octave is a full sound already, and the song continues, so this
+        // interior arrival takes nothing more.
         polyBar(
-          [
-            voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
-          ],
+          [voiceOf("melody", ev(w, [1])), voiceOf("harmony", ev(w, [1, -1]))],
           [region(w, 1)],
         ),
         // The second strain climbs through 3 and 5, spelling I on its own, so
-        // the bass again just holds the root.
+        // the bass again just holds the root, back up in the melody's octave
+        // now that the line has left the bottom of it.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [3]), ev(q, [5]), ev(q, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1])),
           ],
           [region(w, 1)],
         ),
@@ -75,9 +76,10 @@ export const lavendersBlue: CorpusMelody = melody(
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The tune circles 2 and 3 and then falls to the lower 7, so the
-        // harmony sounds the leading tone with the root where the pull matters
-        // and holds the bare root after.
+        // The tune sings the leading tone itself on the last beat, leaning
+        // home, so doubling it would say nothing the melody has not: a bare
+        // dominant root holds the bar, and the earlier V has already spelled
+        // the leading tone out.
         polyBar(
           [
             voiceOf(
@@ -87,16 +89,17 @@ export const lavendersBlue: CorpusMelody = melody(
               ev(q, [2]),
               ev(q, [7, -1]),
             ),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(w, [5, -1])),
           ],
           [region(w, 5)],
         ),
-        // The closing 1 is held in the tune; the root-fifth dyad closes the
-        // song open and full rather than adding another third.
+        // The closing 1 is held in the tune. This is the ending rather than a
+        // way station, so the chordal third joins the root to close; a fifth
+        // would only thicken what the melody's own 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

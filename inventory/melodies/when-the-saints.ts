@@ -29,31 +29,30 @@ export const whenTheSaints: CorpusMelody = melody(
           ],
           [region(w, 1)],
         ),
-        // The melody holds upper 1; a single root under it is already an octave
-        // and needs nothing more.
+        // The melody holds upper 1 alone, which says nothing about quality, so
+        // the harmony comes up into the melody's own octave with root and
+        // third — high under the tune rather than down in the mud.
         polyBar(
           [
             voiceOf("melody", ev(w, [1, 1])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w, [1], [3])),
           ],
           [region(w, 1)],
         ),
-        // The ascent repeats and still spells I on its own, so the bass holds
-        // its single root.
+        // The ascent comes back and still arpeggiates I by itself, and the
+        // first bar has already planted the root, so the harmony stays silent
+        // rather than restating it.
         polyBar(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [3]), ev(q, [4]), ev(q, [5])),
-            voiceOf("harmony", ev(w, [1, -1])),
+            voiceOf("harmony", ev(w)),
           ],
           [region(w, 1)],
         ),
-        // Upper 1 again over a lone root: the octave is a full enough sound at
-        // the arrival.
+        // Upper 1 again, but the third has been sounded under it once already,
+        // so a lone root in the melody's octave carries this arrival.
         polyBar(
-          [
-            voiceOf("melody", ev(w, [1, 1])),
-            voiceOf("harmony", ev(w, [1, -1])),
-          ],
+          [voiceOf("melody", ev(w, [1, 1])), voiceOf("harmony", ev(w, [1]))],
           [region(w, 1)],
         ),
         // The tune circles 3 and 1 before leaving on 2, so I is plain in the
@@ -74,22 +73,25 @@ export const whenTheSaints: CorpusMelody = melody(
           ],
           [region(h, 5), region(h, 1)],
         ),
-        // I is stated by the melody's 3 and 5, so a bare root serves; the move
-        // to IV is the turn, and the melody's 4 is the root there, so the
-        // chordal third is what names the chord.
+        // The melody's 3 and 5 spell I, so a bare root serves while the harmony
+        // is holding; the turn to IV is where the second note is spent, and
+        // since the tune's 4 only gives that chord its root, the third names
+        // it. The line stays at 3 and above, so I sits in the melody's octave
+        // and the bass steps down a fifth to IV rather than leaping.
         polyBar(
           [
             voiceOf("melody", ev(q, [3]), ev(q, [5]), ev(q, [5]), ev(q, [4])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(h, [4, -1], [6, -1])),
+            voiceOf("harmony", ev(h, [1]), ev(h, [4, -1], [6, -1])),
           ],
           [region(h, 1), region(h, 4)],
         ),
-        // The melody supplies 3 then 1, so the closing bar adds the fifth for a
-        // settled, open final sound rather than a third the tune already gave.
+        // The tune falls 3 to 1 and is sitting on the bare root at the moment
+        // of arrival, so the third sounds underneath to close with the chord's
+        // quality rather than a hollow fifth.
         polyBar(
           [
             voiceOf("melody", ev(h, [3]), ev(h, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

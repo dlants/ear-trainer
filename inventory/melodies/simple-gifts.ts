@@ -48,16 +48,13 @@ export const simpleGifts: CorpusMelody = melody(
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody's 2 leaves V open, so the leading tone sounds under it,
-        // and the arrival opens into a root-fifth to mark the midpoint cadence.
+        // The melody's 2 leaves V open, so the leading tone sounds under it;
+        // the arrival needs no more than the root, since the tune states 1
+        // itself and the octave below it is already a full sound.
         polyBar(
           [
             voiceOf("melody", ev(h, [2]), ev(h, [1])),
-            voiceOf(
-              "harmony",
-              ev(h, [5, -1], [7, -1]),
-              ev(h, [1, -1], [5, -1]),
-            ),
+            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [1, -1])),
           ],
           [region(h, 5), region(h, 1)],
         ),
@@ -71,16 +68,19 @@ export const simpleGifts: CorpusMelody = melody(
           [region(w, 1)],
         ),
         // IV has been heard twice already, so a lone root carries it; the
-        // melody's held 3 then states I by itself.
+        // return to I comes back up into the melody's own octave rather than
+        // repeating the low root of the earlier descent, since the tune has
+        // settled on 3 and no longer forces the bass down.
         polyBar(
           [
             voiceOf("melody", ev(q, [6]), ev(q, [5]), ev(h, [3])),
-            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1, -1])),
+            voiceOf("harmony", ev(h, [4, -1]), ev(h, [1])),
           ],
           [region(h, 4), region(h, 1)],
         ),
-        // The melody's own 7 leans home, and the harmony doubles that pull with
-        // the leading tone where the phrase turns, then holds the bare root.
+        // The melody sings the leading tone itself on the last beat, so
+        // doubling it would add nothing; a bare dominant root holds the bar,
+        // and the phrase has already spelled V out at the midpoint.
         polyBar(
           [
             voiceOf(
@@ -90,16 +90,17 @@ export const simpleGifts: CorpusMelody = melody(
               ev(q, [2]),
               ev(q, [7, -1]),
             ),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(h, [5, -1])),
+            voiceOf("harmony", ev(w, [5, -1])),
           ],
           [region(w, 5)],
         ),
-        // The tune lands on a long 1; the root-fifth underneath gives the close
-        // its weight without adding a note the melody has not already sung.
+        // The tune lands on a long 1. This is the ending rather than a way
+        // station, so the chordal third joins the root to close; the fifth
+        // would only thicken what the melody's own 1 already states.
         polyBar(
           [
             voiceOf("melody", ev(w, [1])),
-            voiceOf("harmony", ev(w, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(w, [1, -1], [3, -1])),
           ],
           [region(w, 1)],
         ),

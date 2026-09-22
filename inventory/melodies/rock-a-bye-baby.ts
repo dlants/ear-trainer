@@ -20,26 +20,32 @@ export const rockAByeBaby: CorpusMelody = melody(
   [
     phrase(
       [
-        // The melody arpeggiates 1-3-6, so I needs only a held bass root; the
-        // dyad arrives at the turn to IV, where the harmony actually moves.
+        // The melody arpeggiates 1-3-6 and states I for itself. It starts on 1
+        // in its own octave, so the root sits below it; at the turn to IV the
+        // melody's own 6 supplies the chordal third, and the bass only has to
+        // step up a fourth to name the new root.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [3]), ev(q, [6])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(q, [4, -1], [6, -1])),
+            voiceOf("harmony", ev(h, [1, -1]), ev(q, [4, -1])),
           ],
           [region(h, 1), region(q, 4)],
         ),
-        // The tune holds 5 then 3 over an unchanging I, so a single sustained
-        // bass root is all the support the bar needs.
+        // The tune holds 5 then 3, spelling I on its own over a bar where the
+        // harmony is not moving. One root is support enough, and because the
+        // melody stays at 3 and above it can sound up in the melody's octave
+        // instead of down in the mud.
         polyBar3(
           [
             voiceOf("melody", ev(h, [5]), ev(q, [3])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh, [1])),
           ],
           [region(dh, 1)],
         ),
-        // The melody's 4 and 2 leave V open, so the leading tone sounds with
-        // the root before the bass settles back to a bare 5.
+        // The melody's 4 and 2 leave V open, so the harmony spends its extra
+        // note there on the leading tone; when the tune sings lower 7 itself on
+        // the last beat the harmony falls back to a bare root rather than
+        // doubling it.
         polyBar3(
           [
             voiceOf("melody", ev(q, [4]), ev(q, [2]), ev(q, [7, -1])),
@@ -47,49 +53,51 @@ export const rockAByeBaby: CorpusMelody = melody(
           ],
           [region(dh, 5)],
         ),
-        // The tune arrives on a long 1; a root-and-fifth dyad gives the
-        // cadence its weight without adding a new pitch class.
+        // The tune arrives on a long 1 in its own octave, so the octave below
+        // is already a full sound. This is a way station rather than the
+        // ending, so a plain root closes the half.
         polyBar3(
-          [
-            voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
-          ],
+          [voiceOf("melody", ev(dh, [1])), voiceOf("harmony", ev(dh, [1, -1]))],
           [region(dh, 1)],
         ),
-        // The second half restates the rising arpeggio, voiced as before so the
-        // turn to IV stays the place where the harmony thickens.
+        // The rising arpeggio returns. The key is settled by now, so instead of
+        // repeating the opening the tonic takes its chordal third under the
+        // climb, and the move to IV stays a bare root the melody's 6 completes.
         polyBar3(
           [
             voiceOf("melody", ev(q, [1]), ev(q, [3]), ev(q, [6])),
-            voiceOf("harmony", ev(h, [1, -1]), ev(q, [4, -1], [6, -1])),
+            voiceOf("harmony", ev(h, [1, -1], [3, -1]), ev(q, [4, -1])),
           ],
           [region(h, 1), region(q, 4)],
         ),
-        // Again the melody holds over a static I, so one sustained bass root
-        // carries the bar.
+        // The same held 5 and 3 over a static I, and this time the harmony
+        // stands aside: the melody spells the chord, and the bar before it has
+        // just placed the tonic root and third.
         polyBar3(
           [
             voiceOf("melody", ev(h, [5]), ev(q, [3])),
-            voiceOf("harmony", ev(dh, [1, -1])),
+            voiceOf("harmony", ev(dh)),
           ],
           [region(dh, 1)],
         ),
-        // This time the melody sounds lower 7 itself, but the harmony keeps the
-        // same root-plus-leading-tone voicing so the dominant is not marked out
-        // by a change of texture.
+        // Here the melody sings lower 7 in the middle of the bar, leaning home
+        // on its own, so the dominant needs no more than a sustained root —
+        // and voicing it thinner than the earlier V keeps thickness from being
+        // the cue that V has arrived.
         polyBar3(
           [
             voiceOf("melody", ev(q, [2]), ev(q, [7, -1]), ev(q, [2])),
-            voiceOf("harmony", ev(h, [5, -1], [7, -1]), ev(q, [5, -1])),
+            voiceOf("harmony", ev(dh, [5, -1])),
           ],
           [region(dh, 5)],
         ),
-        // The closing 1 is answered by the same root-and-fifth dyad, ending the
-        // lullaby on its fullest sound.
+        // The closing 1. This is the ending rather than a way station, so the
+        // chordal third joins the root to settle the lullaby; a fifth would
+        // only thicken what the melody's 1 already says.
         polyBar3(
           [
             voiceOf("melody", ev(dh, [1])),
-            voiceOf("harmony", ev(dh, [1, -1], [5, -1])),
+            voiceOf("harmony", ev(dh, [1, -1], [3, -1])),
           ],
           [region(dh, 1)],
         ),
