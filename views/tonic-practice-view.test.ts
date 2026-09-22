@@ -209,7 +209,7 @@ test("returning from situations autoplays and change shows the selected count", 
     cellButtons: 4,
     source: "from fixture-2",
     calls: ["autoplay:tonic:melody"],
-    changeSituationsLabel: "situations (2)",
+    changeSituationsLabel: "situations (2, 1 phrase)",
   });
   expect(result.palette).toEqual([
     "?",

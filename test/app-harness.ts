@@ -18,6 +18,7 @@ import type { Context, Pattern } from "../music/note.ts";
 import type { Midi } from "../music/pitch.ts";
 import { RouterController } from "../router.ts";
 import type { AppCtx, State } from "../views/app.ts";
+import { situationPhraseIndex } from "../views/tonic-practice.ts";
 import { DismissStack } from "../views/dropdown.ts";
 
 export class ControlledHandle implements PlaybackHandle {
@@ -113,6 +114,7 @@ export function emptyState(route: State["route"]): State {
     identifyNotes: {
       screen: "practice",
       selectedSituationIds: ["tonic"],
+      phraseIndex: situationPhraseIndex([]),
       trial: undefined,
       tonic: 60,
       droneOn: false,

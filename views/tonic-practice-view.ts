@@ -28,6 +28,8 @@ import {
   type IdentifyNotesMsg,
   type IdentifyNotesState,
   type IdentifyNotesTrial,
+  selectedPhraseCount,
+  situationPhraseCount,
   type PreviewTab,
   VISIBLE_MEASURE_COUNT,
 } from "./tonic-practice.ts";
@@ -72,6 +74,11 @@ const situationGroupClass = cls("identify-situation-group");
 const situationButtonClass = cls("identify-situation-button");
 const situationLabelClass = cls("identify-situation-label");
 const situationDescriptionClass = cls("identify-situation-description");
+const situationCountClass = cls("identify-situation-count");
+function phraseCountLabel(count: number): string {
+  return count === 1 ? "1 phrase" : `${count} phrases`;
+}
+
 const vocabularyClass = cls("identify-vocabulary");
 mountStyle(`
 .${pageClass} {
@@ -127,6 +134,7 @@ mountStyle(`
 }
 .${pageClass} .${situationLabelClass} { font-weight: 750; }
 .${pageClass} .${situationDescriptionClass} { color: var(--color-text-muted); line-height: 1.35; }
+.${pageClass} .${situationCountClass} { color: var(--color-text-muted); font-size: 0.85em; }
 .${pageClass} .${vocabularyClass} { margin: 0; line-height: 1.4; }
 .${pageClass} .${sourceClass} { margin: 0; text-align: center; color: var(--color-text-muted); font-weight: 700; }
 .${pageClass} .${activityClass} { flex: 1; display: flex; flex-direction: column; gap: 16px; }
@@ -184,6 +192,7 @@ function playButtonState(
 type SituationChoiceState = {
   situation: SituationDefinition;
   selected: boolean;
+  phraseCount: number;
 };
 
 type SituationChoiceMsg = {
@@ -205,11 +214,13 @@ class SituationChoiceView
     const buttonRef = ref("situation");
     const labelRef = ref("situationLabel");
     const descriptionRef = ref("situationDescription");
+    const countRef = ref("situationCount");
     this.container = container;
     container.innerHTML = sanitize`
       <button type="button" data-ref="${buttonRef}">
         <span class="${situationLabelClass}" data-ref="${labelRef}"></span>
         <span class="${situationDescriptionClass}" data-ref="${descriptionRef}"></span>
+        <span class="${situationCountClass}" data-ref="${countRef}"></span>
       </button>
     `;
     this.b = new Binder(container, initial);
@@ -218,6 +229,7 @@ class SituationChoiceView
     );
     this.b.bindText(labelRef, (state) => state.situation.label);
     this.b.bindText(descriptionRef, (state) => state.situation.description);
+    this.b.bindText(countRef, (state) => phraseCountLabel(state.phraseCount));
     this.b.bindClass(buttonRef, (state) =>
       [situationButtonClass, state.selected ? selectedClass : ""]
         .filter(Boolean)
@@ -432,6 +444,10 @@ export class IdentifyNotesView
               {
                 situation,
                 selected: state.selectedSituationIds.includes(situation.id),
+                phraseCount: situationPhraseCount(
+                  state.phraseIndex,
+                  situation.id,
+                ),
               },
               {},
               (msg) =>
@@ -485,7 +501,8 @@ export class IdentifyNotesView
         PlayButtonView,
         {
           id: "identify:situations",
-          label: `situations (${state.selectedSituationIds.length})`,
+                    label: `situations (${state.selectedSituationIds.length}, ${phraseCountLabel(selectedPhraseCount(state.phraseIndex, state.selectedSituationIds))})`,
+
           ariaLabel: "change practiced situations",
           icon: "gear",
           variant: "compact",

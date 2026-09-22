@@ -22,6 +22,7 @@ import {
   type IdentifyNotesMsg,
   type IdentifyNotesState,
   initialIdentifyNotesState,
+  situationPhraseIndex,
   updateIdentifyNotes,
 } from "../views/tonic-practice.ts";
 import { IdentifyNotesView } from "../views/tonic-practice-view.ts";
@@ -288,6 +289,7 @@ export function mountIdentifyPhrase(selected: Phrase): {
     screen: "practice",
     selectedSituationIds: ["tonic"],
     tonic: 60,
+    phraseIndex: situationPhraseIndex([]),
     droneOn: false,
     trial: {
       phrase: selected,

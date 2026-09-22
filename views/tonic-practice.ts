@@ -74,6 +74,7 @@ export type IdentifyNotesState = {
   screen: IdentifyNotesScreen;
   selectedSituationIds: SituationId[];
   trial: IdentifyNotesTrial | undefined;
+  phraseIndex: SituationPhraseIndex;
   tonic: Midi;
   droneOn: boolean;
 };
@@ -156,6 +157,41 @@ function eligiblePhrases(melody: Melody): Phrase[] {
       phrase.noteIdentification === "independent" &&
       phrase.measures.length >= 2,
   );
+}
+
+/** Eligible phrase ids per situation; counted for the selector and its button. */
+export type SituationPhraseIndex = Map<SituationId, readonly string[]>;
+
+export function situationPhraseIndex(melodies: Melody[]): SituationPhraseIndex {
+  const phrases = melodies.flatMap(eligiblePhrases);
+  return new Map(
+    SITUATIONS.map((situation) => [
+      situation.id,
+      phrases
+        .filter((phrase) => phraseMatchesSituation(phrase, situation.id))
+        .map((phrase) => phrase.id),
+    ]),
+  );
+}
+
+export function situationPhraseCount(
+  index: SituationPhraseIndex,
+  situationId: SituationId,
+): number {
+  return index.get(situationId)?.length ?? 0;
+}
+
+/** Distinct phrases reachable through the current selection. */
+export function selectedPhraseCount(
+  index: SituationPhraseIndex,
+  selectedSituationIds: readonly SituationId[],
+): number {
+  const phraseIds = new Set(
+    selectedSituationIds.flatMap((situationId) => [
+      ...(index.get(situationId) ?? []),
+    ]),
+  );
+  return phraseIds.size;
 }
 
 export type PhraseSelection = {
@@ -244,6 +280,7 @@ export function initialIdentifyNotesState(
   return {
     screen: "practice",
     selectedSituationIds,
+    phraseIndex: situationPhraseIndex(ctx.melodies),
     trial: selection ? identifyTrial(selection) : undefined,
     tonic: chooseTonic(ctx.profile, undefined, ctx.random),
     droneOn: false,
